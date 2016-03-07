@@ -1,7 +1,7 @@
 #<a name="top"></a>Orion Context Broker
 
 [![License badge](https://img.shields.io/badge/license-AGPL-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
-[![Documentation badge](https://readthedocs.org/projects/fiware-orion/badge/?version=latest)](http://fiware-orion.readthedocs.org/en/latest/?badge=latest)
+[![Documentation badge](https://readthedocs.org/projects/fiware-orion/badge/?version=0.28.0)](http://fiware-orion.readthedocs.org/en/0.28.0/?badge=0.28.0)
 [![Docker badge](https://img.shields.io/docker/pulls/fiware/orion.svg)](https://hub.docker.com/r/fiware/orion/)
 [![Support badge]( https://img.shields.io/badge/support-sof-yellowgreen.svg)](http://stackoverflow.com/questions/tagged/fiware-orion)
 
