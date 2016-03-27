@@ -69,6 +69,14 @@ std::map<std::string, std::string> uriParams;
 
 /* ****************************************************************************
 *
+* options -
+*/
+std::map<std::string, bool> options;
+
+
+
+/* ****************************************************************************
+*
 * servicePathV - 
 */
 std::vector<std::string> servicePathV;
@@ -123,9 +131,8 @@ void utInit(void)
 
   //
   // URI parameters used for unit testing
-  //   Default mime type for notifications: application/xml
+  //   Default mime type for notifications: application/json
   //
-  uriParams[URI_PARAM_NOTIFY_FORMAT]       = "XML";
   uriParams[URI_PARAM_PAGINATION_OFFSET]   = DEFAULT_PAGINATION_OFFSET;
   uriParams[URI_PARAM_PAGINATION_LIMIT]    = DEFAULT_PAGINATION_LIMIT;
   uriParams[URI_PARAM_PAGINATION_DETAILS]  = DEFAULT_PAGINATION_DETAILS;
@@ -136,8 +143,8 @@ void utInit(void)
   //
   servicePathVector.clear();
 
-  // Init subs cache (this initialization is overriden in test that use csubs)
-  subscriptionCacheInit("");
+  // Init subs cache (this initialization is overridden in tests that use csubs)
+  subCacheInit();
 }
 
 

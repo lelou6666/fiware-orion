@@ -193,8 +193,8 @@ Content-Length: 459
 X-Auth-Token: xauth_from_subscription
 User-Agent: orion/REGEX(\d+\.\d+\.\d+.*)
 Host: 127.0.0.1:REGEX(\d+)
-Accept: application/xml, application/json
-Content-Type: application/json
+Accept: application/json
+Content-Type: application/json; charset=utf-8
 
 {
   "subscriptionId" : "REGEX([0-9a-f]{24})"
@@ -250,8 +250,8 @@ Content-Length: 459
 X-Auth-Token: xauth_from_update_subscription
 User-Agent: orion/REGEX(\d+\.\d+\.\d+.*)
 Host: 127.0.0.1:REGEX(\d+)
-Accept: application/xml, application/json
-Content-Type: application/json
+Accept: application/json
+Content-Type: application/json; charset=utf-8
 
 {
   "subscriptionId" : "REGEX([0-9a-f]{24})",

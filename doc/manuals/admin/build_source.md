@@ -2,32 +2,17 @@
 
 Orion Context Broker reference distribution is CentOS 6.x. This doesn't mean that the broker cannot be built in other distributions (actually, it can). This section also includes indications on how to build in other distributions, just in the case it may help people that don't use CentOS. However, note that the only "officially supported" procedure is the one for CentOS 6.x; the others are provided "as is" and can get obsolete from time to time.
 
-**Note:** the build includes both contextBroker binary and proxyCoap. If you are not interested in proxyCoap at all, you can disable it just commenting out the following line in the CMakeList.txt file:
-
-
-    ADD_SUBDIRECTORY(src/app/proxyCoap)
-
-and removing the following files:
-
-    test/functionalTest/cases/coap_basic.test
-    test/functionalTest/cases/coap_command_line_options.test
-    test/functionalTest/cases/coap_version.test
-
-
-In that case, you can also ignore all the steps in the building process marked as "(Optional proxyCoap)"
-
 ## CentOS 6.x. (officially supported)
 
 The Orion Context Broker uses the following libraries as build dependencies:
 
 * boost: 1.41 (the one that comes in EPEL6 repository)
-* libmicrohttpd: 0.9.22 (the one that comes in EPEL6 repository)
+* libmicrohttpd: 0.9.48 (from source)
 * libcurl: 7.19.7
-* Mongo Driver: legacy-1.0.2 (from source)
-* rapidjson: 1.0.2
+* Mongo Driver: legacy-1.0.7 (from source)
+* rapidjson: 1.0.2 (from source)
 * gtest (only for `make unit_test` building target): 1.5 (from sources)
 * gmock (only for `make unit_test` building target): 1.5 (from sources)
-* cantcoap (for proxyCoap)
 
 We assume that EPEL6 repository is configured in yum, given that many RPM packages are installed from there
 (check the procedure at http://fedoraproject.org/wiki/EPEL#How_can_I_use_these_extra_packages.3F):
@@ -39,15 +24,15 @@ commands that require root privilege):
 
         sudo yum install make cmake gcc-c++ scons
 
-* Install the required libraries (except the mongo driver and gmock, described in following steps).
+* Install the required libraries (except what needs to be taken from source, described in following steps).
 
-        sudo yum install libmicrohttpd-devel boost-devel libcurl-devel
+        sudo yum install boost-devel libcurl-devel gnutls-devel libgcrypt-devel
 
 * Install the Mongo Driver from source:
 
-        wget https://github.com/mongodb/mongo-cxx-driver/archive/legacy-1.0.2.tar.gz
-        tar xfvz legacy-1.0.2.tar.gz
-        cd mongo-cxx-driver-legacy-1.0.2
+        wget https://github.com/mongodb/mongo-cxx-driver/archive/legacy-1.0.7.tar.gz
+        tar xfvz legacy-1.0.7.tar.gz
+        cd mongo-cxx-driver-legacy-1.0.7
         scons                                         # The build/linux2/normal/libmongoclient.a library is generated as outcome
         sudo scons install --prefix=/usr/local        # This puts .h files in /usr/local/include/mongo and libmongoclient.a in /usr/local/lib
 
@@ -56,6 +41,16 @@ commands that require root privilege):
         wget https://github.com/miloyip/rapidjson/archive/v1.0.2.tar.gz
         tar xfvz v1.0.2.tar.gz
         sudo mv rapidjson-1.0.2/include/rapidjson/ /usr/local/include
+
+* Install libmicrohttpd from sources (the `./configure` command below shows the recommended build configuration to get minimum library footprint, but if you are an advanced user, you can configure as you prefer)
+
+        wget http://ftp.gnu.org/gnu/libmicrohttpd/libmicrohttpd-0.9.48.tar.gz
+        tar xvf libmicrohttpd-0.9.48.tar.gz
+        cd libmicrohttpd-0.9.48
+        ./configure --disable-messages --disable-postprocessor --disable-dauth
+        make
+        sudo make install  # installation puts .h files in /usr/local/include and library in /usr/local/lib
+        sudo ldconfig      # just in case... it doesn't hurt :)
 
 * Install Google Test/Mock from sources (there are RPM pacakges for this, but they don't seem to be working with the current CMakeLists.txt configuration)
 
@@ -66,20 +61,6 @@ commands that require root privilege):
         make
         sudo make install  # installation puts .h files in /usr/local/include and library in /usr/local/lib
         sudo ldconfig      # just in case... it doesn't hurt :)
-
-* (Optional proxyCoap) Install cantcoap (with dependencies). Note that we are using a particular snapshot of the code (corresponding to around July 21st, 2014) given that cantcoap repository doesn't provide any releasing mechanism.
-
-
-        sudo yum install clang CUnit-devel
-
-        git clone https://github.com/staropram/cantcoap
-        cd cantcoap
-        git checkout 749e22376664dd3adae17492090e58882d3b28a7
-        make
-        sudo cp cantcoap.h /usr/local/include
-        sudo cp dbg.h /usr/local/include
-        sudo cp nethelper.h /usr/local/include
-        sudo cp libcantcoap.a /usr/local/lib
 
 * Get the code (alternatively you can download it using a zipped version or a different URL pattern, e.g `git clone git@github.com:telefonicaid/fiware-orion.git`):
 
@@ -112,16 +93,6 @@ The Orion Context Broker comes with a suite of valgrind and end-to-end tests tha
 * Install the required tools:
 
         sudo yum install python python-flask python-jinja2 curl libxml2 nc mongodb valgrind libxslt
-
-* (Optional proxyCoap) Install COAP client (an example application included in the libcoap sources).
-
-        wget http://sourceforge.net/projects/libcoap/files/coap-18/libcoap-4.1.1.tar.gz/download
-        mv download libcoap-4.1.1.tar.gz
-        tar xvzf libcoap-4.1.1.tar.gz
-        cd libcoap-4.1.1
-        ./configure
-        make
-        sudo cp examples/coap-client /usr/local/bin
 
 * Run valgrind tests (it takes some time, please be patient):
 

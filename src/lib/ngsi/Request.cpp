@@ -34,6 +34,7 @@ const char* requestType(RequestType rt)
 {
   switch (rt)
   {
+  case NoRequest:                                   return "NoRequest";
   case RegisterContext:                             return "RegisterContextRequest";
   case RegisterResponse:                            return "RegisterContextResponse";
   case DiscoverContextAvailability:                 return "DiscoverContextAvailabilityRequest";
@@ -47,6 +48,7 @@ const char* requestType(RequestType rt)
   case UpdateContextSubscription:                   return "UpdateContextSubscriptionRequest";
   case UnsubscribeContext:                          return "UnsubscribeContextRequest";
   case NotifyContext:                               return "NotifyContextRequest";
+  case NotifyContextSent:                           return "NotifyContextRequestSent";
   case UpdateContext:                               return "UpdateContextRequest";
   case RtUpdateContextResponse:                     return "UpdateContextResponse";
 
@@ -72,7 +74,8 @@ const char* requestType(RequestType rt)
   case Ngsi10ContextEntityTypesAttribute:           return "Ngsi10ContextEntityTypesAttribute";
   case Ngsi10SubscriptionsConvOp:                   return "Ngsi10SubscriptionsConvOp";
 
-  case LogRequest:                                  return "Log";
+  case LogTraceRequest:                             return "LogTrace";
+  case LogLevelRequest:                             return "LogLevel";
   case VersionRequest:                              return "Version";
   case StatisticsRequest:                           return "Statistics";
   case ExitRequest:                                 return "Exit";
@@ -114,6 +117,10 @@ const char* requestType(RequestType rt)
 
   case EntityTypeRequest:                                return "EntityTypeRequest";
   case EntityAllTypesRequest:                            return "EntityAllTypesRequest";
+  case SubscriptionsRequest:                             return "SubscriptionsRequest";
+  case IndividualSubscriptionRequest:                    return "IndividualSubscriptionRequest";
+  case BatchQueryRequest:                                return "BatchQueryRequest";
+  case BatchUpdateRequest:                               return "BatchUpdateRequest";
   }
 
   return "";

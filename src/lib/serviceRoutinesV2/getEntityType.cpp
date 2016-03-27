@@ -25,6 +25,9 @@
 #include <string>
 #include <vector>
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "rest/ConnectionInfo.h"
 #include "ngsi/ParseData.h"
 #include "serviceRoutinesV2/getEntityType.h"
@@ -39,7 +42,7 @@
 * GET /v2/type/<entityType>
 *
 * Payload In:  None
-* Payload Out: EntityTypeAttributesResponse
+* Payload Out: EntityTypeResponse
 */
 std::string getEntityType
 (
@@ -49,13 +52,13 @@ std::string getEntityType
   ParseData*                 parseDataP
 )
 {
-  EntityTypeAttributesResponse  response;
-  std::string                   entityTypeName = compV[2];
-  std::string                   answer;
+  EntityTypeResponse  response;
+  std::string         entityTypeName = compV[2];
+  std::string         answer;
 
-  mongoAttributesForEntityType(entityTypeName, &response, ciP->tenant, ciP->servicePathV, ciP->uriParam);
+  TIMED_MONGO(mongoAttributesForEntityType(entityTypeName, &response, ciP->tenant, ciP->servicePathV, ciP->uriParam));
+  TIMED_RENDER(answer = response.toJson(ciP));
 
-  answer = response.toJson(ciP);
   response.release();
 
   return answer;

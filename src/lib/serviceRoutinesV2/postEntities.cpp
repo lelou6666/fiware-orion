@@ -25,12 +25,32 @@
 #include <string>
 #include <vector>
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "rest/ConnectionInfo.h"
 #include "ngsi/ParseData.h"
 #include "apiTypesV2/Entities.h"
 #include "rest/EntityTypeInfo.h"
+#include "rest/OrionError.h"
 #include "serviceRoutinesV2/postEntities.h"
 #include "serviceRoutines/postUpdateContext.h"
+
+static const int STRUCTURAL_OVERHEAD_BSON_ID = 10;
+
+
+
+/* ****************************************************************************
+*
+* legalEntityLength -
+*
+* Check if the entity length is supported by Mongo
+*/
+
+static bool legalEntityLength(Entity* eP, const std::string& servicePath)
+{
+  return (servicePath.size() + eP->id.size() + eP->type.size() + STRUCTURAL_OVERHEAD_BSON_ID) < 1024;
+}
 
 
 
@@ -44,7 +64,7 @@
 * Payload Out: None
 *
 * URI parameters:
-*   - 
+*   options=keyValues
 *
 * 01. Fill in UpdateContextRequest
 * 02. Call standard op postUpdateContext
@@ -61,27 +81,68 @@ std::string postEntities
 {
   Entity*  eP = &parseDataP->ent.res;
 
+  if (!legalEntityLength(eP, ciP->servicePath))
+  {
+    OrionError oe(SccBadRequest, "Too long entity id/type/servicePath combination");
+    ciP->httpStatusCode = SccBadRequest;
+    eP->release();
+
+    std::string out;
+    TIMED_RENDER(out = oe.render(ciP, ""));
+
+    return out;
+  }
+
   // 01. Fill in UpdateContextRequest
-  parseDataP->upcr.res.fill(eP, "APPEND");
+  parseDataP->upcr.res.fill(eP, "APPEND_STRICT");
   
 
   // 02. Call standard op postUpdateContext
-  postUpdateContext(ciP, components, compV, parseDataP);
+  postUpdateContext(ciP, components, compV, parseDataP, NGSIV2_FLAVOUR_ONCREATE);
 
+  StatusCode     rstatuscode = parseDataP->upcrs.res.contextElementResponseVector[0]->statusCode;
+  HttpStatusCode rhttpcode  = rstatuscode.code;
+  std::string    answer;
 
   // 03. Prepare HTTP headers
-  if ((ciP->httpStatusCode == SccOk) || (ciP->httpStatusCode == SccNone))
+  if (rhttpcode == SccOk || rhttpcode == SccNone)
   {
     std::string location = "/v2/entities/" + eP->id;
+    if (eP->type != "" )
+    {
+      location += "?type=" + eP->type;
+    }
+    else
+    {
+      location += "?type=none";
+    }
 
     ciP->httpHeader.push_back("Location");
     ciP->httpHeaderValue.push_back(location);
     ciP->httpStatusCode = SccCreated;
   }
+  else if (rhttpcode == SccInvalidModification)
+  {
+    OrionError oe(rstatuscode);
+    ciP->httpStatusCode = SccInvalidModification;
+
+    TIMED_RENDER(answer = oe.render(ciP, ""));
+  }
+  else if (rhttpcode == SccInvalidParameter)
+  {
+    // This v1 -> v2 error conversion is a little crazy (for example, the same
+    // SccInvalidParameter at v1 level could match two different error conditions
+    // at v2 level, making harder de logic). However, I'm afraid that we need
+    // to live with this while NGSIv1 and NGSIv2 coexists :(
+    OrionError oe(SccRequestEntityTooLarge, "NoResourcesAvailable", "No more than one geo-location attribute allowed");
+    ciP->httpStatusCode = SccRequestEntityTooLarge;
+    TIMED_RENDER(answer = oe.render(ciP, ""));
+  }
+
 
 
   // 04. Cleanup and return result
   eP->release();
 
-  return "";
+  return answer;
 }
