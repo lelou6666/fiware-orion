@@ -26,12 +26,16 @@
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
-#include "common/globals.h"
 
+#include "common/globals.h"
+#include "alarmMgr/alarmMgr.h"
+
+#include "orionTypes/OrionValueType.h"
 #include "ngsi/ParseData.h"
 #include "parse/CompoundValueNode.h"
 #include "parse/compoundValue.h"
 #include "rest/ConnectionInfo.h"
+
 
 
 namespace orion
@@ -40,24 +44,23 @@ namespace orion
 *
 * compoundValueStart - 
 *
-* As commented in xmlParse.h
 * This function is called when the first compound node is encountered, so not
 * only must the root be created, but also the first node of the compound tree
 * must be taken care of. This is done by calling compoundValueMiddle.
 */
 void compoundValueStart
 (
-    ConnectionInfo*                 ciP,
-    const std::string&              path,
-    const std::string&              name,
-    const std::string&              value,
-    const std::string&              rest,
-    orion::CompoundValueNode::Type  type,
-    bool                            fatherIsVector
+    ConnectionInfo*     ciP,
+    const std::string&  path,
+    const std::string&  name,
+    const std::string&  value,
+    const std::string&  rest,
+    orion::ValueType    type,
+    bool                fatherIsVector
 )
 {
   ciP->inCompoundValue   = true;
-  ciP->compoundValueP    = new orion::CompoundValueNode(orion::CompoundValueNode::Object);
+  ciP->compoundValueP    = new orion::CompoundValueNode(orion::ValueTypeObject);
   ciP->compoundValueRoot = ciP->compoundValueP;
 
   LM_T(LmtCompoundValueContainer, ("Set current container to '%s' (%s)",
@@ -67,7 +70,7 @@ void compoundValueStart
 
   if (fatherIsVector)
   {
-    ciP->compoundValueP->type = orion::CompoundValueNode::Vector;
+    ciP->compoundValueP->valueType = orion::ValueTypeVector;
   }
 
   //
@@ -81,11 +84,6 @@ void compoundValueStart
   //
   if (ciP->parseDataP->lastContextAttribute == NULL)
     orionExitFunction(1, "No pointer to last ContextAttribute");
-
-  if (ciP->parseDataP->lastContextAttribute->typeFromXmlAttribute == "vector")
-  {
-    ciP->compoundValueP->type = orion::CompoundValueNode::Vector;
-  }
 
   ciP->compoundValueVector.push_back(ciP->compoundValueP);
   LM_T(LmtCompoundValueAdd, ("Created new toplevel element"));
@@ -102,24 +100,24 @@ void compoundValueStart
 */
 void compoundValueMiddle
 (
-  ConnectionInfo*                 ciP,
-  const std::string&              relPath,
-  const std::string&              name,
-  const std::string&              value,
-  orion::CompoundValueNode::Type  type
+  ConnectionInfo*     ciP,
+  const std::string&  relPath,
+  const std::string&  name,
+  const std::string&  value,
+  orion::ValueType    type
 )
 {
   LM_T(LmtCompoundValue, ("Compound MIDDLE %s: %s: NAME: '%s', VALUE: '%s'",
                           relPath.c_str(),
-                          CompoundValueNode::typeName(type),
+                          orion::valueTypeName(type),
                           name.c_str(),
                           value.c_str()));
 
-  if ((type == orion::CompoundValueNode::Vector) || (type == orion::CompoundValueNode::Object))
+  if ((type == orion::ValueTypeVector) || (type == orion::ValueTypeObject))
   {
     // If we enter a vector or an object, the container must change (so that we add to this container from now on).
     // ciP->compoundValueP points to the current compound container
-    ciP->compoundValueP = ciP->compoundValueP->add(type, name);
+    ciP->compoundValueP = ciP->compoundValueP->add(type, name, "");
 
     LM_T(LmtCompoundValueContainer, ("Set current container to '%s' (%s)",
                                      ciP->compoundValueP->path.c_str(),
@@ -150,12 +148,12 @@ void compoundValueEnd(ConnectionInfo* ciP, ParseData* parseDataP)
   {
     ciP->httpStatusCode = SccBadRequest;
     ciP->answer = std::string("compound value error: ") + status;
-    LM_W(("Bad Input (%s)", ciP->answer.c_str()));
+    alarmMgr.badInput(clientIp, ciP->answer);
   }
 
   //
   // Give the root pointer of this Compound to the active ContextAttribute
-  // lastContextAttribute is set in the XML parsing routines, to point at the
+  // lastContextAttribute is set in the JSON v1 parsing routines, to point at the
   // latest contextAttribute, i.e. the attribute whose 'contextValue' is the
   // owner of this compound value tree.
   //

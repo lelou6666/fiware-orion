@@ -28,6 +28,9 @@
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "ngsi/ParseData.h"
 #include "ngsi/StatusCode.h"
 #include "rest/ConnectionInfo.h"
@@ -75,11 +78,11 @@ std::string postIndividualContextEntityAttribute
   StatusCode   response;
 
   // 1. Fill in UpdateContextRequest from UpdateContextAttributeRequest and URL-path components
-  parseDataP->upcr.res.fill(&parseDataP->upcar.res, entityId, entityType, attributeName, "APPEND");
+  parseDataP->upcr.res.fill(&parseDataP->upcar.res, entityId, entityType, attributeName, "", "APPEND");
   
 
   // 2. Call postUpdateContext standard service routine
-  answer = postUpdateContext(ciP, components, compV, parseDataP);
+  postUpdateContext(ciP, components, compV, parseDataP);
 
 
   // 3. Translate UpdateContextResponse to StatusCode
@@ -87,8 +90,10 @@ std::string postIndividualContextEntityAttribute
 
 
   // 4. Cleanup and return result
-  answer = response.render(ciP->outFormat, "", false, false);
+  TIMED_RENDER(answer = response.render("", false, false));
+
   response.release();
+  parseDataP->upcr.res.release();
 
   return answer;
 }

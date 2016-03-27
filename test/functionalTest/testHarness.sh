@@ -22,6 +22,11 @@
 #
 # Author: Ken Zangelin
 
+date
+testStartTime=$(date +%s.%2N)
+MAX_TRIES=${CB_MAX_TRIES:-3}
+echo $testStartTime > /tmp/brokerStartCounter
+
 
 
 # ------------------------------------------------------------------------------
@@ -38,6 +43,26 @@ fi
 cd $dirname
 export SCRIPT_HOME=$(pwd)
 cd - > /dev/null 2>&1
+
+
+
+# ------------------------------------------------------------------------------
+#
+# Debug mode?
+#
+if [ "$ORION_FT_DEBUG" == "1" ]
+then
+  _debug='on'
+fi
+
+
+
+# -----------------------------------------------------------------------------
+#
+# Log file for debugging
+#
+rm -f /tmp/orionFuncTestDebug.log
+echo $(date) > /tmp/orionFuncTestDebug.log
 
 
 
@@ -68,9 +93,15 @@ function usage()
   echo "$empty [--keep (don't remove output files)]"
   echo "$empty [--dryrun (don't execute any tests)]"
   echo "$empty [--dir <directory>]"
+  echo "$empty [--fromIx <index of test where to start>]"
+  echo "$empty [--ixList <list of test indexes>]"
   echo "$empty [--stopOnError (stop at first error encountered)]"
   echo "$empty [--no-duration (removes duration mark on successful tests)]"
-  echo "$empty [ <directory or file> ]"
+  echo "$empty [ <directory or file> ]*"
+  echo
+  echo "* Please note that if a directory is passed as parameter, its entire path must be given, not only the directory-name"
+  echo "* If a file is passed as parameter, its entire file-name must be given, including '.test'"
+  echo
   exit $1
 }
 
@@ -149,6 +180,7 @@ vMsg "$ME, in directory $SCRIPT_HOME"
 #
 # Argument parsing
 #
+typeset -i fromIx
 verbose=off
 dryrun=off
 keep=off
@@ -160,6 +192,8 @@ dirOrFile=""
 dirGiven=no
 filterGiven=no
 showDuration=on
+fromIx=0
+ixList=""
 
 vMsg "parsing options"
 while [ "$#" != 0 ]
@@ -172,6 +206,8 @@ do
   elif [ "$1" == "--filter" ];      then testFilter="$2"; filterGiven=yes; shift;
   elif [ "$1" == "--match" ];       then match="$2"; shift;
   elif [ "$1" == "--dir" ];         then dir="$2"; dirGiven=yes; shift;
+  elif [ "$1" == "--fromIx" ];      then fromIx=$2; shift;
+  elif [ "$1" == "--ixList" ];      then ixList=$2; shift;
   elif [ "$1" == "--no-duration" ]; then showDuration=off;
   else
     if [ "$dirOrFile" == "" ]
@@ -186,6 +222,7 @@ do
   shift
 done
 
+vMsg "options parsed"
 
 
 # ------------------------------------------------------------------------------
@@ -300,11 +337,17 @@ fi
 #
 # Preparations - cd to the test directory
 #
-if [ ! -d "$dir" ]
+dMsg Functional Tests Starting ...
+if [ "$dirOrFile" != "" ] && [ -d "$dirOrFile" ]
+then
+  cd $dirOrFile
+elif [ ! -d "$dir" ]
 then
   exitFunction 1 "$dir is not a directory" "HARNESS" "$dir" "" DIE
+else
+  cd $dir
 fi
-cd $dir
+
 
 echo "Orion Functional tests starting" > /tmp/orionFuncTestLog
 date >> /tmp/orionFuncTestLog
@@ -322,7 +365,7 @@ then
 else
   fileList=$(find . -name "$testFilter" | grep "$match" | sort | sed 's/^.\///')
 fi
-
+vMsg "fileList: $fileList"
 typeset -i noOfTests
 typeset -i testNo
 
@@ -475,6 +518,7 @@ function partExecute()
   what=$1
   path=$2
   forcedDie=$3
+  __tryNo=$4
 
   vMsg Executing $what part for $path
   dirname=$(dirname $path)
@@ -500,7 +544,13 @@ function partExecute()
   #
   if [ "$linesInStderr" != "" ] && [ "$linesInStderr" != "0" ]
   then
-    exitFunction 7 "$what: output on stderr" $path "($path): $what produced output on stderr" $dirname/$filename.$what.stderr "$forcedDie"
+    if [ $__tryNo == $MAX_TRIES ]
+    then
+      exitFunction 7 "$what: output on stderr" $path "($path): $what produced output on stderr" $dirname/$filename.$what.stderr "$forcedDie"
+    else
+      echo -n "(ERROR 7 - $what: output on stderr) "
+    fi
+
     partExecuteResult=7
     return
   fi
@@ -511,7 +561,13 @@ function partExecute()
   #
   if [ "$exitCode" != "0" ]
   then
-    exitFunction 8 $path "$what exited with code $exitCode" "($path)" $dirname/$filename.$what.stderr "$forcedDie"
+    if [ $__tryNo == $MAX_TRIES ]
+    then
+      exitFunction 8 $path "$what exited with code $exitCode" "($path)" $dirname/$filename.$what.stderr "$forcedDie"
+    else
+      echo -n "(ERROR 8 - $what: exited with code $exitCode) "
+    fi
+
     partExecuteResult=8
     return
   fi
@@ -541,8 +597,14 @@ function partExecute()
 
     if [ "$exitCode" != "0" ]
     then
-      exitFunction 9 ".out and .regexpect differ" $path "($path) output not as expected" $dirname/$filename.diff
-      if [ "$CB_DIFF_TOOL" != "" ]
+      if [ $__tryNo == $MAX_TRIES ]
+      then
+        exitFunction 9 ".out and .regexpect differ" $path "($path) output not as expected" $dirname/$filename.diff
+      else
+        echo -n "(ERROR 9 - .out and .regexpect differ) "
+      fi
+
+      if [ "$CB_DIFF_TOOL" != "" ] && [ $__tryNo == $MAX_TRIES ]
       then
         endDate=$(date)
         if [ $blockDiff == 'yes' ]
@@ -582,6 +644,11 @@ function partExecute()
 function runTest()
 {
   path=$1
+  _tryNo=$2
+
+  runTestStatus="ok"
+
+  vMsg path=$path
   dirname=$(dirname $path)
   filename=$(basename $path .test)
   dir=""
@@ -599,6 +666,7 @@ function runTest()
   if [ "$toBeStopped" == "yes" ]
   then
     echo toBeStopped == yes
+    runTestStatus="stopped"
     return
   fi
 
@@ -606,6 +674,7 @@ function runTest()
   fileCreation $path $filename
   if [ "$toBeStopped" == "yes" ]
   then
+    runTestStatus="stopped2"
     return
   fi
 
@@ -621,25 +690,57 @@ function runTest()
   if [ "$linesInStderr" != "" ] && [ "$linesInStderr" != "0" ]
   then
     exitFunction 10 "SHELL-INIT produced output on stderr" $path "($path)" $dirname/$filename.shellInit.stderr
+    runTestStatus="shell-init-error"
     return
   fi
 
   if [ "$exitCode" != "0" ]
   then
-    exitFunction 11 "SHELL-INIT exited with code $exitCode" $path "($path)" "" DIE
-    return
+
+    #
+    # 3.2 Run the SHELL-INIT part AGAIN
+    #
+    # This 're-run' of the SHELL-INIT part is due to errors we've seen that seem to be caused by
+    # a try to start a broker while the old one (from the previous functest) is still running.
+    # No way to test this, except with some patience.
+    #
+    # We have seen 'ERROR 11' around once every 500-1000 functests (the suite is of almost 400 tests)
+    # and this fix, if working, will make us not see those 'ERROR 11' again.
+    # If we keep seeing 'ERROR 11' after this change then we will need to investigate further.
+    #
+    sleep 1
+    rm -f $dirname/$filename.shellInit.stderr
+    rm -f $dirname/$filename.shellInit.stdout
+    $dirname/$filename.shellInit > $dirname/$filename.shellInit.stdout 2> $dirname/$filename.shellInit.stderr
+    exitCode=$?
+    linesInStderr=$(wc -l $dirname/$filename.shellInit.stderr | awk '{ print $1}' 2> /dev/null)
+
+    if [ "$linesInStderr" != "" ] && [ "$linesInStderr" != "0" ]
+    then
+      exitFunction 20 "SHELL-INIT II produced output on stderr" $path "($path)" $dirname/$filename.shellInit.stderr
+      runTestStatus="shell-init-output-on-stderr"
+      return
+    fi
+
+    if [ "$exitCode" != "0" ]
+    then
+      exitFunction 11 "SHELL-INIT exited with code $exitCode" $path "($path)" "" DIE
+      runTestStatus="shell-init-exited-with-"$exitCode
+      return
+    fi
   fi
 
   # 4. Run the SHELL part (which also compares - FIXME P2: comparison should be moved to separate function)
-  partExecute shell $path "DontDie - only for SHELL-INIT"
+  partExecute shell $path "DontDie - only for SHELL-INIT" $_tryNo
   shellResult=$partExecuteResult
   if [ "$toBeStopped" == "yes" ]
   then
+    runTestStatus="shell-failed"
     return
   fi
 
   # 5. Run the TEARDOWN part
-  partExecute teardown $path "DIE"
+  partExecute teardown $path "DIE" 0
   teardownResult=$partExecuteResult
   vMsg "teardownResult: $teardownResult"
   vMsg "shellResult: $shellResult"
@@ -652,34 +753,88 @@ function runTest()
   else
     file=$(basename $path .test)
     cp /tmp/contextBroker.log $file.contextBroker.log
-
+    runTestStatus="test-failed"
   fi
 }
+
+
 
 # ------------------------------------------------------------------------------
 #
 # Main loop
 #
 vMsg Total number of tests: $noOfTests
-testNo=1
+testNo=0
 for testFile in $fileList
 do
-  if [ "$verbose" == "off" ]
+  if [ -d "$testFile" ]
   then
-    init=$testFile" ................................................................................................................."
-    init=${init:0:110}
-    printf "%03d/%d: %s " "$testNo" "$noOfTests" "$init"
-  else
-    printf "Running test %03d/%d: %s\n" "$testNo" "$noOfTests" "$testFile"
+    continue
   fi
 
   testNo=$testNo+1
+
+  if [ $fromIx != 0 ] && [ $testNo -lt $fromIx ]
+  then
+    continue;
+  fi
+
+  if [ "$ixList" != "" ]
+  then
+    hit=$(echo ' '$ixList' ' | grep ' '$testNo' ')
+    if [ "$hit" == "" ]
+    then
+      continue
+    fi
+  fi
+
   startDate=$(date)
   start=$(date --date="$startDate" +%s)
   endDate=""
+  typeset -i tryNo
+  tryNo=1
+
   if [ "$dryrun" == "off" ]
   then
-    runTest $testFile
+    while [ $tryNo -le $MAX_TRIES ]
+    do
+      if [ "$verbose" == "off" ]
+      then
+        tryNoInfo=""
+        if [ $tryNo != "1" ]
+        then
+           tryNoInfo="(intent $tryNo)"
+        fi
+
+        init=$testFile" ................................................................................................................."
+        init=${init:0:110}
+        printf "%03d/%d: %s %s " "$testNo" "$noOfTests" "$init" "$tryNoInfo"
+      else
+        printf "Running test %03d/%d: %s\n" "$testNo" "$noOfTests" "$testFile"
+      fi
+
+      runTest $testFile $tryNo
+      if [ $shellResult == "0" ]
+      then
+        if [ $tryNo != 1 ]
+        then
+          echo "OK"
+        fi
+        break
+      else
+        tryNo=$tryNo+1
+        echo
+      fi
+    done
+  else
+    if [ "$verbose" == "off" ]
+    then
+      init=$testFile" ................................................................................................................."
+      init=${init:0:110}
+      printf "%03d/%d: %s " "$testNo" "$noOfTests" "$init"
+    else
+      printf "Running test %03d/%d: %s\n" "$testNo" "$noOfTests" "$testFile"
+    fi
   fi
 
   if [ "$endDate" == "" ]  # Could have been set in 'partExecute'
@@ -704,6 +859,10 @@ do
   fi
 done
 
+
+testEndTime=$(date +%s.%2N)
+testDiffTime=$(echo $testEndTime - $testStartTime | bc)" seconds"
+echo Total test time: $testDiffTime
 
 
 # ------------------------------------------------------------------------------

@@ -59,6 +59,7 @@ static std::string contextAttribute(const std::string& path, const std::string& 
 {
   LM_T(LmtParse, ("Got an attribute"));
   reqData->ucer.attributeP = new ContextAttribute();
+  reqData->ucer.attributeP->valueType = orion::ValueTypeNone;
   reqData->ucer.res.contextAttributeVector.push_back(reqData->ucer.attributeP);
   return "OK";
 }
@@ -99,7 +100,8 @@ static std::string contextAttributeValue(const std::string& path, const std::str
 {
   reqData->lastContextAttribute = reqData->ucer.attributeP;
   LM_T(LmtParse, ("Got an attribute value: %s", value.c_str()));
-  reqData->ucer.attributeP->value = value;
+  reqData->ucer.attributeP->stringValue = value;
+  reqData->ucer.attributeP->valueType = orion::ValueTypeString;
   return "OK";
 }
 
@@ -152,7 +154,7 @@ static std::string contextMetadataType(const std::string& path, const std::strin
 static std::string contextMetadataValue(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata value '%s'", value.c_str()));
-  reqData->ucer.metadataP->value = value;
+  reqData->ucer.metadataP->stringValue = value;
   return "OK";
 }
 

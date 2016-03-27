@@ -29,10 +29,11 @@
 #include <string>
 #include <map>
 
-#include "orionTypes/EntityTypesResponse.h"
-#include "orionTypes/EntityTypeAttributesResponse.h"
+#include "orionTypes/EntityTypeVectorResponse.h"
+#include "orionTypes/EntityTypeResponse.h"
 
 #include "mongoBackend/MongoGlobal.h"
+#include "mongoBackend/dbConstants.h"
 
 
 /* Some string tokens used for aggregation commands */
@@ -41,9 +42,7 @@ const std::string C_ID_SERVICEPATH = std::string("_id.") + "servicePath";
 const std::string CS_ID_ENTITY     = std::string("$_id.") + "type";
 const std::string C_ID_NAME        = std::string("_id.") + "name";
 const std::string C_ID_TYPE        = std::string("_id.") + "type";
-const std::string C_ATTR_NAME      = std::string(ENT_ATTRS) + "." ENT_ATTRS_NAME;
-const std::string C_ATTR_TYPE      = std::string(ENT_ATTRS) + "." ENT_ATTRS_TYPE;
-const std::string S_ATTRS          = std::string("$") + "attrs";
+const std::string S_ATTRNAMES      = std::string("$") + ENT_ATTRNAMES;
 
 
 /* ****************************************************************************
@@ -52,7 +51,7 @@ const std::string S_ATTRS          = std::string("$") + "attrs";
 */
 extern HttpStatusCode mongoEntityTypes
 (
-  EntityTypesResponse*                  responseP,
+  EntityTypeVectorResponse*                  responseP,
   const std::string&                    tenant,
   const std::vector<std::string>&       servicePathV,
   std::map<std::string, std::string>&   uriParams
@@ -64,12 +63,11 @@ extern HttpStatusCode mongoEntityTypes
 */
 extern HttpStatusCode mongoAttributesForEntityType
 (
-  std::string                           entityType,
-  EntityTypeAttributesResponse*         responseP,
+  const std::string&                    entityType,
+  EntityTypeResponse*                   responseP,
   const std::string&                    tenant,
   const std::vector<std::string>&       servicePathV,
   std::map<std::string, std::string>&   uriParams
 );
 
 #endif
-

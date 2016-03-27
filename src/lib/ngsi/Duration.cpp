@@ -32,6 +32,7 @@
 
 #include "common/globals.h"
 #include "common/tag.h"
+#include "alarmMgr/alarmMgr.h"
 #include "ngsi/Request.h"
 #include "ngsi/Duration.h"
 
@@ -60,7 +61,6 @@ Duration::Duration()
 std::string Duration::check
 (
   RequestType         requestType,
-  Format              format,
   const std::string&  indent,
   const std::string&  predetectedError,
   int                 counter
@@ -74,7 +74,7 @@ std::string Duration::check
   if (parse() == -1)
   {
     valid = false;
-    LM_W(("Bad Input (syntax error in duration string)"));
+    alarmMgr.badInput(clientIp, "syntax error in duration string");
 
     return "syntax error in duration string";
   }
@@ -142,17 +142,17 @@ int64_t Duration::parse(void)
 
 /* ****************************************************************************
 *
-* Duration::present -
+* Duration::present
 */
 void Duration::present(const std::string& indent)
 {
   if (string != "")
   {
-    PRINTF("%sDuration: %s\n", indent.c_str(), string.c_str());
+    LM_T(LmtPresent, ("%sDuration: %s\n", indent.c_str(), string.c_str()));
   }
   else
   {
-    PRINTF("%sNo Duration\n", indent.c_str());
+    LM_T(LmtPresent, ("%sNo Duration\n", indent.c_str()));
   }
 }
 
@@ -162,7 +162,7 @@ void Duration::present(const std::string& indent)
 *
 * Duration::render -
 */
-std::string Duration::render(Format format, const std::string& indent, bool comma)
+std::string Duration::render(const std::string& indent, bool comma)
 {
   if (string == "")
   {
@@ -174,7 +174,7 @@ std::string Duration::render(Format format, const std::string& indent, bool comm
     return "";
   }
 
-  return valueTag(indent, "duration", string, format, comma);
+  return valueTag1(indent, "duration", string, comma);
 }
 
 

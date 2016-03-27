@@ -25,10 +25,14 @@
 #include <string>
 #include <vector>
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "mongoBackend/mongoUpdateContextSubscription.h"
 #include "ngsi/ParseData.h"
 #include "ngsi10/UpdateContextSubscriptionResponse.h"
 #include "rest/ConnectionInfo.h"
+#include "rest/uriParamNames.h"
 #include "serviceRoutines/postUpdateContextSubscription.h"
 
 
@@ -48,22 +52,15 @@ std::string postUpdateContextSubscription
   UpdateContextSubscriptionResponse  ucsr;
   std::string                        answer;
 
-  ucsr.subscribeError.subscriptionId = parseDataP->ucsr.res.subscriptionId;
+  ucsr.subscribeError.subscriptionId = parseDataP->ucsr.res.subscriptionId;  
 
-  //
-  // FIXME P6: for the moment, we are assuming that notification will be sent in the same format as the one
-  // used to do the subscription, so we are passing ciP->inFormat. This is just an heuristic, the client could want
-  // for example to use XML in the subscription message but wants notifications in JSON. We need a more
-  // flexible approach, to be implemented
-  //
-  ciP->httpStatusCode = mongoUpdateContextSubscription(&parseDataP->ucsr.res,
-                                                       &ucsr,
-                                                       ciP->inFormat,
-                                                       ciP->tenant,
-                                                       ciP->httpHeaders.xauthToken,
-                                                       ciP->servicePathV);
+  TIMED_MONGO(ciP->httpStatusCode = mongoUpdateContextSubscription(&parseDataP->ucsr.res,
+                                                                   &ucsr,                                                                   
+                                                                   ciP->tenant,
+                                                                   ciP->httpHeaders.xauthToken,
+                                                                   ciP->servicePathV));
 
-  answer = ucsr.render(UpdateContextSubscription, ciP->outFormat, "");
+  TIMED_RENDER(answer = ucsr.render(UpdateContextSubscription, ""));
 
   return answer;
 }

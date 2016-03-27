@@ -26,6 +26,7 @@
 * Author: Fermin Galan Marquez
 */
 #include <string>
+#include <map>
 
 #include "common/Format.h"
 #include "ngsi9/SubscribeContextAvailabilityRequest.h"
@@ -37,6 +38,12 @@
 *
 * mongoSubscribeContextAvailability - 
 */
-extern HttpStatusCode mongoSubscribeContextAvailability(SubscribeContextAvailabilityRequest* requestP, SubscribeContextAvailabilityResponse* responseP, Format inFormat = XML, const std::string& tenant = "");
+extern HttpStatusCode mongoSubscribeContextAvailability
+(
+  SubscribeContextAvailabilityRequest*   requestP,
+  SubscribeContextAvailabilityResponse*  responseP,
+  std::map<std::string, std::string>&    uriParam,  
+  const std::string&                     tenant       = ""
+);
 
 #endif

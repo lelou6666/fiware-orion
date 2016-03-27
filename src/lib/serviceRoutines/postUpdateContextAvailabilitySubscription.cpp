@@ -25,9 +25,13 @@
 #include <string>
 #include <vector>
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "mongoBackend/mongoUpdateContextAvailabilitySubscription.h"
 #include "ngsi/ParseData.h"
 #include "ngsi9/UpdateContextAvailabilitySubscriptionResponse.h"
+#include "rest/uriParamNames.h"
 #include "rest/ConnectionInfo.h"
 
 
@@ -47,18 +51,13 @@ std::string postUpdateContextAvailabilitySubscription
   UpdateContextAvailabilitySubscriptionResponse  ucas;
   std::string                                    answer;
 
-  ucas.subscriptionId = parseDataP->ucas.res.subscriptionId;
+  ucas.subscriptionId = parseDataP->ucas.res.subscriptionId;  
 
-  // FIXME P6: by the moment, we are assuming that notification will be sent in the same format than the one
-  // used to do the subscription, so we are passing ciP->inFomat. This is just an heuristic, the client could want
-  // for example to use XML in the subscription message but wants notifications in JSON. We need a more
-  // flexible approach, to be implemented
-  ciP->httpStatusCode = mongoUpdateContextAvailabilitySubscription(&parseDataP->ucas.res,
-                                                                   &ucas,
-                                                                   ciP->inFormat,
-                                                                   ciP->tenant);
+  TIMED_MONGO(ciP->httpStatusCode = mongoUpdateContextAvailabilitySubscription(&parseDataP->ucas.res,
+                                                                               &ucas,                                                                               
+                                                                               ciP->tenant));
 
-  answer = ucas.render(UpdateContextAvailabilitySubscription, ciP->outFormat, "", 0);
+  TIMED_RENDER(answer = ucas.render(UpdateContextAvailabilitySubscription, "", 0));
 
   return answer;
 }

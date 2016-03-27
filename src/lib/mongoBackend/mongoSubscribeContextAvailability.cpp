@@ -23,6 +23,7 @@
 * Author: Fermin Galan Marquez
 */
 #include <string>
+#include <map>
 
 #include "common/globals.h"
 
@@ -31,8 +32,11 @@
 
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/mongoSubscribeContextAvailability.h"
+#include "mongoBackend/connectionOperations.h"
+#include "mongoBackend/dbConstants.h"
 #include "ngsi9/SubscribeContextAvailabilityRequest.h"
 #include "ngsi9/SubscribeContextAvailabilityResponse.h"
+#include "rest/uriParamNames.h"
 
 #include "common/Format.h"
 #include "common/sem.h"
@@ -41,13 +45,17 @@
 *
 * mongoSubscribeContextAvailability - 
 */
-HttpStatusCode mongoSubscribeContextAvailability(SubscribeContextAvailabilityRequest* requestP, SubscribeContextAvailabilityResponse* responseP, Format inFormat, const std::string& tenant)
+HttpStatusCode mongoSubscribeContextAvailability
+(
+  SubscribeContextAvailabilityRequest*   requestP,
+  SubscribeContextAvailabilityResponse*  responseP,
+  std::map<std::string, std::string>&    uriParam,
+  const std::string&                     tenant
+)
 {
-    reqSemTake(__FUNCTION__, "ngsi9 subscribe request");
+    bool           reqSemTaken;    
 
-    LM_T(LmtMongo, ("Subscribe Context Availability Request"));
-
-    DBClientBase* connection = getMongoConnection();
+    reqSemTake(__FUNCTION__, "ngsi9 subscribe request", SemWriteOp, &reqSemTaken);
 
     /* If expiration is not present, then use a default one */
     if (requestP->duration.isEmpty()) {
@@ -69,7 +77,7 @@ HttpStatusCode mongoSubscribeContextAvailability(SubscribeContextAvailabilityReq
     /* Build entities array */
     BSONArrayBuilder entities;
     for (unsigned int ix = 0; ix < requestP->entityIdVector.size(); ++ix) {
-        EntityId* en = requestP->entityIdVector.get(ix);
+        EntityId* en = requestP->entityIdVector[ix];
         if (en->type == "") {
             entities.append(BSON(CASUB_ENTITY_ID << en->id <<
                                  CASUB_ENTITY_ISPATTERN << en->isPattern));
@@ -86,54 +94,29 @@ HttpStatusCode mongoSubscribeContextAvailability(SubscribeContextAvailabilityReq
     /* Build attributes array */
     BSONArrayBuilder attrs;
     for (unsigned int ix = 0; ix < requestP->attributeList.size(); ++ix) {
-        attrs.append(requestP->attributeList.get(ix));
+        attrs.append(requestP->attributeList[ix]);
     }
     sub.append(CASUB_ATTRS, attrs.arr());
 
     /* Adding format to use in notifications */
-    sub.append(CASUB_FORMAT, std::string(formatToString(inFormat)));
+    sub.append(CASUB_FORMAT, "JSON");
 
     /* Insert document in database */
-    BSONObj subDoc = sub.obj();
-    try
+    std::string err;
+    if (!collectionInsert(getSubscribeContextAvailabilityCollectionName(tenant), sub.obj(), &err))
     {
-        LM_T(LmtMongo, ("insert() in '%s' collection: '%s'", getSubscribeContextAvailabilityCollectionName(tenant).c_str(), subDoc.toString().c_str()));
-
-        mongoSemTake(__FUNCTION__, "insert into SubscribeContextAvailabilityCollection");
-        connection->insert(getSubscribeContextAvailabilityCollectionName(tenant).c_str(), subDoc);
-        mongoSemGive(__FUNCTION__, "insert into SubscribeContextAvailabilityCollection");
-        LM_I(("Database Operation Successful (insert %s)", subDoc.toString().c_str()));
-    }
-    catch (const DBException &e)
-    {
-        mongoSemGive(__FUNCTION__, "insert in SubscribeContextAvailabilityCollection (mongo db exception)");
-        reqSemGive(__FUNCTION__, "ngsi9 subscribe request (mongo db exception)");
-        responseP->errorCode.fill(SccReceiverInternalError,
-                                  std::string("collection: ") + getSubscribeContextAvailabilityCollectionName(tenant).c_str() +
-                                  " - insert(): " + subDoc.toString() +
-                                  " - exception: " + e.what());
-        LM_E(("Database Error (%s)", responseP->errorCode.reasonPhrase.c_str()));
-        return SccOk;
-    }
-    catch (...)
-    {
-        mongoSemGive(__FUNCTION__, "insert in SubscribeContextAvailabilityCollection (mongo generic exception)");
-        reqSemGive(__FUNCTION__, "ngsi9 subscribe request (mongo generic exception)");
-        responseP->errorCode.fill(SccReceiverInternalError,
-                                  std::string("collection: ") + getSubscribeContextAvailabilityCollectionName(tenant).c_str() +
-                                  " - insert(): " + subDoc.toString() +
-                                  " - exception: " + "generic");
-        LM_E(("Database Error (%s)", responseP->errorCode.reasonPhrase.c_str()));
-        return SccOk;
+      reqSemGive(__FUNCTION__, "ngsi9 subscribe request (mongo db exception)", reqSemTaken);
+      responseP->errorCode.fill(SccReceiverInternalError, err);
+      return SccOk;
     }
 
     /* Send notifications for matching context registrations */
-    processAvailabilitySubscription(requestP->entityIdVector, requestP->attributeList, oid.toString(), requestP->reference.get(), inFormat, tenant);
+    processAvailabilitySubscription(requestP->entityIdVector, requestP->attributeList, oid.toString(), requestP->reference.get(), JSON, tenant);
 
     /* Fill the response element */
     responseP->duration = requestP->duration;
     responseP->subscriptionId.set(oid.toString());
 
-    reqSemGive(__FUNCTION__, "ngsi9 subscribe request");
+    reqSemGive(__FUNCTION__, "ngsi9 subscribe request", reqSemTaken);
     return SccOk;
 }

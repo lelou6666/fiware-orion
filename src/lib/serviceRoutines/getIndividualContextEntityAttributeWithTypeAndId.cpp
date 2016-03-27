@@ -28,6 +28,10 @@
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+#include "alarmMgr/alarmMgr.h"
+
 #include "convenience/ContextAttributeResponse.h"
 #include "ngsi/ParseData.h"
 #include "rest/ConnectionInfo.h"
@@ -99,12 +103,12 @@ std::string getIndividualContextEntityAttributeWithTypeAndId
   if (typeInfo == EntityTypeEmpty)
   {
     parseDataP->qcrs.res.errorCode.fill(SccBadRequest, "entity::type cannot be empty for this request");
-    LM_W(("Bad Input (entity::type cannot be empty for this request)"));
+    alarmMgr.badInput(clientIp, "entity::type cannot be empty for this request");
   }
   else if ((entityTypeFromUriParam != entityType) && (entityTypeFromUriParam != ""))
   {
     parseDataP->qcrs.res.errorCode.fill(SccBadRequest, "non-matching entity::types in URL");
-    LM_W(("Bad Input non-matching entity::types in URL"));
+    alarmMgr.badInput(clientIp, "non-matching entity::types in URL");
   }
   else
   {
@@ -125,13 +129,15 @@ std::string getIndividualContextEntityAttributeWithTypeAndId
 
 
   // 06. Translate QueryContextResponse to ContextAttributeResponse
-  response.fill(&parseDataP->qcrs.res, entityId, entityType);
+  response.fill(&parseDataP->qcrs.res, entityId, entityType, attributeName, "");
 
 
   // 07. Cleanup and return result
-  answer = response.render(ciP, RtContextAttributeResponse, "");
+  TIMED_RENDER(answer = response.render(ciP, RtContextAttributeResponse, ""));
+
   parseDataP->qcr.res.release();
   parseDataP->qcrs.res.release();
+  response.release();
 
   return answer;
 }

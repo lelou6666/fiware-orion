@@ -51,6 +51,14 @@ find_path(GMOCK_INCLUDE_DIR gmock/gmock.h
           PATHS /usr/includes
           PATH_SUFFIXES gmock)
 
+
+#
+# Stack protection is activated only in debug compilation.
+# However, our unit tests don't pass the compilation with "stack protection", so we turn it off using
+# remove_definitions().
+#
+remove_definitions(-fstack-check -fstack-protector)
+
 SET (SOURCES
     main_UnitTest.cpp
     testDataFromFile.cpp
@@ -110,10 +118,6 @@ SET (SOURCES
     serviceRoutines/putAttributeValueInstance_test.cpp
     serviceRoutines/getAttributeValueInstance_test.cpp
 
-    convenienceMap/mapDeleteIndividualContextEntity_test.cpp
-    convenienceMap/mapGetIndividualContextEntity_test.cpp
-    convenienceMap/mapPutIndividualContextEntity_test.cpp
-
     convenience/Convenience_test.cpp
     convenience/AppendContextElementRequest_test.cpp
     convenience/AppendContextElementResponse_test.cpp
@@ -159,9 +163,6 @@ SET (SOURCES
     ngsi/ContextAttribute_test.cpp
     ngsi/ContextElement_test.cpp
     ngsi/NotifyCondition_test.cpp
-    ngsi/AttributeAssociation_test.cpp
-    ngsi/Association_test.cpp
-    ngsi/AttributeAssociationList_test.cpp
     ngsi/AttributeDomainName_test.cpp
     ngsi/AttributeList_test.cpp
     ngsi/ConditionValueList_test.cpp
@@ -195,10 +196,21 @@ SET (SOURCES
     ngsi/Throttling_test.cpp
     ngsi/UpdateActionType_test.cpp
 
-    mongoBackend/mongoConfManOperations_test.cpp
+    orionTypes/EntityType_test.cpp
+    orionTypes/EntityTypeResponse_test.cpp
+    orionTypes/EntityTypeVector_test.cpp
+    orionTypes/EntityTypeVectorResponse_test.cpp
+    orionTypes/QueryContextRequestVector_test.cpp
+    orionTypes/QueryContextResponseVector_test.cpp
+    orionTypes/UpdateContextRequestVector_test.cpp
+
+    apiTypesV2/Entities_test.cpp
+    apiTypesV2/Entity_test.cpp  
+    apiTypesV2/EntityVector_test.cpp
+
     mongoBackend/mongoDiscoverContextAvailability_test.cpp
-    mongoBackend/mongoOntimeintervalOperations_test.cpp
     mongoBackend/mongoQueryContext_test.cpp
+    mongoBackend/mongoQueryContext_filters_test.cpp
     mongoBackend/mongoQueryContextCompoundValues_test.cpp
     mongoBackend/mongoQueryContextGeo_test.cpp
     mongoBackend/mongoRegisterContext_test.cpp
@@ -219,18 +231,12 @@ SET (SOURCES
     mongoBackend/mongoContextProvidersUpdate_test.cpp
     mongoBackend/mongoQueryTypes_test.cpp
     mongoBackend/mongoQueryContextFilterExistEntity_test.cpp
+    mongoBackend/mongoGetSubscriptions_test.cpp
 
     parse/CompoundValueNode_test.cpp
     parse/compoundValue_test.cpp
     parse/nullTreat_test.cpp
     jsonParse/jsonRequest_test.cpp
-
-    xmlParse/xmlAppendContextElementRequest_test.cpp
-    xmlParse/xmlRegisterContextRequest_test.cpp
-    xmlParse/xmlRegisterContextResponse_test.cpp
-    xmlParse/xmlRequest_test.cpp
-    xmlParse/xmlUpdateContextElementRequest_test.cpp
-    xmlParse/xmlUpdateContextRequest_test.cpp
 
     rest/OrionError_test.cpp
     rest/Verb_test.cpp
@@ -249,24 +255,30 @@ SET (STATIC_LIBS
     ${GTESTMAIN_LIBRARY}
     ${HAVE_GMOCK}
     ${GMOCKMAIN_LIBRARY}
-    mongoBackend
-    ngsiNotify
+    rest
     jsonParse
-    xmlParse
-    parse
+    jsonParseV2
+    apiTypesV2
     convenience
     serviceRoutines
-    convenienceMap
+    ngsiNotify
     rest
+    parse
     ngsi9
     ngsi10
     ngsi
+    cache
+    mongoBackend
     orionTypes
     common
+    alarmMgr
+    logSummary
     lm
     pa
     pthread
     curl
+    microhttpd.a
+    gnutls        
 )
 
 # Include directories
@@ -292,33 +304,47 @@ link_directories("/opt/lib/")
 add_definitions(-DUNIT_TEST)
 
 
+
 # Executable declaration
 # ------------------------------------------------------------
 
 ADD_EXECUTABLE(unitTest ${SOURCES} ${HEADERS})
 
-IF ((${DISTRO} STREQUAL "Ubuntu_13.04") OR (${DISTRO} STREQUAL "Ubuntu_12.04.1_LTS"))
+IF ((${DISTRO} STREQUAL "Ubuntu_13.04") OR (${DISTRO} STREQUAL "Ubuntu_12.04.1_LTS") OR (${DISTRO} STREQUAL "Ubuntu_12.04.2_LTS"))
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-conversion-null")
   MESSAGE("unitTest: Ubuntu DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lboost_regex-mt -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
 ELSEIF(${DISTRO} STREQUAL "Ubuntu_13.10")
   MESSAGE("unitTest: Ubuntu DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
 ELSEIF(${DISTRO} STREQUAL "Ubuntu_14.04.1_LTS")
   # FIXME P4: Issue #476: remove or keep?
   MESSAGE("unitTest: Ubuntu DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
+ELSEIF((${DISTRO} STREQUAL "Ubuntu_14.04.2_LTS") OR (${DISTRO} STREQUAL "Ubuntu_14.04.3_LTS"))
+  # FIXME P4: Issue #476: remove or keep?
+  MESSAGE("unitTest: Ubuntu DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lboost_regex -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
 ELSEIF(${DISTRO} STREQUAL "Ubuntu_14.10")
   # ADDED FOR UBUNTU 14.10
   MESSAGE("contextBroker: Ubuntu DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
 ELSEIF(${DISTRO} STREQUAL "openSUSE_12.3")
   MESSAGE("unitTest: openSUSE DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lpthread -lssl -lcrypto)
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lpthread -lssl -lcrypto)
 ELSEIF(${DISTRO} MATCHES "CentOS_6.*")
   MESSAGE("unitTest: CentOS DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt)
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lboost_regex-mt)
+ELSEIF(${DISTRO} MATCHES "Debian_8.2")
+  # It seems that Debian 8.2 doesn't like -mt libraries for unit tests... not sure about other Debian versions
+  MESSAGE("unitTest: Debian DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lboost_regex -lgcrypt)
+ELSE()
+ELSEIF(${DISTRO} MATCHES "Debian_.*")
+  MESSAGE("unitTest: Debian DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lboost_regex-mt -lgcrypt)
 ELSE()
   MESSAGE("unitTest: Other DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread)
+  TARGET_LINK_LIBRARIES(unitTest ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread)
 ENDIF()
 

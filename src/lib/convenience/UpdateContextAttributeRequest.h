@@ -32,6 +32,8 @@
 #include "ngsi/MetadataVector.h"
 #include "parse/CompoundValueNode.h"
 
+struct ConnectionInfo;
+
 
 
 /* ****************************************************************************
@@ -41,15 +43,15 @@
 typedef struct UpdateContextAttributeRequest
 {
   std::string                type;                // Optional
-  std::string                contextValue;        // Mandatory
+  std::string                contextValue;        // Mandatory  
   MetadataVector             metadataVector;      // Optional
 
-  std::string                typeFromXmlAttribute;
+  orion::ValueType           valueType;           // Type of value: either string or none  
   orion::CompoundValueNode*  compoundValueP;
 
   UpdateContextAttributeRequest();
-  std::string  render(Format format, std::string indent);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string preError, int counter);
+  std::string  render(ConnectionInfo* ciP, std::string indent);
+  std::string  check(ConnectionInfo* ciP, RequestType requestType, std::string indent, std::string preError, int counter);
   void         present(std::string indent);
   void         release();
 } UpdateContextAttributeRequest;
