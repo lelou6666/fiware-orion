@@ -40,8 +40,7 @@
 const char* formatToString(Format format)
 {
   switch (format)
-  {
-  case XML:      return "XML";
+  {  
   case JSON:     return "JSON";
   case TEXT:     return "TEXT";
   case HTML:     return "HTML";
@@ -59,11 +58,7 @@ const char* formatToString(Format format)
 */
 Format stringToFormat(const std::string& s)
 {
-  if (s == "XML")
-  {
-    return XML;
-  }
-  else if (s == "JSON")
+  if (s == "JSON")
   {
     return JSON;
   }
@@ -71,22 +66,6 @@ Format stringToFormat(const std::string& s)
   return NOFORMAT;
 }
 
-/* ****************************************************************************
-*
-* isFloat -
-*
-* Thanks to http://stackoverflow.com/questions/447206/c-isfloat-function
-*
-*/
-bool isFloat(const std::string& s)
-{
-  std::istringstream iss(s);
-  float              f;
-
-  // Check the entire string was consumed and if either failbit or badbit is set
-  iss >> std::noskipws >> f; // noskipws considers leading whitespace invalid
-  return iss.eof() && !iss.fail();
-}
 
 
 /* ****************************************************************************
@@ -112,11 +91,10 @@ Format formatParse(const std::string& formatString, std::string* charsetP)
 
   std::string format(wsStrip(cP));
 
-  if      (format == "*/*")                               return XML;
-  else if (format == "application/xml")                   return XML;
-  else if (format == "text/xml")                          return XML;
+  if      (format == "*/*")                               return JSON;
   else if (format == "text/json")                         return JSON;
   else if (format == "application/json")                  return JSON;
+  else if (format == "text/plain")                        return TEXT;
 
-  return XML;
+  return JSON;
 }

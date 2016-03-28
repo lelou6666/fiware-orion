@@ -32,6 +32,12 @@
 *
 * forbiddenChars - 
 */
-extern bool forbiddenChars(const char* s);
+extern bool forbiddenChars(const char* s, const char* exceptions = NULL);
+
+/* ****************************************************************************
+*
+* forbiddenIdChars -
+*/
+extern bool forbiddenIdChars(const std::string& api, const char* s, const char* exceptions = NULL);
 
 #endif  // SRC_LIB_PARSE_FORBIDDENCHARS_H_

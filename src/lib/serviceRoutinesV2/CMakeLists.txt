@@ -36,6 +36,15 @@ deleteEntity.cpp
 getEntityType.cpp
 getEntityAllTypes.cpp
 badVerbGetPutOnly.cpp
+getAllSubscriptions.cpp
+getSubscription.cpp
+postSubscriptions.cpp
+deleteSubscription.cpp
+patchSubscription.cpp
+postBatchQuery.cpp
+badVerbGetDeletePatchOnly.cpp
+postBatchUpdate.cpp
+logLevelTreat.cpp
 )
 
 SET (HEADERS
@@ -54,6 +63,15 @@ deleteEntity.h
 getEntityType.h
 getEntityAllTypes.h
 badVerbGetPutOnly.h
+getAllSubscriptions.h
+getSubscription.h
+postSubscriptions.h
+deleteSubscription.h
+patchSubscription.h
+postBatchQuery.h
+badVerbGetDeletePatchOnly.h
+postBatchUpdate.h
+logLevelTreat.h
 )
 
 

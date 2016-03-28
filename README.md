@@ -1,5 +1,13 @@
 #<a name="top"></a>Orion Context Broker
 
+<!-- Documentation badge line is processed by release.sh. Thus, if the structure of the URL changes,
+     release.sh needs to be changed also -->
+
+[![License badge](https://img.shields.io/badge/license-AGPL-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
+[![Documentation badge](https://readthedocs.org/projects/fiware-orion/badge/?version=latest)](http://fiware-orion.readthedocs.org/en/latest/?badge=latest)
+[![Docker badge](https://img.shields.io/docker/pulls/fiware/orion.svg)](https://hub.docker.com/r/fiware/orion/)
+[![Support badge]( https://img.shields.io/badge/support-sof-yellowgreen.svg)](http://stackoverflow.com/questions/tagged/fiware-orion)
+
 * [Introduction](#introduction)
 * [GEi overall description](#gei-overall-description)
 * [Build and Install](#build-and-install)
@@ -23,7 +31,7 @@ This project is part of [FIWARE](http://www.fiware.org). Check also the [FIWARE 
 Any feedback on this documentation is highly welcome, including bugs, typos
 or things you think should be included but aren't. You can use [github issues](https://github.com/telefonicaid/fiware-orion/issues/new) to provide feedback.
 
-You can find the User & Programmer's Manual and the Administration Guide on [readthedocs.org](https://fiware-orion.readthedocs.org)
+You can find the User & Programmer's Manual and the Installation & Administration Manual on [readthedocs.org](https://fiware-orion.readthedocs.org)
 
 For documentation previous to Orion 0.23.0 please check the manuals at FIWARE public wiki:
 
@@ -36,7 +44,7 @@ For documentation previous to Orion 0.23.0 please check the manuals at FIWARE pu
 
 Orion is a C++ implementation of the NGSI9/10 REST API binding developed as a part of the FIWARE platform.
 
-Orion Context Broker allows you to manage all the whole lifecycle of context information including updates, queries, registrations and subscriptions. It is an NGSI9/10 server implementation to manage context information and its availability. Using the Orion Context Broker, you are able to register context elements and manage them through updates and queries. In addition, you can subscribe to context information so when some condition occurs (e.g. an interval of time has passed or the context elements have changed) you receive a notification. These usage scenarios and the Orion Context Broker features are described in this document.
+Orion Context Broker allows you to manage all the whole lifecycle of context information including updates, queries, registrations and subscriptions. It is an NGSI9/10 server implementation to manage context information and its availability. Using the Orion Context Broker, you are able to register context elements and manage them through updates and queries. In addition, you can subscribe to context information so when some condition occurs (e.g. the context elements have changed) you receive a notification. These usage scenarios and the Orion Context Broker features are described in this document.
 
 If this is your first contact with the Orion Context Broker, it is highly recommended to have a look to the brief [Quick Start guide](doc/manuals/quick_start_guide.md).
 
@@ -135,7 +143,6 @@ Please have a look to the section [on building the source code](doc/manuals/admi
 * [Advanced Programming](doc/manuals/user/README.md)
 * [Installation and administration](doc/manuals/admin/README.md)
 * Container-based deployment
-  * [Vagrant](doc/manuals/vagrant.md)
   * [Docker](docker/README.md)
 * [Sample code contributions](doc/manuals/code_contributions.md)
 * [Deprecated features](doc/manuals/deprecated.md)
