@@ -47,7 +47,7 @@ payload='{
     "bool":    true
   }
 }'
-orionCurl --url /v2/entities --payload "$payload" --json
+orionCurl --url '/v2/entities?options=keyValues' --payload "$payload" --json
 echo
 echo
 
@@ -71,7 +71,7 @@ echo
 =====================
 HTTP/1.1 201 Created
 Content-Length: 0
-Location: /v2/entities/E1
+Location: /v2/entities/E1?type=T1
 Date: REGEX(.*)
 
 
@@ -79,15 +79,19 @@ Date: REGEX(.*)
 02. GET /v2/entities/E1
 =======================
 HTTP/1.1 200 OK
-Content-Length: 79
+Content-Length: 110
 Content-Type: application/json
 Date: REGEX(.*)
 
 {
     "compattr": {
-        "bool": true,
-        "number": 2.0,
-        "string": "1"
+        "metadata": {},
+        "type": "none",
+        "value": {
+            "bool": true,
+            "number": 2,
+            "string": "1"
+        }
     },
     "id": "E1",
     "type": "T1"

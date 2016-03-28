@@ -46,7 +46,7 @@ status_codes = {'OK': 200,
                 'Bad Request': 400,
                 'unauthorized': 401,
                 'Not Found': 404,
-                'Bad Method': 405,
+                'Method not allowed': 405,
                 'Not Acceptable': 406,
                 'Conflict': 409,
                 'Length Required': 411,
@@ -120,24 +120,25 @@ def delete_database_in_mongo(context):
     """
     fiware_service_header = u'Fiware-Service'
     orion_prefix = u'orion'
-    database_name = EMPTY
+    database_name = orion_prefix
     props_mongo = properties_class.read_properties()[MONGO_ENV]  # mongo properties dict
     mongo = Mongo(host=props_mongo["MONGO_HOST"], port=props_mongo["MONGO_PORT"], user=props_mongo["MONGO_USER"],
               password=props_mongo["MONGO_PASS"])
     headers = context.cb.get_headers()
-    __logger__.debug("Deleting database in mongo...")
+
     if fiware_service_header in headers:
-        if headers[fiware_service_header] == EMPTY:
-            database_name = orion_prefix
-        elif headers[fiware_service_header].find(".") < 0:
-            database_name = "%s-%s" % (orion_prefix, headers[fiware_service_header])
-    else:
-        database_name = orion_prefix
-    if database_name != EMPTY:
-        mongo.connect(database_name.lower())
-        mongo.drop_database()
-        mongo.disconnect()
-        __logger__.info("...Database \"%s\" is deleted" % database_name.lower())
+        if headers[fiware_service_header] != EMPTY:
+           if headers[fiware_service_header].find(".") < 0:
+               database_name = "%s-%s" % (database_name, headers[fiware_service_header].lower())
+           else:
+               postfix = headers[fiware_service_header].lower()[0:headers[fiware_service_header].find(".")]
+               database_name = "%s-%s" % (database_name, postfix)
+
+    __logger__.debug("Deleting database \"%s\" in mongo..." % database_name)
+    mongo.connect(database_name)
+    mongo.drop_database()
+    mongo.disconnect()
+    __logger__.info("...Database \"%s\" is deleted" % database_name)
 
 # ------------------------------------- validations ----------------------------------------------
 
@@ -288,3 +289,18 @@ def verify_error_message(context):
     for i in range(int(entities_context["entities_number"])):
         ngsi.verify_error_response(context, context.resp_list[i])
     __logger__.info("...Verified that error message is the expected in all entities ")
+
+
+@step(u'verify headers in response')
+def verify_headers_in_response(context):
+    """
+    verify headers in response
+    Ex:
+      | parameter      | value      |
+      | x-total-counts | <entities> |
+    :param context: It’s a clever place where you and behave can store information to share around. It runs at three levels, automatically managed by behave.
+    """
+    __logger__.debug("Verifying headers in response...")
+    ngsi = NGSI()
+    ngsi.verify_headers_response(context)
+    __logger__.info("...Verified headers in response")

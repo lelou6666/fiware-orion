@@ -50,13 +50,11 @@ HttpStatusCode mongoUpdateContextAvailabilitySubscription
 (
   UpdateContextAvailabilitySubscriptionRequest*   requestP,
   UpdateContextAvailabilitySubscriptionResponse*  responseP,
-  Format                                          notifyFormat,
   const std::string&                              tenant
 )
 {
   bool reqSemTaken;
 
-  LM_T(LmtMongo, ("Update Context Subscription, notifyFormat: '%s'", formatToString(notifyFormat)));
   reqSemTake(__FUNCTION__, "ngsi9 update subscription request", SemWriteOp, &reqSemTaken);  
 
   /* Look for document */
@@ -107,7 +105,7 @@ HttpStatusCode mongoUpdateContextAvailabilitySubscription
   /* Entities (mandatory) */
   BSONArrayBuilder entities;
   for (unsigned int ix = 0; ix < requestP->entityIdVector.size(); ++ix) {
-      EntityId* en = requestP->entityIdVector.get(ix);
+      EntityId* en = requestP->entityIdVector[ix];
       if (en->type == "") {
           entities.append(BSON(CASUB_ENTITY_ID << en->id <<
                                CASUB_ENTITY_ISPATTERN << en->isPattern));
@@ -124,14 +122,14 @@ HttpStatusCode mongoUpdateContextAvailabilitySubscription
   /* Attributes (always taken into account) */
   BSONArrayBuilder attrs;
   for (unsigned int ix = 0; ix < requestP->attributeList.size(); ++ix) {
-      attrs.append(requestP->attributeList.get(ix));
+      attrs.append(requestP->attributeList[ix]);
   }
   newSub.append(CASUB_ATTRS, attrs.arr());
 
   /* Duration (optional) */
   if (requestP->duration.isEmpty())
   {
-    newSub.append(CASUB_EXPIRATION, getField(sub, CASUB_EXPIRATION).numberLong());
+    newSub.append(CASUB_EXPIRATION, getFieldF(sub, CASUB_EXPIRATION).numberLong());
   }
   else {
       long long expiration = getCurrentTime() + requestP->duration.parse();
@@ -140,20 +138,20 @@ HttpStatusCode mongoUpdateContextAvailabilitySubscription
   }
 
   /* Reference is not updatable, so it is appended directly */
-  newSub.append(CASUB_REFERENCE, getStringField(sub, CASUB_REFERENCE));
+  newSub.append(CASUB_REFERENCE, getStringFieldF(sub, CASUB_REFERENCE));
 
-  int count = sub.hasField(CASUB_COUNT) ? getIntField(sub, CASUB_COUNT) : 0;
+  int count = sub.hasField(CASUB_COUNT) ? getIntFieldF(sub, CASUB_COUNT) : 0;
 
   /* The hasField check is needed due to lastNotification/count could not be present in the original doc */
   if (sub.hasField(CASUB_LASTNOTIFICATION)) {
-      newSub.append(CASUB_LASTNOTIFICATION, getIntField(sub, CASUB_LASTNOTIFICATION));
+      newSub.append(CASUB_LASTNOTIFICATION, getIntFieldF(sub, CASUB_LASTNOTIFICATION));
   }
   if (sub.hasField(CASUB_COUNT)) {
       newSub.append(CASUB_COUNT, count);
   }
 
   /* Adding format to use in notifications */
-  newSub.append(CASUB_FORMAT, std::string(formatToString(notifyFormat)));
+  newSub.append(CASUB_FORMAT, "JSON");
 
   /* Update document in MongoDB */
   if (!collectionUpdate(getSubscribeContextAvailabilityCollectionName(tenant), BSON("_id" << OID(requestP->subscriptionId.get())), newSub.obj(), false, &err))
@@ -164,7 +162,7 @@ HttpStatusCode mongoUpdateContextAvailabilitySubscription
   }
 
   /* Send notifications for matching context registrations */
-  processAvailabilitySubscription(requestP->entityIdVector, requestP->attributeList, requestP->subscriptionId.get(), getStringField(sub, CASUB_REFERENCE), notifyFormat, tenant);
+  processAvailabilitySubscription(requestP->entityIdVector, requestP->attributeList, requestP->subscriptionId.get(), getStringFieldF(sub, CASUB_REFERENCE), JSON, tenant);
 
   /* Duration is an optional parameter, it is only added in the case they
    * was used for update */

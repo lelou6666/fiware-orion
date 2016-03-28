@@ -386,7 +386,8 @@ static void prepareDatabaseWithCustomMetadataNative(void) {
                           "A1" << BSON("type" << "TA1" << "value" << "A" <<
                                "md" << BSON_ARRAY(BSON("name" << "MD1" << "type" << "TMD1" << "value" << "val1") <<
                                                   BSON("name" << "MD2" << "type" << "TMD2" << "value" << 2.1) <<
-                                                  BSON("name" << "MD3" << "type" << "TMD3" << "value" << false)
+                                                  BSON("name" << "MD3" << "type" << "TMD3" << "value" << false) <<
+                                                  BSON("name" << "MD4" << "type" << "TMD4" << "value" << BSONNULL)
                                                  )
                                ) <<
                           "A2" << BSON("type" << "TA2" << "value" << "C" <<
@@ -559,17 +560,19 @@ static void prepareDatabaseDifferentNativeTypes(void) {
    *     A2: bool
    *     A3: vector
    *     A5: object
+   *     A6: null
    *
    */
 
   BSONObj en1 = BSON("_id" << BSON("id" << "E1" << "type" << "T1") <<
-                     "attrNames" << BSON_ARRAY("A1" << "A2" << "A3" << "A4" << "A5") <<
+                     "attrNames" << BSON_ARRAY("A1" << "A2" << "A3" << "A4" << "A5" << "A6") <<
                      "attrs" << BSON(
                         "A1" << BSON("type" << "T" << "value" << "s") <<
                         "A2" << BSON("type" << "T" << "value" << 42.0) <<
                         "A3" << BSON("type" << "T" << "value" << false) <<
                         "A4" << BSON("type" << "T" << "value" << BSON("x" << "a" << "y" << "b")) <<
-                        "A5" << BSON("type" << "T" << "value" << BSON_ARRAY("x1" << "x2"))
+                        "A5" << BSON("type" << "T" << "value" << BSON_ARRAY("x1" << "x2")) <<
+                        "A6" << BSON("type" << "T" << "value" << BSONNULL)
                         )
                     );
 
@@ -600,7 +603,7 @@ TEST(mongoQueryContextRequest, paginationDetails)
 
     /* Invoke the function in mongoBackend library */
     long long count;
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams, &count);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams, options, &count);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -708,7 +711,7 @@ TEST(mongoQueryContextRequest, paginationAll)
     /* Using default offset/limit */
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -816,7 +819,7 @@ TEST(mongoQueryContextRequest, paginationOnlyFirst)
     uriParams[URI_PARAM_PAGINATION_LIMIT] = "1";
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -865,7 +868,7 @@ TEST(mongoQueryContextRequest, paginationOnlySecond)
     uriParams[URI_PARAM_PAGINATION_LIMIT]  = "1";
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -914,7 +917,7 @@ TEST(mongoQueryContextRequest, paginationRange)
     uriParams[URI_PARAM_PAGINATION_LIMIT]  = "3";
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -987,7 +990,7 @@ TEST(mongoQueryContextRequest, paginationNonExisting)
     uriParams[URI_PARAM_PAGINATION_LIMIT]  = "3";
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -1025,7 +1028,7 @@ TEST(mongoQueryContextRequest, paginationNonExistingOverlap)
     uriParams[URI_PARAM_PAGINATION_LIMIT]  = "4";
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -1075,7 +1078,7 @@ TEST(mongoQueryContextRequest, paginationNonExistingDetails)
 
     /* Invoke the function in mongoBackend library */
     long long count;
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams, &count);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams, options, &count);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -1111,7 +1114,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntPatternType_2levels)
   servicePathVector.push_back("/home/kz/#");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -1183,7 +1186,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntPatternType_1level)
   servicePathVector.push_back("/home/#");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -1291,7 +1294,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntPatternType_0levels)
   servicePathVector.clear();
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
 
   /* Check response is as expected */
@@ -1376,7 +1379,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntPatternType_1levelbis)
   servicePathVector.push_back("/home2/#");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -1438,7 +1441,7 @@ TEST(mongoQueryContextRequest, queryWithIdenticalEntitiesButDifferentServicePath
   servicePathVector.clear();
   servicePathVector.push_back("/home/fg/#");
 
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   EXPECT_EQ(SccOk, ms);
 
@@ -1508,7 +1511,7 @@ TEST(mongoQueryContextRequest, queryWithIdenticalEntitiesButDifferentServicePath
   servicePathVector.clear();
   servicePathVector.push_back("/home/fg/01");
 
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   EXPECT_EQ(SccOk, ms);
 
@@ -1556,7 +1559,7 @@ TEST(mongoQueryContextRequest, queryWithIdenticalEntitiesButDifferentServicePath
   servicePathVector.clear();
   servicePathVector.push_back("/home/fg/02");
 
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   EXPECT_EQ(SccOk, ms);
 
@@ -1605,7 +1608,7 @@ TEST(mongoQueryContextRequest, queryWithIdenticalEntitiesButDifferentServicePath
   servicePathVector.clear();
   servicePathVector.push_back("/home/fg/03");
 
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   EXPECT_EQ(SccOk, ms);
 
@@ -1651,7 +1654,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntPatternNoType_2levels)
   servicePathVector.push_back("/home/kz/#");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -1735,7 +1738,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntPatternNoType_1level)
   servicePathVector.push_back("/home/#");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -1856,7 +1859,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntPatternNoType_0levels)
   servicePathVector.clear();
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -1940,7 +1943,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntPatternNoType_1levelbis)
   servicePathVector.push_back("/home2/#");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -2000,7 +2003,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntNoPatternTypeFail)
   servicePathVector.push_back("/home/kz");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -2036,7 +2039,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntNoPatternTypeOk)
   servicePathVector.push_back("/home/fg");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -2084,7 +2087,7 @@ TEST(mongoQueryContextRequest, queryWithServicePathEntNoPatternNoType)
   servicePathVector.push_back("/home/fg/#");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -2146,7 +2149,7 @@ TEST(mongoQueryContextRequest, queryWithSeveralServicePaths)
   servicePathVector.push_back("/home3/e12");
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -2210,7 +2213,7 @@ TEST(mongoQueryContextRequest, query1Ent0Attr)
 
     /* Invoke the function in mongoBackend library */
     servicePathVector.clear();
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2261,7 +2264,7 @@ TEST(mongoQueryContextRequest, query1Ent1Attr)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2308,7 +2311,7 @@ TEST(mongoQueryContextRequest, queryNEnt0Attr)
     req.entityIdVector.push_back(&en2);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2376,7 +2379,7 @@ TEST(mongoQueryContextRequest, queryNEnt1AttrSingle)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2427,7 +2430,7 @@ TEST(mongoQueryContextRequest, queryNEnt1AttrMulti)
     req.attributeList.push_back("A2");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2492,7 +2495,7 @@ TEST(mongoQueryContextRequest, queryNEntNAttr)
 
     /* Invoke the function in mongoBackend library */
     servicePathVector.clear();
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2551,7 +2554,7 @@ TEST(mongoQueryContextRequest, query1Ent0AttrFail)
     req.entityIdVector.push_back(&en);
 
     /* Invoke the function in mongoBackend library */    
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2588,7 +2591,7 @@ TEST(mongoQueryContextRequest, query1Ent1AttrFail)
 
     /* Invoke the function in mongoBackend library */
     servicePathVector.clear();    
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2625,7 +2628,7 @@ TEST(mongoQueryContextRequest, query1EntWA0AttrFail)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2660,7 +2663,7 @@ TEST(mongoQueryContextRequest, query1EntWA1Attr)
     req.entityIdVector.push_back(&en);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2707,7 +2710,7 @@ TEST(mongoQueryContextRequest, queryNEntWA0Attr)
     req.entityIdVector.push_back(&en2);
 
     /* Invoke the function in mongoBackend library */    
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2769,7 +2772,7 @@ TEST(mongoQueryContextRequest, queryNEntWA1Attr)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */    
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2820,7 +2823,7 @@ TEST(mongoQueryContextRequest, queryNoType)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2887,7 +2890,7 @@ TEST(mongoQueryContextRequest, queryIdMetadata)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2906,16 +2909,16 @@ TEST(mongoQueryContextRequest, queryIdMetadata)
     EXPECT_EQ("TA1", RES_CER_ATTR(0, 0)->type);
     EXPECT_EQ("A", RES_CER_ATTR(0, 0)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(0, 0)->metadataVector.size());
-    EXPECT_EQ("ID", RES_CER_ATTR(0, 0)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(0, 0)->metadataVector.get(0)->type);
-    EXPECT_EQ("ID1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->stringValue);
+    EXPECT_EQ("ID", RES_CER_ATTR(0, 0)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(0, 0)->metadataVector[0]->type);
+    EXPECT_EQ("ID1", RES_CER_ATTR(0, 0)->metadataVector[0]->stringValue);
     EXPECT_EQ("A1", RES_CER_ATTR(0, 1)->name);
     EXPECT_EQ("TA1", RES_CER_ATTR(0, 1)->type);
     EXPECT_EQ("B", RES_CER_ATTR(0, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(0, 1)->metadataVector.size());
-    EXPECT_EQ("ID", RES_CER_ATTR(0, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(0, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("ID2", RES_CER_ATTR(0, 1)->metadataVector.get(0)->stringValue);
+    EXPECT_EQ("ID", RES_CER_ATTR(0, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(0, 1)->metadataVector[0]->type);
+    EXPECT_EQ("ID2", RES_CER_ATTR(0, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
     EXPECT_EQ("", RES_CER_STATUS(0).details);
@@ -2941,7 +2944,7 @@ TEST(mongoQueryContextRequest, queryCustomMetadata)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -2960,12 +2963,12 @@ TEST(mongoQueryContextRequest, queryCustomMetadata)
     EXPECT_EQ("TA1", RES_CER_ATTR(0, 0)->type);
     EXPECT_EQ("A", RES_CER_ATTR(0, 0)->stringValue);
     ASSERT_EQ(2, RES_CER_ATTR(0, 0)->metadataVector.size());
-    EXPECT_EQ("MD1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->name);
-    EXPECT_EQ("TMD1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->type);
-    EXPECT_EQ("1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->stringValue);
-    EXPECT_EQ("MD2", RES_CER_ATTR(0, 0)->metadataVector.get(1)->name);
-    EXPECT_EQ("TMD2", RES_CER_ATTR(0, 0)->metadataVector.get(1)->type);
-    EXPECT_EQ("2", RES_CER_ATTR(0, 0)->metadataVector.get(1)->stringValue);
+    EXPECT_EQ("MD1", RES_CER_ATTR(0, 0)->metadataVector[0]->name);
+    EXPECT_EQ("TMD1", RES_CER_ATTR(0, 0)->metadataVector[0]->type);
+    EXPECT_EQ("1", RES_CER_ATTR(0, 0)->metadataVector[0]->stringValue);
+    EXPECT_EQ("MD2", RES_CER_ATTR(0, 0)->metadataVector[1]->name);
+    EXPECT_EQ("TMD2", RES_CER_ATTR(0, 0)->metadataVector[1]->type);
+    EXPECT_EQ("2", RES_CER_ATTR(0, 0)->metadataVector[1]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
     EXPECT_EQ("", RES_CER_STATUS(0).details);
@@ -2992,7 +2995,7 @@ TEST(mongoQueryContextRequest, queryCustomMetadataNative)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3010,19 +3013,22 @@ TEST(mongoQueryContextRequest, queryCustomMetadataNative)
     EXPECT_EQ("A1", RES_CER_ATTR(0, 0)->name);
     EXPECT_EQ("TA1", RES_CER_ATTR(0, 0)->type);
     EXPECT_EQ("A", RES_CER_ATTR(0, 0)->stringValue);
-    ASSERT_EQ(3, RES_CER_ATTR(0, 0)->metadataVector.size());
-    EXPECT_EQ("MD1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->name);
-    EXPECT_EQ("TMD1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->type);
-    EXPECT_EQ("val1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->stringValue);
-    EXPECT_EQ(orion::ValueTypeString, RES_CER_ATTR(0, 0)->metadataVector.get(0)->valueType);
-    EXPECT_EQ("MD2", RES_CER_ATTR(0, 0)->metadataVector.get(1)->name);
-    EXPECT_EQ("TMD2", RES_CER_ATTR(0, 0)->metadataVector.get(1)->type);
-    EXPECT_EQ(2.1, RES_CER_ATTR(0, 0)->metadataVector.get(1)->numberValue);
-    EXPECT_EQ(orion::ValueTypeNumber, RES_CER_ATTR(0, 0)->metadataVector.get(1)->valueType);
-    EXPECT_EQ("MD3", RES_CER_ATTR(0, 0)->metadataVector.get(2)->name);
-    EXPECT_EQ("TMD3", RES_CER_ATTR(0, 0)->metadataVector.get(2)->type);
-    EXPECT_FALSE(RES_CER_ATTR(0, 0)->metadataVector.get(2)->boolValue);
-    EXPECT_EQ(orion::ValueTypeBoolean, RES_CER_ATTR(0, 0)->metadataVector.get(2)->valueType);
+    ASSERT_EQ(4, RES_CER_ATTR(0, 0)->metadataVector.size());
+    EXPECT_EQ("MD1", RES_CER_ATTR(0, 0)->metadataVector[0]->name);
+    EXPECT_EQ("TMD1", RES_CER_ATTR(0, 0)->metadataVector[0]->type);
+    EXPECT_EQ("val1", RES_CER_ATTR(0, 0)->metadataVector[0]->stringValue);
+    EXPECT_EQ(orion::ValueTypeString, RES_CER_ATTR(0, 0)->metadataVector[0]->valueType);
+    EXPECT_EQ("MD2", RES_CER_ATTR(0, 0)->metadataVector[1]->name);
+    EXPECT_EQ("TMD2", RES_CER_ATTR(0, 0)->metadataVector[1]->type);
+    EXPECT_EQ(2.1, RES_CER_ATTR(0, 0)->metadataVector[1]->numberValue);
+    EXPECT_EQ(orion::ValueTypeNumber, RES_CER_ATTR(0, 0)->metadataVector[1]->valueType);
+    EXPECT_EQ("MD3", RES_CER_ATTR(0, 0)->metadataVector[2]->name);
+    EXPECT_EQ("TMD3", RES_CER_ATTR(0, 0)->metadataVector[2]->type);
+    EXPECT_FALSE(RES_CER_ATTR(0, 0)->metadataVector[2]->boolValue);
+    EXPECT_EQ(orion::ValueTypeBoolean, RES_CER_ATTR(0, 0)->metadataVector[2]->valueType);    
+    EXPECT_EQ("MD4", RES_CER_ATTR(0, 0)->metadataVector[3]->name);
+    EXPECT_EQ("TMD4", RES_CER_ATTR(0, 0)->metadataVector[3]->type);
+    EXPECT_EQ(orion::ValueTypeNone, RES_CER_ATTR(0, 0)->metadataVector[3]->valueType);
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
     EXPECT_EQ("", RES_CER_STATUS(0).details);
@@ -3055,7 +3061,7 @@ TEST(mongoQueryContextRequest, queryPattern0Attr)
     req.entityIdVector.push_back(&en);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3118,7 +3124,7 @@ TEST(mongoQueryContextRequest, queryPattern1AttrSingle)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3164,7 +3170,7 @@ TEST(mongoQueryContextRequest, queryPattern1AttrMulti)
     req.attributeList.push_back("A2");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3223,7 +3229,7 @@ TEST(mongoQueryContextRequest, queryPatternNAttr)
     req.attributeList.push_back("A2");
 
     /* Invoke the function in mongoBackend library */    
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3282,7 +3288,7 @@ TEST(mongoQueryContextRequest, queryPatternFail)
     req.entityIdVector.push_back(&en);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3319,7 +3325,7 @@ TEST(mongoQueryContextRequest, queryMixPatternAndNotPattern)
     req.entityIdVector.push_back(&en2);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3400,7 +3406,7 @@ TEST(mongoQueryContextRequest, queryNoTypePattern)
     req.entityIdVector.push_back(&en);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3491,7 +3497,7 @@ TEST(mongoQueryContextRequest, queryIdMetadataPattern)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3510,17 +3516,17 @@ TEST(mongoQueryContextRequest, queryIdMetadataPattern)
     EXPECT_EQ("TA1", RES_CER_ATTR(0, 0)->type);
     EXPECT_EQ("A", RES_CER_ATTR(0, 0)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(0, 0)->metadataVector.size());
-    EXPECT_EQ("ID", RES_CER_ATTR(0, 0)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(0, 0)->metadataVector.get(0)->type);
-    EXPECT_EQ("ID1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->stringValue);
+    EXPECT_EQ("ID", RES_CER_ATTR(0, 0)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(0, 0)->metadataVector[0]->type);
+    EXPECT_EQ("ID1", RES_CER_ATTR(0, 0)->metadataVector[0]->stringValue);
 
     EXPECT_EQ("A1", RES_CER_ATTR(0, 1)->name);
     EXPECT_EQ("TA1", RES_CER_ATTR(0, 1)->type);
     EXPECT_EQ("B", RES_CER_ATTR(0, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(0, 1)->metadataVector.size());
-    EXPECT_EQ("ID", RES_CER_ATTR(0, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(0, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("ID2", RES_CER_ATTR(0, 1)->metadataVector.get(0)->stringValue);
+    EXPECT_EQ("ID", RES_CER_ATTR(0, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(0, 1)->metadataVector[0]->type);
+    EXPECT_EQ("ID2", RES_CER_ATTR(0, 1)->metadataVector[0]->stringValue);
 
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
@@ -3535,17 +3541,17 @@ TEST(mongoQueryContextRequest, queryIdMetadataPattern)
     EXPECT_EQ("TA1", RES_CER_ATTR(1, 0)->type);
     EXPECT_EQ("E", RES_CER_ATTR(1, 0)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(1, 0)->metadataVector.size());
-    EXPECT_EQ("ID", RES_CER_ATTR(1, 0)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(1, 0)->metadataVector.get(0)->type);
-    EXPECT_EQ("ID1", RES_CER_ATTR(1, 0)->metadataVector.get(0)->stringValue);
+    EXPECT_EQ("ID", RES_CER_ATTR(1, 0)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(1, 0)->metadataVector[0]->type);
+    EXPECT_EQ("ID1", RES_CER_ATTR(1, 0)->metadataVector[0]->stringValue);
 
     EXPECT_EQ("A1", RES_CER_ATTR(1, 1)->name);
     EXPECT_EQ("TA1", RES_CER_ATTR(1, 1)->type);
     EXPECT_EQ("F", RES_CER_ATTR(1, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(1, 1)->metadataVector.size());
-    EXPECT_EQ("ID", RES_CER_ATTR(1, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(1, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("ID2", RES_CER_ATTR(1, 1)->metadataVector.get(0)->stringValue);
+    EXPECT_EQ("ID", RES_CER_ATTR(1, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(1, 1)->metadataVector[0]->type);
+    EXPECT_EQ("ID2", RES_CER_ATTR(1, 1)->metadataVector[0]->stringValue);
 
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
@@ -3572,7 +3578,7 @@ TEST(mongoQueryContextRequest, queryCustomMetadataPattern)
     req.attributeList.push_back("A1");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3591,12 +3597,12 @@ TEST(mongoQueryContextRequest, queryCustomMetadataPattern)
     EXPECT_EQ("TA1", RES_CER_ATTR(0, 0)->type);
     EXPECT_EQ("A", RES_CER_ATTR(0, 0)->stringValue);
     ASSERT_EQ(2, RES_CER_ATTR(0, 0)->metadataVector.size());
-    EXPECT_EQ("MD1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->name);
-    EXPECT_EQ("TMD1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->type);
-    EXPECT_EQ("1", RES_CER_ATTR(0, 0)->metadataVector.get(0)->stringValue);
-    EXPECT_EQ("MD2", RES_CER_ATTR(0, 0)->metadataVector.get(1)->name);
-    EXPECT_EQ("TMD2", RES_CER_ATTR(0, 0)->metadataVector.get(1)->type);
-    EXPECT_EQ("2", RES_CER_ATTR(0, 0)->metadataVector.get(1)->stringValue);           
+    EXPECT_EQ("MD1", RES_CER_ATTR(0, 0)->metadataVector[0]->name);
+    EXPECT_EQ("TMD1", RES_CER_ATTR(0, 0)->metadataVector[0]->type);
+    EXPECT_EQ("1", RES_CER_ATTR(0, 0)->metadataVector[0]->stringValue);
+    EXPECT_EQ("MD2", RES_CER_ATTR(0, 0)->metadataVector[1]->name);
+    EXPECT_EQ("TMD2", RES_CER_ATTR(0, 0)->metadataVector[1]->type);
+    EXPECT_EQ("2", RES_CER_ATTR(0, 0)->metadataVector[1]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
     EXPECT_EQ("", RES_CER_STATUS(0).details);
@@ -3610,12 +3616,12 @@ TEST(mongoQueryContextRequest, queryCustomMetadataPattern)
     EXPECT_EQ("TA1", RES_CER_ATTR(1, 0)->type);
     EXPECT_EQ("D", RES_CER_ATTR(1, 0)->stringValue);
     ASSERT_EQ(2, RES_CER_ATTR(1, 0)->metadataVector.size());
-    EXPECT_EQ("MD1", RES_CER_ATTR(1, 0)->metadataVector.get(0)->name);
-    EXPECT_EQ("TMD1", RES_CER_ATTR(1, 0)->metadataVector.get(0)->type);
-    EXPECT_EQ("7", RES_CER_ATTR(1, 0)->metadataVector.get(0)->stringValue);
-    EXPECT_EQ("MD2", RES_CER_ATTR(1, 0)->metadataVector.get(1)->name);
-    EXPECT_EQ("TMD2", RES_CER_ATTR(1, 0)->metadataVector.get(1)->type);
-    EXPECT_EQ("8", RES_CER_ATTR(1, 0)->metadataVector.get(1)->stringValue);
+    EXPECT_EQ("MD1", RES_CER_ATTR(1, 0)->metadataVector[0]->name);
+    EXPECT_EQ("TMD1", RES_CER_ATTR(1, 0)->metadataVector[0]->type);
+    EXPECT_EQ("7", RES_CER_ATTR(1, 0)->metadataVector[0]->stringValue);
+    EXPECT_EQ("MD2", RES_CER_ATTR(1, 0)->metadataVector[1]->name);
+    EXPECT_EQ("TMD2", RES_CER_ATTR(1, 0)->metadataVector[1]->type);
+    EXPECT_EQ("8", RES_CER_ATTR(1, 0)->metadataVector[1]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
     EXPECT_EQ("", RES_CER_STATUS(0).details);
@@ -3644,7 +3650,7 @@ TEST(mongoQueryContextRequest, queryNativeTypes)
 
     /* Invoke the function in mongoBackend library */
     servicePathVector.clear();
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -3658,7 +3664,7 @@ TEST(mongoQueryContextRequest, queryNativeTypes)
     EXPECT_EQ("E1", RES_CER(0).entityId.id);
     EXPECT_EQ("T1", RES_CER(0).entityId.type);
     EXPECT_EQ("false", RES_CER(0).entityId.isPattern);
-    ASSERT_EQ(5, RES_CER(0).contextAttributeVector.size());
+    ASSERT_EQ(6, RES_CER(0).contextAttributeVector.size());
 
     EXPECT_EQ("A1", RES_CER_ATTR(0, 0)->name);
     EXPECT_EQ("T", RES_CER_ATTR(0, 0)->type);
@@ -3696,6 +3702,11 @@ TEST(mongoQueryContextRequest, queryNativeTypes)
     EXPECT_EQ("x2", RES_CER_ATTR(0, 4)->compoundValueP->childV[1]->stringValue);
     EXPECT_EQ(0, RES_CER_ATTR(0, 4)->metadataVector.size());
 
+    EXPECT_EQ("A6", RES_CER_ATTR(0, 5)->name);
+    EXPECT_EQ("T", RES_CER_ATTR(0, 5)->type);
+    EXPECT_EQ(ValueTypeNone, RES_CER_ATTR(0, 5)->valueType);
+    EXPECT_EQ(0, RES_CER_ATTR(0, 5)->metadataVector.size());
+
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
     EXPECT_EQ("", RES_CER_STATUS(0).details);
@@ -3731,7 +3742,7 @@ TEST(mongoQueryContextRequest, mongoDbQueryFail)
     req.entityIdVector.push_back(&en);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);

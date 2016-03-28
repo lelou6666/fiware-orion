@@ -89,7 +89,6 @@ if (${CMAKE_BUILD_TYPE} STREQUAL DEBUG)
     # remove_definitions().
     #
     add_definitions(-fstack-check -fstack-protector)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
     if (COVERAGE)
         MESSAGE("cmake: Coverage compilation")
         # LM_T macros introduce condition branchs which are not never traversed. Removing LM_T macros doesn't have 
@@ -107,7 +106,6 @@ if (${CMAKE_BUILD_TYPE} STREQUAL DEBUG)
 else (${CMAKE_BUILD_TYPE} STREQUAL DEBUG)
 
     MESSAGE("cmake: RELEASE compilation")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 
     if (STRICT)
         MESSAGE("cmake: Strict compilation")
@@ -186,11 +184,11 @@ if (error EQUAL 0)
   ADD_SUBDIRECTORY(src/lib/parse)
   ADD_SUBDIRECTORY(src/lib/jsonParse)
   ADD_SUBDIRECTORY(src/lib/jsonParseV2)
-  ADD_SUBDIRECTORY(src/lib/xmlParse)
   ADD_SUBDIRECTORY(src/lib/rest)
   ADD_SUBDIRECTORY(src/lib/mongoBackend)
   ADD_SUBDIRECTORY(src/lib/cache)
   ADD_SUBDIRECTORY(src/lib/alarmMgr)
+  ADD_SUBDIRECTORY(src/lib/logSummary)
   ADD_SUBDIRECTORY(src/app/contextBroker)
 else ()
     MESSAGE("cmake: NOT OK")

@@ -32,6 +32,7 @@
 
 #include "common/globals.h"
 #include "common/tag.h"
+#include "common/string.h"
 #include "ngsi/ContextAttributeVector.h"
 #include "ngsi/Request.h"
 #include "rest/ConnectionInfo.h"
@@ -80,7 +81,7 @@ static std::string addedLookup(const std::vector<std::string>& added, std::strin
 * If anybody needs an attribute named 'id' or 'type', then API v1
 * will have to be used to retrieve that information.
 */
-std::string ContextAttributeVector::toJson(bool isLastElement, bool types)
+std::string ContextAttributeVector::toJson(bool isLastElement, bool types, const std::string& renderMode, const std::string& attrsFilter)
 {
   if (vec.size() == 0)
   {
@@ -101,31 +102,94 @@ std::string ContextAttributeVector::toJson(bool isLastElement, bool types)
   // number of valid attributes, then the comma must be rendered.
   //
   int validAttributes = 0;
-  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  std::map<std::string, bool>  uniqueMap;
+  if (attrsFilter == "")
   {
-    if ((vec[ix]->name == "id") || (vec[ix]->name == "type"))
+    for (unsigned int ix = 0; ix < vec.size(); ++ix)
     {
-      continue;
+      if ((vec[ix]->name == "id") || (vec[ix]->name == "type"))
+      {
+        continue;
+      }
+
+      if ((renderMode == RENDER_MODE_UNIQUE_VALUES) && (vec[ix]->valueType == orion::ValueTypeString))
+      {
+        if (uniqueMap[vec[ix]->stringValue] == true)
+        {
+          continue;
+        }
+      }
+
+      ++validAttributes;
+
+      if ((renderMode == RENDER_MODE_UNIQUE_VALUES) && (vec[ix]->valueType == orion::ValueTypeString))
+      {
+        uniqueMap[vec[ix]->stringValue] = true;
+      }
     }
-
-    ++validAttributes;
   }
-
+  else
+  {
+    std::vector<std::string> attrsV;
+    stringSplit(attrsFilter, ',', attrsV);
+    for (std::vector<std::string>::const_iterator it = attrsV.begin(); it != attrsV.end(); ++it)
+    {
+      if (lookup(*it) != NULL)
+      {
+        ++validAttributes;
+      }
+    }
+  }
 
   //
   // Pass 2 - do the work, helped by the value of 'validAttributes'.
   //
   std::string  out;
   int          renderedAttributes = 0;
-  for (unsigned int ix = 0; ix < vec.size(); ++ix)
-  {
-    if ((vec[ix]->name == "id") || (vec[ix]->name == "type"))
-    {
-      continue;
-    }
 
-    ++renderedAttributes;
-    out += vec[ix]->toJson(renderedAttributes == validAttributes, types);
+  uniqueMap.clear();
+
+  if (attrsFilter == "")
+  {
+    for (unsigned int ix = 0; ix < vec.size(); ++ix)
+    {
+      if ((vec[ix]->name == "id") || (vec[ix]->name == "type"))
+      {
+        continue;
+      }
+
+      ++renderedAttributes;
+
+      if ((renderMode == RENDER_MODE_UNIQUE_VALUES) && (vec[ix]->valueType == orion::ValueTypeString))
+      {
+        if (uniqueMap[vec[ix]->stringValue] == true)
+        {
+          continue;
+        }
+      }
+
+      out += vec[ix]->toJson(renderedAttributes == validAttributes, types, renderMode);
+
+      if ((renderMode == RENDER_MODE_UNIQUE_VALUES) && (vec[ix]->valueType == orion::ValueTypeString))
+      {
+        uniqueMap[vec[ix]->stringValue] = true;
+      }
+    }
+  }
+  else
+  {
+    std::vector<std::string> attrsV;
+
+    stringSplit(attrsFilter, ',', attrsV);
+    for (std::vector<std::string>::const_iterator it = attrsV.begin(); it != attrsV.end(); ++it)
+    {
+      ContextAttribute* caP = lookup(*it);
+      if (caP != NULL)
+      {
+        ++renderedAttributes;
+        out += caP->toJson(renderedAttributes == validAttributes, types, renderMode);
+      }
+    }
   }
 
   return out;
@@ -147,22 +211,11 @@ std::string ContextAttributeVector::render
   bool                attrsAsName
 )
 {
-  std::string out      = "";
-  std::string xmlTag   = "contextAttributeList";
-  std::string jsonTag  = "attributes";
+  std::string out = "";
+  std::string key = "attributes";
 
   if (vec.size() == 0)
   {
-    if (ciP->outFormat == XML)
-    {
-      if (((request == IndividualContextEntityAttribute)    ||
-           (request == AttributeValueInstance)              ||
-           (request == IndividualContextEntityAttributes)))
-      {
-        return indent + "<contextAttributeList></contextAttributeList>\n";
-      }
-    }
-
     return "";
   }
 
@@ -198,7 +251,7 @@ std::string ContextAttributeVector::render
     // 2. Now it's time to render
     // Note that in the case of attribute as name, we have to use a vector, thus using
     // attrsAsName variable as value for isVector parameter
-    out += startTag(indent, xmlTag, jsonTag, ciP->outFormat, attrsAsName, true);
+    out += startTag2(indent, key, attrsAsName, true);
     for (unsigned int ix = 0; ix < vec.size(); ++ix)
     {
       if (attrsAsName)
@@ -210,11 +263,11 @@ std::string ContextAttributeVector::render
         out += vec[ix]->render(ciP, request, indent + "  ", ix != vec.size() - 1, omitValue);
       }
     }
-    out += endTag(indent, xmlTag, ciP->outFormat, comma, attrsAsName);
+    out += endTag(indent, comma, attrsAsName);
   }
   else
   {
-    out += startTag(indent, xmlTag, jsonTag, ciP->outFormat, true, true);
+    out += startTag2(indent, key, true, true);
     for (unsigned int ix = 0; ix < vec.size(); ++ix)
     {
       if (attrsAsName)
@@ -226,7 +279,7 @@ std::string ContextAttributeVector::render
         out += vec[ix]->render(ciP, request, indent + "  ", ix != vec.size() - 1, omitValue);
       }
     }
-    out += endTag(indent, xmlTag, ciP->outFormat, comma, true);
+    out += endTag(indent, comma, true);
   }
 
   return out;
@@ -240,8 +293,8 @@ std::string ContextAttributeVector::render
 */
 std::string ContextAttributeVector::check
 (
+  ConnectionInfo*     ciP,
   RequestType         requestType,
-  Format              format,
   const std::string&  indent,
   const std::string&  predetectedError,
   int                 counter
@@ -251,7 +304,7 @@ std::string ContextAttributeVector::check
   {
     std::string res;
 
-    if ((res = vec[ix]->check(requestType, format, indent, predetectedError, 0)) != "OK")
+    if ((res = vec[ix]->check(ciP, requestType, indent, predetectedError, 0)) != "OK")
       return res;
   }
 
@@ -301,26 +354,6 @@ void ContextAttributeVector::push_back(ContextAttributeVector* aVec)
   }
 }
 
-
-/* ****************************************************************************
-*
-* ContextAttributeVector::get - 
-*/
-ContextAttribute* ContextAttributeVector::get(unsigned int ix)
-{
-  if (ix < vec.size())
-    return vec[ix];
-  return NULL;
-}
-
-const ContextAttribute* ContextAttributeVector::get(unsigned int ix) const
-{
-  if (ix < vec.size())
-    return vec[ix];
-  return NULL;
-}
-
-
 /* ****************************************************************************
 *
 * ContextAttributeVector::size - 
@@ -328,6 +361,20 @@ const ContextAttribute* ContextAttributeVector::get(unsigned int ix) const
 unsigned int ContextAttributeVector::size(void) const
 {
   return vec.size();
+}
+
+
+/* ****************************************************************************
+*
+* ContextAttributeVector::operator[] -
+*/
+ContextAttribute*  ContextAttributeVector::operator[](unsigned int ix) const
+{
+  if (ix < vec.size())
+  {
+    return vec[ix];
+  }
+  return NULL;
 }
 
 
@@ -353,16 +400,37 @@ void ContextAttributeVector::release(void)
 *
 * ContextAttributeVector::fill - 
 */
-void ContextAttributeVector::fill(ContextAttributeVector* cavP)
+void ContextAttributeVector::fill(ContextAttributeVector* cavP, bool useDefaultType)
 {
   if (cavP == NULL)
+  {
     return;
+  }
 
   for (unsigned int ix = 0; ix < cavP->size(); ++ix)
   {
-    ContextAttribute* from = cavP->get(ix);
-    ContextAttribute* caP = new ContextAttribute(from);
+    ContextAttribute* from = (*cavP)[ix];
+    ContextAttribute* caP = new ContextAttribute(from, useDefaultType);
 
     push_back(caP);
   }
+}
+
+
+
+/* ****************************************************************************
+*
+* lookup -
+*/
+ContextAttribute* ContextAttributeVector::lookup(const std::string& attributeName)
+{
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    if (vec[ix]->name == attributeName)
+    {
+      return vec[ix];
+    }
+  }
+
+  return NULL;
 }

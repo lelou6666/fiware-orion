@@ -120,7 +120,7 @@ static bool addTriggeredSubscriptions
   for (unsigned int ix = 0; ix < cr.entityIdVector.size(); ++ix)
   {
     // FIXME: take into account subscriptions with no type
-    EntityId* enP = cr.entityIdVector.get(ix);
+    EntityId* enP = cr.entityIdVector[ix];
 
     // The registration of isPattern=true entities is not supported, so we don't include them here
     if (enP->isPattern == "false")
@@ -136,7 +136,7 @@ static bool addTriggeredSubscriptions
   BSONArrayBuilder attrA;
   for (unsigned int ix = 0; ix < cr.contextRegistrationAttributeVector.size(); ++ix)
   {
-    ContextRegistrationAttribute* craP = cr.contextRegistrationAttributeVector.get(ix);
+    ContextRegistrationAttribute* craP = cr.contextRegistrationAttributeVector[ix];
     attrA.append(craP->name);
   }
 
@@ -232,7 +232,7 @@ static bool addTriggeredSubscriptions
   if (!collectionQuery(connection, getSubscribeContextAvailabilityCollectionName(tenant), query, &cursor, &err))
   {
     TIME_STAT_MONGO_READ_WAIT_STOP();
-    releaseMongoConnection(connection, &cursor);
+    releaseMongoConnection(connection);
     return false;
   }
   TIME_STAT_MONGO_READ_WAIT_STOP();
@@ -242,17 +242,17 @@ static bool addTriggeredSubscriptions
   {
     BSONObj     sub;
     std::string err;
-    if (!nextSafeOrError(cursor, &sub, &err))
+    if (!nextSafeOrErrorF(cursor, &sub, &err))
     {
-      LM_E(("Runtime Error (exception in nextSafe(): %s", err.c_str()));
+      LM_E(("Runtime Error (exception in nextSafe(): %s - query: %s)", err.c_str(), query.toString().c_str()));
       continue;
     }
-    BSONElement idField = getField(sub, "_id");
+    BSONElement idField = getFieldF(sub, "_id");
 
     //
     // BSONElement::eoo returns true if 'not found', i.e. the field "_id" doesn't exist in 'sub'
     //
-    // Now, if 'sub.getField("_id")' is not found, if we continue, calling OID() on it, then we get
+    // Now, if 'getFieldF(sub, "_id")' is not found, if we continue, calling OID() on it, then we get
     // an exception and the broker crashes.
     //
     if (idField.eoo() == true)
@@ -270,14 +270,14 @@ static bool addTriggeredSubscriptions
       LM_T(LmtMongo, ("adding subscription: '%s'", sub.toString().c_str()));
 
       TriggeredSubscription* trigs = new TriggeredSubscription(
-        sub.hasField(CASUB_FORMAT) ? stringToFormat(getStringField(sub, CASUB_FORMAT)) : XML,
-        getStringField(sub, CASUB_REFERENCE),
+        sub.hasField(CASUB_FORMAT) ? stringToFormat(getStringFieldF(sub, CASUB_FORMAT)) : JSON,
+        getStringFieldF(sub, CASUB_REFERENCE),
         subToAttributeList(sub));
 
       subs.insert(std::pair<string, TriggeredSubscription*>(subIdStr, trigs));
     }
   }
-  releaseMongoConnection(connection, &cursor);
+  releaseMongoConnection(connection);
 
   return true;
 }
@@ -348,12 +348,12 @@ HttpStatusCode processRegisterContext
   BSONArrayBuilder contextRegistration;
   for (unsigned int ix = 0; ix < requestP->contextRegistrationVector.size(); ++ix)
   {
-    ContextRegistration* cr = requestP->contextRegistrationVector.get(ix);
+    ContextRegistration* cr = requestP->contextRegistrationVector[ix];
 
     BSONArrayBuilder entities;
     for (unsigned int jx = 0; jx < cr->entityIdVector.size(); ++jx)
     {
-      EntityId* en = cr->entityIdVector.get(jx);
+      EntityId* en = cr->entityIdVector[jx];
       triggerEntitiesV.push_back(en);
 
       if (en->type == "")
@@ -371,7 +371,7 @@ HttpStatusCode processRegisterContext
     BSONArrayBuilder attrs;
     for (unsigned int jx = 0; jx < cr->contextRegistrationAttributeVector.size(); ++jx)
     {
-      ContextRegistrationAttribute* cra = cr->contextRegistrationAttributeVector.get(jx);
+      ContextRegistrationAttribute* cra = cr->contextRegistrationAttributeVector[jx];
       attrs.append(BSON(REG_ATTRS_NAME << cra->name << REG_ATTRS_TYPE << cra->type << "isDomain" << cra->isDomain));
       LM_T(LmtMongo, ("Attribute registration: {name: %s, type: %s, isDomain: %s}",
                       cra->name.c_str(),
@@ -390,10 +390,10 @@ HttpStatusCode processRegisterContext
       BSON(
         REG_ENTITIES << entities.arr() <<
         REG_ATTRS << attrs.arr() <<
-        REG_PROVIDING_APPLICATION << requestP->contextRegistrationVector.get(ix)->providingApplication.get()));
+        REG_PROVIDING_APPLICATION << requestP->contextRegistrationVector[ix]->providingApplication.get()));
 
     LM_T(LmtMongo, ("providingApplication registration: %s",
-                    requestP->contextRegistrationVector.get(ix)->providingApplication.c_str()));
+                    requestP->contextRegistrationVector[ix]->providingApplication.c_str()));
 
     std::string err;
 

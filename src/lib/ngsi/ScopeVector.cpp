@@ -41,7 +41,7 @@
 *
 * ScopeVector::render -
 */
-std::string ScopeVector::render(Format format, const std::string& indent, bool comma)
+std::string ScopeVector::render(const std::string& indent, bool comma)
 {
   std::string out = "";
   std::string tag = "scope";
@@ -51,12 +51,12 @@ std::string ScopeVector::render(Format format, const std::string& indent, bool c
     return "";
   }
 
-  out += startTag(indent, tag, tag, format, true, true);
+  out += startTag2(indent, tag, true, true);
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
-     out += vec[ix]->render(format, indent + "  ", ix != vec.size() - 1);
+     out += vec[ix]->render(indent + "  ", ix != vec.size() - 1);
   }
-  out += endTag(indent, tag, format, comma, true);
+  out += endTag(indent, comma, true);
 
   return out;
 }
@@ -70,7 +70,6 @@ std::string ScopeVector::render(Format format, const std::string& indent, bool c
 std::string ScopeVector::check
 (
   RequestType         requestType,
-  Format              format,
   const std::string&  indent,
   const std::string&  predetectedError,
   int                 counter
@@ -80,7 +79,7 @@ std::string ScopeVector::check
   {
     std::string res;
 
-    if ((res = vec[ix]->check(requestType, format, indent, predetectedError, counter)) != "OK")
+    if ((res = vec[ix]->check(requestType, indent, predetectedError, counter)) != "OK")
     {
       char ixV[STRING_SIZE_FOR_INT];
       snprintf(ixV, sizeof(ixV), "%d", ix);
@@ -133,15 +132,15 @@ void ScopeVector::push_back(Scope* item)
 
 /* ****************************************************************************
 *
-* ScopeVector::get -
+* ScopeVector::operator[] -
 */
-Scope* ScopeVector::get(int ix)
+Scope* ScopeVector::operator[](unsigned int ix) const
 {
-  return vec[ix];
-}
-const Scope* ScopeVector::get(int ix) const
-{
-  return vec[ix];
+   if (ix < vec.size())
+   {
+     return vec[ix];
+   }
+   return NULL;
 }
 
 
@@ -170,4 +169,32 @@ void ScopeVector::release(void)
   }
 
   vec.clear();
+}
+
+
+
+/* ****************************************************************************
+*
+* ScopeVector::fill(ScopeVector) - 
+*
+* If the parameter 'copy' is set to false, then no copy of the scopes is made, 
+* they are just referenced from this ScopeVector as well.
+* This case is meant to save some time, allocating new scopes anf freeing the old scopes.
+* Doesn't make much sense to on allocate new and delete the 'original'.
+* So, what the caller of this method must do after calling ScopeVector::fill, is to
+* simply *clear* the original ScopeVector to avoid a double free on the scopes.
+*/
+void ScopeVector::fill(const ScopeVector& scopeV, bool copy)
+{
+  for (unsigned int ix = 0; ix < scopeV.vec.size(); ++ix)
+  {
+    if (copy == false)
+    {
+      vec.push_back(scopeV[ix]);
+    }
+    else
+    {
+      // FIXME P5: if this is ever needed, it must be implemented here
+    }
+  }
 }

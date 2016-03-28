@@ -115,7 +115,7 @@ extern DBClientBase* getMongoConnection(void);
 *
 * releaseMongoConnection - 
 */
-extern void releaseMongoConnection(DBClientBase* connection, std::auto_ptr<DBClientCursor>*  cursor = NULL);
+extern void releaseMongoConnection(DBClientBase* connection);
 
 /*****************************************************************************
 *
@@ -218,20 +218,6 @@ extern void ensureLocationIndex(const std::string& tenant);
 
 /* ****************************************************************************
 *
-* recoverOntimeIntervalThreads -
-*/
-extern void recoverOntimeIntervalThreads(const std::string& tenant);
-
-/* ****************************************************************************
-*
-* destroyAllOntimeIntervalThreads -
-*
-* This function is only to be used under harakiri mode, not for real use
-*/
-extern void destroyAllOntimeIntervalThreads(const std::string& tenant);
-
-/* ****************************************************************************
-*
 * matchEntity -
 */
 extern bool matchEntity(const EntityId* en1, const EntityId* en2);
@@ -264,10 +250,15 @@ extern bool entitiesQuery
   bool                             includeEmpty,
   const std::string&               tenant,
   const std::vector<std::string>&  servicePath,
-  int                              offset       = DEFAULT_PAGINATION_OFFSET_INT,
-  int                              limit        = DEFAULT_PAGINATION_LIMIT_INT,
-  bool*                            limitReached = NULL,
-  long long*                       countP       = NULL
+  int                              offset         = DEFAULT_PAGINATION_OFFSET_INT,
+  int                              limit          = DEFAULT_PAGINATION_LIMIT_INT,
+  bool*                            limitReached   = NULL,
+  long long*                       countP         = NULL,
+  bool*                            badInputP      = NULL,
+  const std::string&               sortOrderList  = "",
+  bool                             includeCreDate = false,
+  bool                             includeModDate = false,
+  const std::string&               apiVersion     = "v1"
 );
 
 /* ****************************************************************************
@@ -298,6 +289,20 @@ extern bool registrationsQuery
 
 /* ****************************************************************************
 *
+* someEmptyCondValue -
+*
+*/
+extern bool someEmptyCondValue(const BSONObj& sub);
+
+/* ****************************************************************************
+*
+* condValueAttrMatch -
+*
+*/
+extern bool condValueAttrMatch(const BSONObj& sub, const std::vector<std::string>& modifiedAttrs);
+
+/* ****************************************************************************
+*
 * subToEntityIdVector -
 *
 * Extract the entity ID vector from a BSON document (in the format of the csubs
@@ -316,12 +321,6 @@ extern EntityIdVector subToEntityIdVector(const BSONObj& sub);
 */
 extern AttributeList subToAttributeList(const BSONObj& attrL);
 
-/* ****************************************************************************
-*
-* processOntimeIntervalCondition -
-*
-*/
-extern void processOntimeIntervalCondition(const std::string& subId, int interval, const std::string& tenant);
 
 /* ****************************************************************************
 *
@@ -338,7 +337,8 @@ extern bool processOnChangeConditionForSubscription
   Format                           format,
   const std::string&               tenant,
   const std::string&               xauthToken,
-  const std::vector<std::string>&  servicePathV
+  const std::vector<std::string>&  servicePathV,
+  const std::string&               qFilter
 );
 
 /* ****************************************************************************
@@ -357,7 +357,8 @@ extern BSONArray processConditionVector
   Format                           format,
   const std::string&               tenant,
   const std::string&               xauthToken,
-  const std::vector<std::string>&  servicePathV
+  const std::vector<std::string>&  servicePathV,
+  const std::string&               qFilter
 );
 
 /* ****************************************************************************
@@ -425,5 +426,12 @@ extern void cprLookupByAttribute(EntityId&                          en,
                                  Format*                            perEntPaFormat,
                                  std::string*                       perAttrPa,
                                  Format*                            perAttrPaFormat);
+
+
+/* ****************************************************************************
+*
+* qStringFilters -
+*/
+extern bool qStringFilters(const std::string& in, std::vector<BSONObj> &filters, ContextElementResponse* cerP = NULL);
 
 #endif

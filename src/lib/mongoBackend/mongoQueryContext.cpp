@@ -51,7 +51,7 @@ bool someContextElementNotFound(ContextElementResponseVector& cerV)
 {
   for (unsigned int ix = 0; ix < cerV.size(); ++ix)
   {
-    if (someContextElementNotFound(*cerV.get(ix)))
+    if (someContextElementNotFound(*cerV[ix]))
     {
       return true;
     }
@@ -72,7 +72,7 @@ void fillContextProviders(ContextElementResponseVector& cerV, ContextRegistratio
 {
   for (unsigned int ix = 0; ix < cerV.size(); ++ix)
   {
-    fillContextProviders(cerV.get(ix), crrV);
+    fillContextProviders(cerV[ix], crrV);
   }
 }
 
@@ -85,9 +85,9 @@ void addContextProviderEntity(ContextElementResponseVector& cerV, EntityId* enP,
 {
   for (unsigned int ix = 0; ix < cerV.size(); ++ix)
   {
-    if (cerV.get(ix)->contextElement.entityId.id == enP->id && cerV.get(ix)->contextElement.entityId.type == enP->type)
+    if (cerV[ix]->contextElement.entityId.id == enP->id && cerV[ix]->contextElement.entityId.type == enP->type)
     {
-      cerV.get(ix)->contextElement.providingApplicationList.push_back(pa);
+      cerV[ix]->contextElement.providingApplicationList.push_back(pa);
       return;    /* by construction, no more than one CER with the same entity information should exist in the CERV) */
     }
   }
@@ -123,15 +123,15 @@ void addContextProviderAttribute
 {
   for (unsigned int ix = 0; ix < cerV.size(); ++ix)
   {
-    if ((cerV.get(ix)->contextElement.entityId.id != enP->id) ||
-        (cerV.get(ix)->contextElement.entityId.type != enP->type))
+    if ((cerV[ix]->contextElement.entityId.id != enP->id) ||
+        (cerV[ix]->contextElement.entityId.type != enP->type))
     {
      continue;
     }
 
-    for (unsigned int jx = 0; jx < cerV.get(ix)->contextElement.contextAttributeVector.size(); ++jx)
+    for (unsigned int jx = 0; jx < cerV[ix]->contextElement.contextAttributeVector.size(); ++jx)
     {
-      std::string attrName = cerV.get(ix)->contextElement.contextAttributeVector.get(jx)->name;
+      std::string attrName = cerV[ix]->contextElement.contextAttributeVector[jx]->name;
       if (attrName == craP->name)
       {
         /* In this case, the attribute has been already found in local database. CPr is unnecessary */
@@ -141,7 +141,7 @@ void addContextProviderAttribute
     /* Reached this point, no attribute was found, so adding it with corresponding CPr info */
     ContextAttribute* caP = new ContextAttribute(craP->name, "", "");
     caP->providingApplication = pa;
-    cerV.get(ix)->contextElement.contextAttributeVector.push_back(caP);
+    cerV[ix]->contextElement.contextAttributeVector.push_back(caP);
     return;
 
   }
@@ -174,7 +174,7 @@ bool matchEntityInCrr(ContextRegistration& cr, const EntityId* enP)
 {
   for (unsigned int ix = 0; ix < cr.entityIdVector.size(); ++ix)
   {
-    EntityId* crEnP = cr.entityIdVector.get(ix);
+    EntityId* crEnP = cr.entityIdVector[ix];
     if (matchEntity(crEnP, enP))
     {
       return true;
@@ -204,7 +204,7 @@ void addContextProviders(ContextElementResponseVector& cerV, ContextRegistration
 {
   for (unsigned int ix = 0; ix < crrV.size(); ++ix)
   {
-    ContextRegistration cr = crrV.get(ix)->contextRegistration;
+    ContextRegistration cr = crrV[ix]->contextRegistration;
 
     /* In the case a "filtering" entity was provided, check that the current CRR matches or skip to next CRR */
     if (enP != NULL && !matchEntityInCrr(cr, enP)) {
@@ -218,7 +218,7 @@ void addContextProviders(ContextElementResponseVector& cerV, ContextRegistration
         /* Registration without attributes */
         for (unsigned int eIx = 0; eIx < cr.entityIdVector.size(); ++eIx)
         {
-          addContextProviderEntity(cerV, cr.entityIdVector.get(eIx), cr.providingApplication);
+          addContextProviderEntity(cerV, cr.entityIdVector[eIx], cr.providingApplication);
         }
       }
     }
@@ -229,7 +229,7 @@ void addContextProviders(ContextElementResponseVector& cerV, ContextRegistration
       {
         for (unsigned int aIx = 0; aIx < cr.contextRegistrationAttributeVector.size(); ++aIx)
         {
-          addContextProviderAttribute(cerV, cr.entityIdVector.get(eIx), cr.contextRegistrationAttributeVector.get(aIx), cr.providingApplication, limitReached);
+          addContextProviderAttribute(cerV, cr.entityIdVector[eIx], cr.contextRegistrationAttributeVector[aIx], cr.providingApplication, limitReached);
         }
       }
     }
@@ -251,7 +251,7 @@ void processGenericEntities(const EntityIdVector& enV, ContextElementResponseVec
 {
   for (unsigned int ix = 0; ix < enV.size(); ++ix)
   {
-    const EntityId* enP = enV.get(ix);
+    const EntityId* enP = enV[ix];
     if (enP->type == "" || isTrue(enP->isPattern))
     {
       addContextProviders(cerV, crrV, limitReached, enP);
@@ -277,13 +277,17 @@ HttpStatusCode mongoQueryContext
   const std::string&                   tenant,
   const std::vector<std::string>&      servicePathV,
   std::map<std::string, std::string>&  uriParams,
-  long long*                           countP
+  std::map<std::string, bool>&         options,
+  long long*                           countP,
+  const std::string&                   apiVersion
 )
 {
     int         offset         = atoi(uriParams[URI_PARAM_PAGINATION_OFFSET].c_str());
     int         limit          = atoi(uriParams[URI_PARAM_PAGINATION_LIMIT].c_str());
     std::string detailsString  = uriParams[URI_PARAM_PAGINATION_DETAILS];
     bool        details        = (strcasecmp("on", detailsString.c_str()) == 0)? true : false;
+
+    std::string sortOrderList  = uriParams[URI_PARAM_SORTED];
 
     LM_T(LmtMongo, ("QueryContext Request"));    
     LM_T(LmtPagination, ("Offset: %d, Limit: %d, Details: %s", offset, limit, (details == true)? "true" : "false"));
@@ -297,9 +301,11 @@ HttpStatusCode mongoQueryContext
     std::string err;
     bool        ok;
     bool        limitReached = false;
+    bool        badInput     = false;
     bool        reqSemTaken;
 
     ContextElementResponseVector rawCerV;    
+
     reqSemTake(__FUNCTION__, "ngsi10 query request", SemReadOp, &reqSemTaken);
     ok = entitiesQuery(requestP->entityIdVector,
                        requestP->attributeList,
@@ -312,7 +318,20 @@ HttpStatusCode mongoQueryContext
                        offset,
                        limit,
                        &limitReached,
-                       countP);
+                       countP,
+                       &badInput,
+                       sortOrderList,
+                       options[DATE_CREATED],
+                       options[DATE_MODIFIED],
+                       apiVersion);
+
+    if (badInput)
+    {
+      responseP->errorCode.fill(SccBadRequest, err);
+      rawCerV.release();
+      reqSemGive(__FUNCTION__, "ngsi10 query request", reqSemTaken);
+      return SccOk;      
+    }
 
     if (!ok)
     {
@@ -334,11 +353,7 @@ HttpStatusCode mongoQueryContext
           processGenericEntities(requestP->entityIdVector, rawCerV, crrV, limitReached);
         }
       }
-      else
-      {
-        /* Different from errors in DB at entitiesQuery(), DB fails at registrationsQuery() are not considered "critical" */
-        alarmMgr.dbError(err);
-      }
+
       crrV.release();
     }
 
@@ -353,11 +368,7 @@ HttpStatusCode mongoQueryContext
           processGenericEntities(requestP->entityIdVector, rawCerV, crrV, limitReached);
         }
       }
-      else
-      {
-        /* Different from errors in DB at entitiesQuery(), DB fails at registrationsQuery() are not considered "critical" */
-        alarmMgr.dbError(err);
-      }
+
       crrV.release();
     }
 
@@ -372,11 +383,7 @@ HttpStatusCode mongoQueryContext
           fillContextProviders(rawCerV, crrV);
         }
       }
-      else
-      {
-        /* Different from errors in DB at entitiesQuery(), DB fails at registrationsQuery() are not considered "critical" */
-        alarmMgr.dbError(err);
-      }
+
       crrV.release();
     }
 
@@ -392,11 +399,7 @@ HttpStatusCode mongoQueryContext
           addContextProviders(rawCerV, crrV, limitReached);
         }
       }
-      else
-      {
-        /* Different from fails in DB at entitiesQuery(), DB fails at registrationsQuery() are not considered "critical" */
-        alarmMgr.dbError(err);
-      }
+
       crrV.release();
     }
 

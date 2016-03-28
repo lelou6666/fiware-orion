@@ -72,6 +72,7 @@ echo
 
 echo "01. Update the subscription, setting duration to 10 secs and throttling 4 secs"
 echo "=============================================================================="
+sleep 2
 payload='{
   "subscriptionId": "'$SUB_ID'",
   "duration": "PT10S",
@@ -95,7 +96,7 @@ payload='{
   "id": "s01",
   "A": "03. Creation"
 }'
-orionCurl --url /v2/entities --payload "$payload" --json
+orionCurl --url '/v2/entities?options=keyValues' --payload "$payload" --json
 echo
 echo
 
@@ -103,7 +104,7 @@ echo
 echo "03. Modify entity s01 w/ attr A w/o tenant - notification lost by throttling"
 echo "============================================================================"
 payload='{ "A": "04. notification lost by throttling" }'
-orionCurl --url /v2/entities/s01 -X PUT --payload "$payload" --json
+orionCurl --url '/v2/entities/s01?options=keyValues' -X PUT --payload "$payload" --json
 echo
 echo
 
@@ -111,7 +112,7 @@ echo
 echo "04. Modify entity s01 w/ attr A w/o tenant - notification lost by throttling"
 echo "============================================================================"
 payload='{ "A": "05. notification lost by throttling" }'
-orionCurl --url /v2/entities/s01 -X PUT --payload "$payload" --json
+orionCurl --url '/v2/entities/s01?options=keyValues' -X PUT --payload "$payload" --json
 echo
 echo
 
@@ -127,11 +128,10 @@ fi
 echo
 echo
 
-
 echo "06. Modify entity s01 w/ attr A w/o tenant - notification NOT lost by throttling"
 echo "================================================================================"
 payload='{ "A": "07. Modification" }'
-orionCurl --url /v2/entities/s01 -X PUT --payload "$payload" --json
+orionCurl --url '/v2/entities/s01?options=keyValues' -X PUT --payload "$payload" --json
 echo
 echo
 
@@ -139,7 +139,7 @@ echo
 echo "07. Modify entity s01 w/ attr A w/o tenant - notification lost by throttling"
 echo "============================================================================"
 payload='{ "A": "08. notification lost by throttling" }'
-orionCurl --url /v2/entities/s01 -X PUT --payload "$payload" --json
+orionCurl --url '/v2/entities/s01?options=keyValues' -X PUT --payload "$payload" --json
 echo
 echo
 
@@ -154,7 +154,7 @@ echo
 echo "09. Modify entity s01 w/ attr A w/o tenant - no notification as expired"
 echo "======================================================================="
 payload='{ "A": "10. no notification as expired" }'
-orionCurl --url /v2/entities/s01 -X PUT --payload "$payload" --json
+orionCurl --url '/v2/entities/s01?options=keyValues' -X PUT --payload "$payload" --json
 echo
 echo
 
@@ -203,7 +203,7 @@ Date: REGEX(.*)
 ==========================================
 HTTP/1.1 201 Created
 Content-Length: 0
-Location: /v2/entities/s01
+Location: /v2/entities/s01?type=none
 Date: REGEX(.*)
 
 
@@ -259,10 +259,10 @@ Date: REGEX(.*)
 10. Dump accumulator - see two notifications
 ============================================
 POST http://localhost:REGEX(\d+)/notify
-Content-Length: 466
+Content-Length: 474
 User-Agent: orion/REGEX(\d+\.\d+\.\d+.*)
 Host: localhost:REGEX(\d+)
-Accept: application/xml, application/json
+Accept: application/json
 Content-Type: application/json; charset=utf-8
 
 {
@@ -271,13 +271,13 @@ Content-Type: application/json; charset=utf-8
   "contextResponses" : [
     {
       "contextElement" : {
-        "type" : "",
+        "type" : "none",
         "isPattern" : "false",
         "id" : "s01",
         "attributes" : [
           {
             "name" : "A",
-            "type" : "",
+            "type" : "none",
             "value" : "03. Creation"
           }
         ]
@@ -291,10 +291,10 @@ Content-Type: application/json; charset=utf-8
 }
 =======================================
 POST http://localhost:REGEX(\d+)/notify
-Content-Length: 470
+Content-Length: 478
 User-Agent: orion/REGEX(\d+\.\d+\.\d+.*)
 Host: localhost:REGEX(\d+)
-Accept: application/xml, application/json
+Accept: application/json
 Content-Type: application/json; charset=utf-8
 
 {
@@ -303,13 +303,13 @@ Content-Type: application/json; charset=utf-8
   "contextResponses" : [
     {
       "contextElement" : {
-        "type" : "",
+        "type" : "none",
         "isPattern" : "false",
         "id" : "s01",
         "attributes" : [
           {
             "name" : "A",
-            "type" : "",
+            "type" : "none",
             "value" : "07. Modification"
           }
         ]
