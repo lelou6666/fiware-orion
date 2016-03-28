@@ -25,24 +25,36 @@
 
 #include <string>
 #include <sstream>
+
+#include "logMsg/logMsg.h"
 #include "mongoBackend/TriggeredSubscription.h"
+
 
 /* ****************************************************************************
 *
 * TriggeredSubscription::TriggeredSubscription -
 */
-TriggeredSubscription::TriggeredSubscription(long long          _throttling,
-                                             long long          _lastNotification,
-                                             Format             _format,
-                                             const std::string& _reference,
-                                             AttributeList      _attrL)
+TriggeredSubscription::TriggeredSubscription
+(
+  long long            _throttling,
+  long long            _lastNotification,
+  Format               _format,
+  const std::string&   _reference,
+  const AttributeList& _attrL,
+  const std::string&   _cacheSubId,
+  const char*          _tenant
+):
+  throttling        (_throttling),
+  lastNotification  (_lastNotification),
+  format            (_format),
+  reference         (_reference),
+  attrL             (_attrL),
+  cacheSubId        (_cacheSubId),
+  tenant            ((_tenant == NULL)? "" : _tenant)
 {
-  throttling       = _throttling;
-  lastNotification = _lastNotification;
-  format           = _format;
-  reference        = _reference;
-  attrL            = _attrL;
 }
+
+
 
 /* ****************************************************************************
 *
@@ -50,15 +62,49 @@ TriggeredSubscription::TriggeredSubscription(long long          _throttling,
 *
 * Constructor without throttling (for NGSI9 subscriptions)
 */
-TriggeredSubscription::TriggeredSubscription(Format             _format,
-                                             const std::string& _reference,
-                                             AttributeList      _attrL)
+TriggeredSubscription::TriggeredSubscription
+(
+  Format                _format,
+  const std::string&   _reference,
+  const AttributeList& _attrL
+):
+  throttling        (-1),
+  lastNotification  (-1),
+  format            (_format),
+  reference         (_reference),
+  attrL             (_attrL),
+  cacheSubId        (""),
+  tenant            ("")
 {
-  throttling       = -1;
-  lastNotification = -1;
-  format           = _format;
-  reference        = _reference;
-  attrL            = _attrL;
+}
+
+
+
+/* ****************************************************************************
+*
+* TriggeredSubscription::~TriggeredSubscription - 
+*/
+TriggeredSubscription::~TriggeredSubscription()
+{
+}
+
+
+
+/* ****************************************************************************
+*
+* TriggeredSubscription::fillExpression -
+*
+* TriggeredSubscription class is shared for NGSI9 and NGSI10 subscriptions, so it is better
+* to keep expressions (an artifact for NGSI10) out of the constructor, in its independent fill
+* method
+*
+*/
+void TriggeredSubscription::fillExpression (const std::string& q, const std::string& georel, const std::string& geometry, const std::string& coords)
+{
+  expression.q        = q;
+  expression.georel   = georel;
+  expression.geometry = geometry;
+  expression.coords   = coords;
 }
 
 
@@ -69,7 +115,9 @@ TriggeredSubscription::TriggeredSubscription(Format             _format,
 std::string TriggeredSubscription::toString(const std::string& delimiter)
 {
   std::stringstream ss;
-  ss << throttling << delimiter << lastNotification << delimiter << formatToString(format) << delimiter << reference;
+
+  ss << throttling << delimiter << lastNotification << delimiter << formatToString(format) << delimiter << reference;  
+  ss << expression.q << delimiter << expression.georel << delimiter << expression.coords << delimiter << expression.geometry << delimiter;
+
   return ss.str();
 }
-

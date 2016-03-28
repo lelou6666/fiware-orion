@@ -123,9 +123,6 @@ TEST(mongoUnsubscribeContextAvailability, subscriptionNotFound)
     DBClientBase* connection = getMongoConnection();
     ASSERT_EQ(2, connection->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj()));
 
-    /* Release connection */
-    mongoDisconnect();
-
     /* Release mock */
     delete notifierMock;
 }
@@ -168,9 +165,6 @@ TEST(mongoUnsubscribeContextAvailability, unsubscribe)
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXTAVAIL_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
     EXPECT_EQ("51307b66f481db11bf860002", sub.getField("_id").OID().toString());
 
-    /* Release connection */
-    mongoDisconnect();
-
     /* Release mock */
     delete notifierMock;
 }
@@ -190,7 +184,7 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbFindOneFail)
     /* Prepare mocks */
     const DBException e = DBException("boom!!", 33);
     DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-    ON_CALL(*connectionMock, findOne("unittest.casubs",_,_,_))
+    ON_CALL(*connectionMock, findOne("utest.casubs",_,_,_))
             .WillByDefault(Throw(e));
 
     NotifierMock* notifierMock = new NotifierMock();
@@ -204,7 +198,7 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbFindOneFail)
     /* Set MongoDB connection (prepare database first with the "actual" connection object).
      * The "actual" conneciton is preserved for later use */
     prepareDatabase();
-    DBClientBase* connection = getMongoConnection();
+    DBClientBase* connectionDb = getMongoConnection();
     setMongoConnectionForUnitTest(connectionMock);
 
     /* Invoke the function in mongoBackend library */
@@ -215,20 +209,22 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbFindOneFail)
     EXPECT_EQ("51307b66f481db11bf860001", res.subscriptionId.get());
     EXPECT_EQ(SccReceiverInternalError, res.statusCode.code);
     EXPECT_EQ("Internal Server Error", res.statusCode.reasonPhrase);
-    EXPECT_EQ("collection: unittest.casubs "
-              "- findOne() _id: 51307b66f481db11bf860001 "
-              "- exception: boom!!", res.statusCode.details);
+    EXPECT_EQ("Database Error (collection: utest.casubs "
+              "- findOne(): { _id: ObjectId('51307b66f481db11bf860001') } "
+              "- exception: boom!!)", res.statusCode.details);
     
     // Sleeping a little to "give mongod time to process its input".
     // Without this sleep, this tests fails around 50% of the times (in Ubuntu 13.04)
     usleep(1000);
 
-    int count = connection->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj());
+    int count = connectionDb->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj());
 
     ASSERT_EQ(2, count);
 
+    /* Restore real DB connection */
+    setMongoConnectionForUnitTest(connectionDb);
+
     /* Release mocks */
-    setMongoConnectionForUnitTest(NULL);
     delete notifierMock;
     delete connectionMock;
 }
@@ -252,9 +248,9 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbRemoveFail)
                                        "entities" << BSON_ARRAY(BSON("id" << "E1" << "type" << "T1" << "isPattern" << "false")) <<
                                        "attrs" << BSONArray());
     DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-    ON_CALL(*connectionMock, findOne("unittest.casubs",_,_,_))
+    ON_CALL(*connectionMock, findOne("utest.casubs",_,_,_))
             .WillByDefault(Return(fakeSub));
-    ON_CALL(*connectionMock, remove("unittest.casubs",_,_,_))
+    ON_CALL(*connectionMock, remove("utest.casubs",_,_,_))
             .WillByDefault(Throw(e));
 
     NotifierMock* notifierMock = new NotifierMock();
@@ -268,7 +264,7 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbRemoveFail)
     /* Set MongoDB connection (prepare database first with the "actual" connection object).
      * The "actual" conneciton is preserved for later use */
     prepareDatabase();
-    DBClientBase* connection = getMongoConnection();
+    DBClientBase* connectionDb = getMongoConnection();
     setMongoConnectionForUnitTest(connectionMock);
 
     /* Invoke the function in mongoBackend library */
@@ -279,18 +275,20 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbRemoveFail)
     EXPECT_EQ("51307b66f481db11bf860001", res.subscriptionId.get());
     EXPECT_EQ(SccReceiverInternalError, res.statusCode.code);
     EXPECT_EQ("Internal Server Error", res.statusCode.reasonPhrase);
-    EXPECT_EQ("collection: unittest.casubs "
-              "- remove() _id: 51307b66f481db11bf860001 "
-              "- exception: boom!!", res.statusCode.details);
+    EXPECT_EQ("Database Error (collection: utest.casubs - "
+              "remove(): { _id: ObjectId('51307b66f481db11bf860001') } "
+              "- exception: boom!!)", res.statusCode.details);
 
     // Sleeping a little to "give mongod time to process its input".
     // Without this sleep, this tests fails around 50% of the times (in Ubuntu 13.04)
     usleep(1000);
 
-    ASSERT_EQ(2, connection->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj()));
+    ASSERT_EQ(2, connectionDb->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj()));
 
-    /* Release mocks */
-    setMongoConnectionForUnitTest(NULL);
+    /* Restore real DB connection */
+    setMongoConnectionForUnitTest(connectionDb);
+
+    /* Release mocks */    
     delete notifierMock;
     delete connectionMock;
 }

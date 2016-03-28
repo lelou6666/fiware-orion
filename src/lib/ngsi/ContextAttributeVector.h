@@ -44,26 +44,19 @@ typedef struct ContextAttributeVector
 
   ContextAttributeVector();
 
-  void               present(const std::string& indent);
-  void               push_back(ContextAttribute* item);
-  void               push_back(ContextAttributeVector* aVec);
-  unsigned int       size(void);
-  ContextAttribute*  get(unsigned int ix);
-  void               release(void);
-  void               fill(struct ContextAttributeVector* cavP);
+  void                     present(const std::string& indent);
+  void                     push_back(ContextAttribute* item);
+  void                     push_back(ContextAttributeVector* aVec);
+  unsigned int             size(void) const;
+  void                     release(void);
+  void                     fill(struct ContextAttributeVector* cavP, bool useDefaultType = false);
+  ContextAttribute*        lookup(const std::string& attributeName);
+  
+  ContextAttribute*  operator[](unsigned int ix) const;
 
-  ContextAttribute*  operator[](unsigned int ix)
-  {
-    if (ix < vec.size())
-    {
-      return vec[ix];
-    }
 
-    return NULL;
-  }
-
-  std::string        check(RequestType          requestType,
-                           Format               format,
+  std::string        check(ConnectionInfo* ciP,
+                           RequestType          requestType,
                            const std::string&   indent,
                            const std::string&   predetectedError,
                            int                  counter);
@@ -71,9 +64,14 @@ typedef struct ContextAttributeVector
   std::string        render(ConnectionInfo*     ciP,
                             RequestType         requestType,
                             const std::string&  indent,
-                            bool                comma     = false,
-                            bool                omitValue = false,
+                            bool                comma       = false,
+                            bool                omitValue   = false,
                             bool                attrsAsName = false);
+
+  std::string        toJson(bool                isLastElement,
+                            bool                types,
+                            const std::string&  renderMode,
+                            const std::string&  attrsFilter  = "");
 } ContextAttributeVector;
 
 #endif  // SRC_LIB_NGSI_CONTEXTATTRIBUTEVECTOR_H_

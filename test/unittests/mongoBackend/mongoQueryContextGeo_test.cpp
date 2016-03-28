@@ -37,6 +37,8 @@
 
 #include "mongo/client/dbclient.h"
 
+extern void setMongoConnectionForUnitTest(DBClientBase*);
+
 /* ****************************************************************************
 *
 * Tests
@@ -67,7 +69,7 @@ static void prepareDatabase(void) {
 
   DBClientBase* connection = getMongoConnection();
 
-  connection->createIndex("unittest.entities", BSON("location.coords" << "2dsphere" ));
+  connection->createIndex("utest.entities", BSON("location.coords" << "2dsphere" ));
 
   BSONObj A = BSON("_id" << BSON("id" << "A" << "type" << "Point") <<
                      "attrNames" << BSON_ARRAY("pos" << "foo") <<
@@ -151,7 +153,7 @@ static void prepareDatabase(void) {
 */
 int getEntityIndex(ContextElementResponseVector& v, std::string id) {
     for (unsigned int ix = 0; ix < v.size(); ++ix) {
-        if (v.get(ix)->contextElement.entityId.id == id) {
+        if (v[ix]->contextElement.entityId.id == id) {
             return ix;
         }
     }
@@ -191,7 +193,7 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleIn1)
     req.restriction.scopeVector.push_back(&sc);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -212,14 +214,14 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleIn1)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_Mad", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_Mad", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("40.418889, -3.691944", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("40.418889, -3.691944", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
@@ -233,23 +235,20 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleIn1)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_Leg", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_Leg", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("40.316667, -3.75", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("40.316667, -3.75", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
 
     /* Release dynamic memory used by response (mongoBackend allocates it) */
     res.contextElementResponseVector.release();
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -287,7 +286,7 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleIn2)
     req.restriction.scopeVector.push_back(&sc);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -308,14 +307,14 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleIn2)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_Mad", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_Mad", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("40.418889, -3.691944", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("40.418889, -3.691944", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
@@ -329,14 +328,14 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleIn2)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_Alc", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_Alc", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("40.533333, -3.633333", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("40.533333, -3.633333", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
@@ -350,23 +349,20 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleIn2)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_Leg", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_Leg", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("40.316667, -3.75", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("40.316667, -3.75", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
 
     /* Release dynamic memory used by response (mongoBackend allocates it) */
     res.contextElementResponseVector.release();
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -405,7 +401,7 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleOut)
     req.restriction.scopeVector.push_back(&sc);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -426,23 +422,20 @@ TEST(mongoQueryContextGeoRequest, queryGeoCircleOut)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_Alc", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_Alc", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("40.533333, -3.633333", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("40.533333, -3.633333", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
 
     /* Release dynamic memory used by response (mongoBackend allocates it) */
     res.contextElementResponseVector.release();
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -482,7 +475,7 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonIn1)
     req.restriction.scopeVector.push_back(&sc);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -503,14 +496,14 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonIn1)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_A", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_A", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("2, 3", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("2, 3", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
@@ -524,23 +517,20 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonIn1)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_B", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_B", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("5, 5", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("5, 5", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
 
     /* Release dynamic memory used by response (mongoBackend allocates it) */
     res.contextElementResponseVector.release();
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -580,7 +570,7 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonIn2)
     req.restriction.scopeVector.push_back(&sc);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -601,14 +591,14 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonIn2)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_B", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_B", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("5, 5", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("5, 5", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
@@ -622,23 +612,20 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonIn2)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());   
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_C", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_C", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
-    EXPECT_EQ("4, 7", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
+    EXPECT_EQ("4, 7", RES_CER_ATTR(i, 1)->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
 
     /* Release dynamic memory used by response (mongoBackend allocates it) */
     res.contextElementResponseVector.release();
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -677,7 +664,7 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonIn3)
     req.restriction.scopeVector.push_back(&sc);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -698,23 +685,20 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonIn3)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_A", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_A", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("2, 3", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("2, 3", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
 
     /* Release dynamic memory used by response (mongoBackend allocates it) */
     res.contextElementResponseVector.release();
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -755,7 +739,7 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonOut1)
     req.restriction.scopeVector.push_back(&sc);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -776,23 +760,20 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonOut1)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_A", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_A", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("2, 3", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("2, 3", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
 
     /* Release dynamic memory used by response (mongoBackend allocates it) */
     res.contextElementResponseVector.release();
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -832,7 +813,7 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonOut2)
     req.restriction.scopeVector.push_back(&sc);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -853,14 +834,14 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonOut2)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_B", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_B", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("5, 5", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("5, 5", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
@@ -874,23 +855,20 @@ TEST(mongoQueryContextGeoRequest, queryGeoPolygonOut2)
     ASSERT_EQ(2, RES_CER(i).contextAttributeVector.size());
     EXPECT_EQ("foo", RES_CER_ATTR(i, 0)->name);
     EXPECT_EQ("string", RES_CER_ATTR(i, 0)->type);
-    EXPECT_EQ("attr_C", RES_CER_ATTR(i, 0)->value);
+    EXPECT_EQ("attr_C", RES_CER_ATTR(i, 0)->stringValue);
     EXPECT_EQ("pos", RES_CER_ATTR(i, 1)->name);
     EXPECT_EQ("location", RES_CER_ATTR(i, 1)->type);
-    EXPECT_EQ("4, 7", RES_CER_ATTR(i, 1)->value);
+    EXPECT_EQ("4, 7", RES_CER_ATTR(i, 1)->stringValue);
     ASSERT_EQ(1, RES_CER_ATTR(i, 1)->metadataVector.size());
-    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector.get(0)->name);
-    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector.get(0)->type);
-    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector.get(0)->value);
+    EXPECT_EQ("location", RES_CER_ATTR(i, 1)->metadataVector[0]->name);
+    EXPECT_EQ("string", RES_CER_ATTR(i, 1)->metadataVector[0]->type);
+    EXPECT_EQ("WGS84", RES_CER_ATTR(i, 1)->metadataVector[0]->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(i).code);
     EXPECT_EQ("OK", RES_CER_STATUS(i).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(i).details.size());
 
     /* Release dynamic memory used by response (mongoBackend allocates it) */
     res.contextElementResponseVector.release();
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }

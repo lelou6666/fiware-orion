@@ -25,13 +25,17 @@
 #include <string>
 #include <vector>
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "rest/ConnectionInfo.h"
 #include "ngsi/ParseData.h"
-#include "orionTypes/EntityTypeAttributesResponse.h"
+#include "orionTypes/EntityTypeResponse.h"
 #include "rest/uriParamNames.h"
 #include "serviceRoutines/getAttributesForEntityType.h"
 
 #include "mongoBackend/mongoQueryTypes.h"
+
 
 
 /* ****************************************************************************
@@ -41,7 +45,7 @@
 * GET /v1/contextTypes/{entity::type}
 *
 * Payload In:  None
-* Payload Out: EntityTypeAttributesResponse
+* Payload Out: EntityTypeResponse
 *
 * URI parameters:
 *   - attributesFormat=object
@@ -55,13 +59,15 @@ std::string getAttributesForEntityType
   ParseData*                 parseDataP
 )
 {
-  EntityTypeAttributesResponse  response;
-  std::string                   entityTypeName = compV[2];
+  EntityTypeResponse  response;
+  std::string         entityTypeName = compV[2];
 
   response.statusCode.fill(SccOk);
-  mongoAttributesForEntityType(entityTypeName, &response, ciP->tenant, ciP->servicePathV, ciP->uriParam);
 
-  std::string rendered = response.render(ciP, "");
+  TIMED_MONGO(mongoAttributesForEntityType(entityTypeName, &response, ciP->tenant, ciP->servicePathV, ciP->uriParam));
+
+  std::string rendered;
+  TIMED_RENDER(rendered = response.render(ciP, ""));
   response.release();
 
   return rendered;

@@ -85,11 +85,6 @@ extern void setMongoConnectionForUnitTest(DBClientBase*);
 * - MongoDbEntitiesInconsistency
 * - MongoDbCAsubsFindFail
 *
-* In addition, we include some tests related with associations metadata processing
-*
-* - AssociationsOk
-* - AssociationsDbFail
-*
 * Note these tests are not "canonical" unit tests. Canon says that in this case we should have
 * mocked MongoDB. Actually, we think is very much powerful to check that everything is ok at
 * MongoDB layer.
@@ -184,81 +179,10 @@ TEST(mongoRegisterContextRequest, ce1_En1_At0_Ok)
   EXPECT_EQ("OK", res.errorCode.reasonPhrase);
   EXPECT_EQ(0, res.errorCode.details.size());
 
-  /* Release connection */
-  mongoDisconnect();
-
   utExit();
-
 }
 
-/* ****************************************************************************
-*
-* ce1_En1_At0_Ok_XML -
-*/
-TEST(mongoRegisterContextRequest, ce1_En1_At0_Ok_XML)
-{
-  HttpStatusCode           ms;
-  RegisterContextRequest   req;
-  RegisterContextResponse  res;
 
-  utInit();
-
-  /* Forge the request (from "inside" to "outside") */
-  EntityId en("E1", "T1");
-  ContextRegistration cr;
-  cr.entityIdVector.push_back(&en);
-  cr.providingApplication.set("http://dummy.com");
-  req.contextRegistrationVector.push_back(&cr);
-  req.duration.set("PT1M");
-
-  /* Prepare database */
-  prepareDatabase();
-
-  /* Invoke the function in mongoBackend library */
-  uriParams[URI_PARAM_NOTIFY_FORMAT] = "XML";
-  ms = mongoRegisterContext(&req, &res, uriParams);
-
-  /* Check that every involved collection at MongoDB is as expected */
-  /* Note we are using EXPECT_STREQ() for some cases, as Mongo Driver returns const char*, not string
-   * objects (see http://code.google.com/p/googletest/wiki/Primer#String_Comparison) */
-
-  DBClientBase* connection = getMongoConnection();
-
-  /* registrations collection: */
-  ASSERT_EQ(1, connection->count(REGISTRATIONS_COLL, BSONObj()));
-  BSONObj reg = connection->findOne(REGISTRATIONS_COLL, BSONObj());
-  std::string oid = reg.getField("_id").OID().toString();
-  EXPECT_EQ(1360232760, reg.getIntField("expiration"));
-  EXPECT_STREQ("XML", reg.getStringField("format"));
-
-  std::vector<BSONElement> contextRegistrationV = reg.getField("contextRegistration").Array();
-  ASSERT_EQ(1, contextRegistrationV.size());
-  BSONObj contextRegistration = contextRegistrationV[0].embeddedObject();
-
-  EXPECT_STREQ("http://dummy.com", C_STR_FIELD(contextRegistration, "providingApplication"));
-  std::vector<BSONElement> entities = contextRegistration.getField("entities").Array();
-  ASSERT_EQ(1, entities.size());
-  BSONObj ent0 = entities[0].embeddedObject();
-  EXPECT_STREQ("E1", C_STR_FIELD(ent0, "id"));
-  EXPECT_STREQ("T1", C_STR_FIELD(ent0, "type"));
-
-  std::vector<BSONElement> attrs = contextRegistration.getField("attrs").Array();
-  EXPECT_EQ(0, attrs.size());
-
-  /* Check response is as expected */
-  EXPECT_EQ(SccOk, ms);
-  EXPECT_EQ("PT1M", res.duration.get());
-  EXPECT_EQ(oid, res.registrationId.get());
-  EXPECT_EQ(SccOk, res.errorCode.code);
-  EXPECT_EQ("OK", res.errorCode.reasonPhrase);
-  EXPECT_EQ(0, res.errorCode.details.size());
-
-  /* Release connection */
-  mongoDisconnect();
-
-  utExit();
-
-}
 
 /* ****************************************************************************
 *
@@ -284,7 +208,6 @@ TEST(mongoRegisterContextRequest, ce1_En1_At0_Ok_JSON)
   prepareDatabase();
 
   /* Invoke the function in mongoBackend library */
-  uriParams[URI_PARAM_NOTIFY_FORMAT] = "JSON";
   ms = mongoRegisterContext(&req, &res, uriParams);
 
   /* Check that every involved collection at MongoDB is as expected */
@@ -322,11 +245,7 @@ TEST(mongoRegisterContextRequest, ce1_En1_At0_Ok_JSON)
   EXPECT_EQ("OK", res.errorCode.reasonPhrase);
   EXPECT_EQ(0, res.errorCode.details.size());
 
-  /* Release connection */
-  mongoDisconnect();
-
   utExit();
-
 }
 
 /* ****************************************************************************
@@ -389,11 +308,7 @@ TEST(mongoRegisterContextRequest, ce1_En1nt_At0_Ok)
   EXPECT_EQ("OK", res.errorCode.reasonPhrase);
   EXPECT_EQ(0, res.errorCode.details.size());
 
-  /* Release connection */
-  mongoDisconnect();
-
   utExit();
-
 }
 
 /* ****************************************************************************
@@ -468,11 +383,7 @@ TEST(mongoRegisterContextRequest, ce1_En1_AtN_Ok)
   EXPECT_EQ("OK", res.errorCode.reasonPhrase);
   EXPECT_EQ(0, res.errorCode.details.size());
 
-  /* Release connection */
-  mongoDisconnect();
-
   utExit();
-
 }
 
 /* ****************************************************************************
@@ -547,9 +458,6 @@ TEST(mongoRegisterContextRequest, ce1_En1_AtNnt_Ok)
   EXPECT_EQ("OK", res.errorCode.reasonPhrase);
   EXPECT_EQ(0, res.errorCode.details.size());
 
-  /* Release connection */
-  mongoDisconnect();
-
   utExit();
 
 }
@@ -617,11 +525,7 @@ TEST(mongoRegisterContextRequest, ce1_En1nt_AtN_Ok)
   EXPECT_STREQ("TA2", C_STR_FIELD(rattr1, "type"));
   EXPECT_STREQ("true", C_STR_FIELD(rattr1, "isDomain"));
 
-  /* Release connection */
-  mongoDisconnect();
-
   utExit();
-
 }
 
 /* ****************************************************************************
@@ -696,11 +600,7 @@ TEST(mongoRegisterContextRequest, ce1_En1nt_AtNnt_Ok)
   EXPECT_EQ("OK", res.errorCode.reasonPhrase);
   EXPECT_EQ(0, res.errorCode.details.size());
 
-  /* Release connection */
-  mongoDisconnect();
-
   utExit();
-
 }
 
 /* ****************************************************************************
@@ -768,11 +668,7 @@ TEST(mongoRegisterContextRequest, ce1_EnN_At0_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -840,11 +736,7 @@ TEST(mongoRegisterContextRequest, ce1_EnNnt_At0_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -925,11 +817,7 @@ TEST(mongoRegisterContextRequest, ce1_EnN_AtN_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1010,11 +898,7 @@ TEST(mongoRegisterContextRequest, ce1_EnN_AtNnt_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1095,11 +979,7 @@ TEST(mongoRegisterContextRequest, ce1_EnNnt_AtN_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1180,11 +1060,7 @@ TEST(mongoRegisterContextRequest, ce1_EnNnt_AtNnt_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1261,11 +1137,7 @@ TEST(mongoRegisterContextRequest, ceN_En1_At0_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1342,11 +1214,7 @@ TEST(mongoRegisterContextRequest, ceN_En1nt_At0_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1448,11 +1316,7 @@ TEST(mongoRegisterContextRequest, ceN_En1_AtN_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1554,11 +1418,7 @@ TEST(mongoRegisterContextRequest, ceN_En1_AtNnt_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1660,11 +1520,7 @@ TEST(mongoRegisterContextRequest, ceN_En1nt_AtN_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1766,11 +1622,7 @@ TEST(mongoRegisterContextRequest, ceN_En1nt_AtNnt_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1858,11 +1710,7 @@ TEST(mongoRegisterContextRequest, ceN_EnN_At0_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -1950,11 +1798,7 @@ TEST(mongoRegisterContextRequest, ceN_EnNnt_At0_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -2066,11 +1910,7 @@ TEST(mongoRegisterContextRequest, ceN_EnN_AtN_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -2182,11 +2022,7 @@ TEST(mongoRegisterContextRequest, ceN_EnN_AtNnt_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -2298,11 +2134,7 @@ TEST(mongoRegisterContextRequest, ceN_EnNnt_AtN_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 /* ****************************************************************************
@@ -2414,11 +2246,7 @@ TEST(mongoRegisterContextRequest, ceN_EnNnt_AtNnt_Ok)
     EXPECT_EQ("OK", res.errorCode.reasonPhrase);
     EXPECT_EQ(0, res.errorCode.details.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
-
 }
 
 
@@ -2442,9 +2270,9 @@ TEST(mongoRegisterContextRequest, NotifyContextAvailability1)
   expectedNcar.subscriptionId.set("51307b66f481db11bf860001");
 
   NotifierMock* notifierMock = new NotifierMock();
-  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(MatchNcar(&expectedNcar),"http://notify1.me", "", XML))
+  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(MatchNcar(&expectedNcar),"http://notify1.me", "", JSON))
           .Times(1);
-  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,"http://notify2.me", "", XML))
+  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,"http://notify2.me", "", JSON))
           .Times(0);
   setNotifier(notifierMock);
 
@@ -2478,13 +2306,9 @@ TEST(mongoRegisterContextRequest, NotifyContextAvailability1)
   /* The only collection affected by this operation is registrations, which has been extensively
    * testbed by other unit tests, so we don't include checking in the present unit test */
 
-  /* Release connection */
-  mongoDisconnect();
-
   /* Delete mock */
   delete timerMock;
   delete notifierMock;
-
 }
 
 /* ****************************************************************************
@@ -2512,9 +2336,9 @@ TEST(mongoRegisterContextRequest, NotifyContextAvailability2)
   expectedNcar2.subscriptionId.set("51307b66f481db11bf860002");
 
   NotifierMock* notifierMock = new NotifierMock();
-  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(MatchNcar(&expectedNcar1),"http://notify1.me", "", XML))
+  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(MatchNcar(&expectedNcar1),"http://notify1.me", "", JSON))
           .Times(1);
-  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(MatchNcar(&expectedNcar2),"http://notify2.me", "", XML))
+  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(MatchNcar(&expectedNcar2),"http://notify2.me", "", JSON))
           .Times(1);
   setNotifier(notifierMock);
 
@@ -2550,13 +2374,9 @@ TEST(mongoRegisterContextRequest, NotifyContextAvailability2)
   /* The only collection affected by this operation is registrations, which has been extensively
    * testbed by other unit tests, so we don't include checking in the present unit test */
 
-  /* Release connection */
-  mongoDisconnect();
-
   /* Delete mock */
   delete timerMock;
   delete notifierMock;
-
 }
 
 /* ****************************************************************************
@@ -2581,9 +2401,9 @@ TEST(mongoRegisterContextRequest, NotifyContextAvailability3)
   expectedNcar.subscriptionId.set("51307b66f481db11bf860001");
 
   NotifierMock* notifierMock = new NotifierMock();
-  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(MatchNcar(&expectedNcar),"http://notify1.me", "", XML))
+  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(MatchNcar(&expectedNcar),"http://notify1.me", "", JSON))
           .Times(1);
-  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,"http://notify2.me", "", XML))
+  EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,"http://notify2.me", "", JSON))
           .Times(0);
   setNotifier(notifierMock);
 
@@ -2618,9 +2438,6 @@ TEST(mongoRegisterContextRequest, NotifyContextAvailability3)
 
   /* The only collection affected by this operation is registrations, which has been extensively
    * testbed by other unit tests, so we don't include checking in the present unit test */
-
-  /* Release connection */
-  mongoDisconnect();
 
   /* Delete mock */
   delete timerMock;
@@ -2687,11 +2504,7 @@ TEST(mongoRegisterContextRequest, defaultDuration)
   EXPECT_EQ("OK", res.errorCode.reasonPhrase);
   EXPECT_EQ(0, res.errorCode.details.size());
 
-  /* Release connection */
-  mongoDisconnect();
-
   utExit();
-
 }
 
 /* ****************************************************************************
@@ -2716,11 +2529,11 @@ TEST(mongoRegisterContextRequest, MongoDbUpsertRegistrationFail)
             .WillByDefault(Return(1));
     ON_CALL(*connectionMock, findOne(_,_,_,_))
             .WillByDefault(Return(fakeEntity));
-    ON_CALL(*connectionMock, update("unittest.registrations",_,_,_,_,_))
+    ON_CALL(*connectionMock, update("utest.registrations",_,_,_,_,_))
             .WillByDefault(Throw(e));    
     ON_CALL(*cursorMockCAsub, more())
             .WillByDefault(Return(false));
-    ON_CALL(*connectionMock, _query("unittest.casubs",_,_,_,_,_,_))
+    ON_CALL(*connectionMock, _query("utest.casubs",_,_,_,_,_,_))
             .WillByDefault(Return(cursorMockCAsub));
 
     /* Forge the request (from "inside" to "outside") */
@@ -2732,7 +2545,7 @@ TEST(mongoRegisterContextRequest, MongoDbUpsertRegistrationFail)
     req.duration.set("PT1M");
 
     /* Set MongoDB connection mock (preserving the "actual" connection for later use) */
-    DBClientBase* connection = getMongoConnection();
+    DBClientBase* connectionDb = getMongoConnection();
     setMongoConnectionForUnitTest(connectionMock);
 
     /* Invoke the function in mongoBackend library */
@@ -2749,20 +2562,24 @@ TEST(mongoRegisterContextRequest, MongoDbUpsertRegistrationFail)
      * random. ObjectId is 24 characters long.*/
     /* FIXME: a better approach would be to pass a regex filter to relace ObjectId by a constant string,
      * but I don't know how to work with regex in C++ */
-    std::string s1 = res.errorCode.details.substr(0, 71);
-    std::string s2 = res.errorCode.details.substr(71+24, res.errorCode.details.size()-71-24);
-    EXPECT_EQ("collection: unittest.registrations "
-              "- upsert update(): { _id: ObjectId('",s1);
-    EXPECT_EQ("'), expiration: 1360232760, servicePath: \"/\", format: \"XML\", contextRegistration: [ { entities: [ { id: \"E1\", type: \"T1\" } ], attrs: [], providingApplication: \"http://dummy.com\" } ] } "
-              "- exception: boom!!", s2);
+    std::string s1 = res.errorCode.details.substr(0, 78);
+    std::string s2 = res.errorCode.details.substr(78+24, 22);
+    std::string s3 = res.errorCode.details.substr(78+24+22+24, res.errorCode.details.size()-78-24-22-24);
+    EXPECT_EQ("Database Error (collection: utest.registrations "
+              "- update(): <{ _id: ObjectId('",s1);
+    EXPECT_EQ("') },{ _id: ObjectId('", s2);
+    EXPECT_EQ("'), expiration: 1360232760, servicePath: \"/\", format: \"JSON\", contextRegistration: [ { entities: [ { id: \"E1\", type: \"T1\" } ], attrs: [], providingApplication: \"http://dummy.com\" } ] }> "
+              "- exception: boom!!)", s3);
+
+    /* Restore real DB connection */
+    setMongoConnectionForUnitTest(connectionDb);
 
     /* Release mock */
-    setMongoConnectionForUnitTest(NULL);
     delete connectionMock;
 
     /* check collection has not been touched */    
-    EXPECT_EQ(0, connection->count(REGISTRATIONS_COLL, BSONObj()));
-    EXPECT_EQ(0, connection->count(ENTITIES_COLL, BSONObj()));
+    EXPECT_EQ(0, connectionDb->count(REGISTRATIONS_COLL, BSONObj()));
+    EXPECT_EQ(0, connectionDb->count(ENTITIES_COLL, BSONObj()));
 
     utExit();
 
@@ -2779,138 +2596,4 @@ TEST(mongoRegisterContextRequest, DISABLED_MongoDbCAsubsFindFail)
 {
     //FIXME
     EXPECT_EQ(1, 2);
-}
-
-/* ****************************************************************************
-*
-* AssociationsOk -
-*/
-TEST(mongoRegisterContextRequest, AssociationsOk)
-{
-    HttpStatusCode           ms;
-    RegisterContextRequest   req;
-    RegisterContextResponse  res;
-
-    utInit();
-
-    /* Forge the request (from "inside" to "outside") */
-    ContextRegistration cr;
-    AttributeAssociation aa1, aa2;
-    aa1.source = "A1";
-    aa1.target = "B1";
-    aa2.source = "A2";
-    aa2.target = "B2";
-    Metadata md("assoc1", "Association");;
-    md.association.entityAssociation.source = EntityId("E1", "T1", "false");
-    md.association.entityAssociation.target = EntityId("E2", "T2", "false");
-    md.association.attributeAssociationList.push_back(&aa1);
-    md.association.attributeAssociationList.push_back(&aa2);
-    cr.registrationMetadataVector.push_back(&md);
-    req.contextRegistrationVector.push_back(&cr);
-    req.duration.set("PT1M");
-
-    /* Prepare database */
-    prepareDatabase();
-
-    /* Invoke the function in mongoBackend library */
-    ms = mongoRegisterContext(&req, &res, uriParams);
-
-    /* Check response is as expected */
-    EXPECT_EQ(SccOk, ms);
-    EXPECT_EQ("PT1M", res.duration.get());
-    EXPECT_FALSE(res.registrationId.isEmpty());
-    EXPECT_EQ(SccOk, res.errorCode.code);
-    EXPECT_EQ("OK", res.errorCode.reasonPhrase);
-    EXPECT_EQ(0, res.errorCode.details.size());
-
-    /* Check that associations collection at MongoDB is as expected. We don't check other collections
-     * (other tests in this suite cover it extensively) */
-
-    DBClientBase* connection = getMongoConnection();
-
-    ASSERT_EQ(1, connection->count(ASSOCIATIONS_COLL, BSONObj()));
-    BSONObj asoc = connection->findOne(ASSOCIATIONS_COLL, BSONObj());
-    EXPECT_STREQ("assoc1", C_STR_FIELD(asoc, "_id"));
-    EXPECT_STREQ("E1", C_STR_FIELD(asoc.getObjectField("srcEnt"), "id"));
-    EXPECT_STREQ("T1", C_STR_FIELD(asoc.getObjectField("srcEnt"), "type"));
-    EXPECT_STREQ("E2", C_STR_FIELD(asoc.getObjectField("tgtEnt"), "id"));
-    EXPECT_STREQ("T2", C_STR_FIELD(asoc.getObjectField("tgtEnt"), "type"));
-
-    std::vector<BSONElement> attrAssocs = asoc.getField("attrs").Array();
-    ASSERT_EQ(2, attrAssocs.size());
-    BSONObj attrAssoc0 = attrAssocs[0].embeddedObject();
-    BSONObj attrAssoc1 = attrAssocs[1].embeddedObject();
-    EXPECT_STREQ("A1", C_STR_FIELD(attrAssoc0, "src"));
-    EXPECT_STREQ("B1", C_STR_FIELD(attrAssoc0, "tgt"));
-    EXPECT_STREQ("A2", C_STR_FIELD(attrAssoc1, "src"));
-    EXPECT_STREQ("B2", C_STR_FIELD(attrAssoc1, "tgt"));
-
-    /* Release connection */
-    mongoDisconnect();
-
-    utExit();
-
-}
-
-/* ****************************************************************************
-*
-* AssociationsDbFail -
-*/
-TEST(mongoRegisterContextRequest, AssociationsDbFail)
-{
-    HttpStatusCode           ms;
-    RegisterContextRequest   req;
-    RegisterContextResponse  res;
-
-    utInit();
-
-    /* Prepare mock */   
-    const DBException e = DBException("boom!!", 33);
-    DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-    ON_CALL(*connectionMock, insert("unittest.associations",_,_,_))
-            .WillByDefault(Throw(e));
-
-    /* Forge the request (from "inside" to "outside") */
-    ContextRegistration cr;
-    AttributeAssociation aa1, aa2;
-    aa1.source = "A1";
-    aa1.target = "B1";
-    aa2.source = "A2";
-    aa2.target = "B2";
-    Metadata md("assoc1", "Association");;
-    md.association.entityAssociation.source = EntityId("E1", "T1", "false");
-    md.association.entityAssociation.target = EntityId("E2", "T2", "false");
-    md.association.attributeAssociationList.push_back(&aa1);
-    md.association.attributeAssociationList.push_back(&aa2);
-    cr.registrationMetadataVector.push_back(&md);
-    req.contextRegistrationVector.push_back(&cr);
-    req.duration.set("PT1M");
-
-    /* Prepare database */
-    prepareDatabase();
-
-    /* Set MongoDB connection mock (preserving "actual" connection for later use) */
-    DBClientBase* connection = getMongoConnection();
-    setMongoConnectionForUnitTest(connectionMock);
-
-    /* Invoke the function in mongoBackend library */
-    ms = mongoRegisterContext(&req, &res, uriParams);
-
-    /* Check response is as expected */
-    EXPECT_EQ(SccOk, ms);
-    EXPECT_TRUE(res.duration.isEmpty());
-    EXPECT_TRUE(res.registrationId.isEmpty());
-    EXPECT_EQ(SccReceiverInternalError, res.errorCode.code);
-    EXPECT_EQ("Internal Server Error", res.errorCode.reasonPhrase);
-    EXPECT_EQ("", res.errorCode.details);    
-
-    /* Release mock */
-    setMongoConnectionForUnitTest(NULL);
-    delete connectionMock;    
-
-    /* check collections have not been touched */  
-    EXPECT_EQ(0, connection->count(ASSOCIATIONS_COLL, BSONObj()));
-    EXPECT_EQ(0, connection->count(REGISTRATIONS_COLL, BSONObj()));
-
-    utExit();
 }

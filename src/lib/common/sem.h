@@ -28,18 +28,24 @@
 #include <stdio.h>
 
 
+// curl context includes
+#include <string>
+
+#include <pthread.h>
+#include <curl/curl.h>
+
 
 /* ****************************************************************************
 *
-* SemRequestType - 
+* SemOpType -
 */
-typedef enum SemRequestType
+typedef enum SemOpType
 {
   SemReadOp,
   SemWriteOp,
   SemReadWriteOp,
   SemNoneOp
-} SemRequestType;
+} SemOpType;
 
 
 
@@ -49,11 +55,29 @@ typedef enum SemRequestType
 */
 extern int semInit
 (
-  SemRequestType  _reqPolicy     = SemReadWriteOp,
-  bool            semTimeStat    = false,
-  int             shared         = 0,
-  int             takenInitially = 1
+  SemOpType  _reqPolicy     = SemReadWriteOp,
+  bool       semTimeStat    = false,
+  int        shared         = 0,
+  int        takenInitially = 1
 );
+
+
+
+/* ****************************************************************************
+*
+* reqSemTryToTake - try to take take semaphore
+*
+* This function is only used by the exit-function (AND only for DEBUG compilations),
+* in order to clean the subscription cache.
+* The exit-function runs when the broker is shutting down and instead of just wating for the
+* semaphore, it is taken if it is free, if not, the subscription cache is simply cleaned.
+* A little dangerous, no doubt, but, the broke is shutting down anyway, if it dies because
+* of a SIGSEGV in the subscription cache code, it is not such a big deal ... perhaps ...
+* This implementation will stay like this until we find a better way attack the problem.
+*
+* The cleanup is necessary for our memory-leak detection, to avoid finding false leaks.
+*/
+extern int reqSemTryToTake(void);
 
 
 
@@ -61,8 +85,10 @@ extern int semInit
 *
 * xxxSemTake -
 */
-extern int reqSemTake(const char* who, const char* what, SemRequestType reqType, bool* taken);
+extern int reqSemTake(const char* who, const char* what, SemOpType reqType, bool* taken);
 extern int transSemTake(const char* who, const char* what);
+extern int cacheSemTake(const char* who, const char* what);
+extern int timeStatSemTake(const char* who, const char* what);
 
 
 
@@ -72,6 +98,8 @@ extern int transSemTake(const char* who, const char* what);
 */
 extern int reqSemGive(const char* who, const char* what = NULL, bool taken = true);
 extern int transSemGive(const char* who, const char* what = NULL);
+extern int cacheSemGive(const char* who, const char* what = NULL);
+extern int timeStatSemGive(const char* who, const char* what = NULL);
 
 
 
@@ -79,8 +107,10 @@ extern int transSemGive(const char* who, const char* what = NULL);
 *
 * semTimeXxxGet - get accumulated semaphore waiting time
 */
-extern void semTimeReqGet(char* buf, int bufLen);
-extern void semTimeTransGet(char* buf, int bufLen);
+extern float semTimeReqGet(void);
+extern float semTimeTransGet(void);
+extern float semTimeCacheGet(void);
+extern float semTimeTimeStatGet(void);
 
 
 
@@ -90,5 +120,59 @@ extern void semTimeTransGet(char* buf, int bufLen);
 */
 extern void semTimeReqReset(void);
 extern void semTimeTransReset(void);
+extern void semTimeCacheReset(void);
+extern void semTimeTimeStatReset(void);
+
+
+
+/* ****************************************************************************
+*
+* curl context -
+*/
+struct curl_context
+{
+  CURL *curl;
+  pthread_mutex_t *pmutex;
+};
+
+
+
+/* ****************************************************************************
+*
+* curl_context_cleanup - 
+*/
+extern void curl_context_cleanup(void);
+
+
+
+/* ****************************************************************************
+*
+* get_curl_context -
+*/
+extern int get_curl_context(const std::string& key, struct curl_context *pcc);
+
+
+
+/* ****************************************************************************
+*
+* release_curl_context -
+*/
+extern int release_curl_context(struct curl_context *pcc, bool final = false);
+
+
+
+/* ****************************************************************************
+*
+* mutexTimeCCGet -
+*/
+extern float mutexTimeCCGet(void);
+
+
+
+/* ****************************************************************************
+*
+* mutexTimeCCReset -
+*/
+void mutexTimeCCReset(void);
 
 #endif  // SRC_LIB_COMMON_SEM_H_

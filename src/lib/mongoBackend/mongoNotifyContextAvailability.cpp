@@ -44,11 +44,8 @@ HttpStatusCode mongoNotifyContextAvailability
   const std::string&                   tenant,
   const std::string&                   servicePath
 )
-{
-    const std::string notifyFormat = uriParam[URI_PARAM_NOTIFY_FORMAT];
+{    
     bool              reqSemTaken;
-
-    LM_T(LmtMongo, ("Notify Context Availability: '%s' format", notifyFormat.c_str()));
 
     reqSemTake(__FUNCTION__, "mongo ngsi9 notification", SemWriteOp, &reqSemTaken);
 
@@ -58,7 +55,7 @@ HttpStatusCode mongoNotifyContextAvailability
     /* Process each ContextRegistrationElement to create a "fake" RegisterContextRequest */
     RegisterContextRequest rcr;
     for (unsigned int ix= 0; ix < requestP->contextRegistrationResponseVector.size(); ++ix) {
-        ContextRegistration* crP = &requestP->contextRegistrationResponseVector.get(ix)->contextRegistration;
+        ContextRegistration* crP = &requestP->contextRegistrationResponseVector[ix]->contextRegistration;
         rcr.contextRegistrationVector.push_back(crP);
     }
 
@@ -70,7 +67,7 @@ HttpStatusCode mongoNotifyContextAvailability
      * point of view, notifyContextAvailability is considered as a new registration (as no registratinId is
      * received in the notification message) */
     RegisterContextResponse rcres;
-    processRegisterContext(&rcr, &rcres, NULL, tenant, servicePath, notifyFormat);
+    processRegisterContext(&rcr, &rcres, NULL, tenant, servicePath, "JSON");
 
     responseP->responseCode.fill(SccOk);
 

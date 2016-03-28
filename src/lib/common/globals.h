@@ -40,14 +40,97 @@
 */
 #define FIWARE_LOCATION             "FIWARE::Location"
 #define FIWARE_LOCATION_DEPRECATED  "FIWARE_Location"   // Deprecated (but still supported) in Orion 0.16.0
+#define FIWARE_LOCATION_V2          "FIWARE::Location::NGSIv2"
+
+#define EARTH_RADIUS_METERS     6371000
+
+#define LOCATION_WGS84          "WGS84"
+#define LOCATION_WGS84_LEGACY   "WSG84"    /* We fixed the right string at 0.17.0, but the old one needs to be mantained */
 
 
 
 /* ****************************************************************************
 *
-* PRINTF - 
+* "geo:" types
 */
-#define PRINTF printf
+#define GEO_POINT    "geo:point"
+#define GEO_LINE     "geo:line"
+#define GEO_BOX      "geo:box"
+#define GEO_POLYGON  "geo:polygon"
+
+
+
+/* ****************************************************************************
+*
+* Special orderBy keywords
+*/
+#define ORDER_BY_PROXIMITY "geo:distance"
+
+
+
+/* ****************************************************************************
+*
+* other special types
+*/
+#define DATE_TYPE     "date"
+#define DEFAULT_TYPE  "none"
+
+
+
+/* ****************************************************************************
+*
+* virtual attributes
+*/
+#define DATE_CREATED   "dateCreated"
+#define DATE_MODIFIED  "dateModified"
+
+
+
+/* ****************************************************************************
+*
+* Render modes - 
+*/
+#define RENDER_MODE_NORMALIZED    "normalized"
+#define RENDER_MODE_KEY_VALUES    "keyValues"
+#define RENDER_MODE_VALUES        "values"
+#define RENDER_MODE_UNIQUE_VALUES "unique"
+
+
+
+/* ****************************************************************************
+*
+* Values for the URI param 'options'
+*/
+#define OPT_COUNT           "count"
+#define OPT_APPEND          "append"
+#define OPT_NORMALIZED      RENDER_MODE_NORMALIZED
+#define OPT_VALUES          RENDER_MODE_VALUES
+#define OPT_KEY_VALUES      RENDER_MODE_KEY_VALUES
+#define OPT_UNIQUE_VALUES   RENDER_MODE_UNIQUE_VALUES
+#define OPT_DATE_CREATED    DATE_CREATED
+#define OPT_DATE_MODIFIED   DATE_MODIFIED
+
+
+ 
+/* ****************************************************************************
+*
+* NGSIv2 "flavours" to tune some behaviours in mongoBackend -
+* 
+* It has been suggested to use RequestType enum (in Request.h) instead of this
+* of Ngsiv2Flavour. By the moment we see them as separate things (and probably
+* flavours will be removed as Orion evolves and NGSIv1 gets removed) but let's
+* see how it evolves.
+*
+* For more detail on this, please have a look to this dicussion at GitHub: 
+* https://github.com/telefonicaid/fiware-orion/pull/1706#discussion_r50416202
+*/
+typedef enum Ngsiv2Flavour
+{
+  NGSIV2_NO_FLAVOUR               = 0,
+  NGSIV2_FLAVOUR_ONCREATE         = 1,
+  NGSIV2_FLAVOUR_ONAPPENDORUPDATE = 2,
+} Ngsiv2Flavour;
+
 
 
 /* ****************************************************************************
@@ -82,7 +165,17 @@ extern bool               harakiri;
 extern int                startTime;
 extern int                statisticsTime;
 extern OrionExitFunction  orionExitFunction;
-extern bool               semTimeStatistics;
+extern unsigned           cprForwardLimit;
+extern char               notificationMode[];
+extern bool               noCache;
+extern bool               simulatedNotification;
+
+extern bool               semWaitStatistics;
+extern bool               timingStatistics;
+extern bool               countersStatistics;
+extern bool               notifQueueStatistics;
+
+extern bool               checkIdv1;
 
 
 
@@ -90,7 +183,17 @@ extern bool               semTimeStatistics;
 *
 * orionInit - 
 */
-extern void orionInit(OrionExitFunction exitFunction, const char* version, SemRequestType reqPolicy, bool semTimeStat);
+extern void orionInit
+(
+  OrionExitFunction  exitFunction,
+  const char*        version,
+  SemOpType          reqPolicy,
+  bool               _countersStatistics,
+  bool               _semWaitStatistics,
+  bool               _timingStatistics,
+  bool               _notifQueueStatistics,
+  bool               _checkIdv1
+);
 
 
 
@@ -146,6 +249,31 @@ extern int64_t parse8601(const std::string& s);
 
 
 
+/*****************************************************************************
+*
+* parse8601Time -
+*
+* This is common code for Duration and Throttling (at least)
+*
+*/
+int64_t parse8601Time(const std::string& s);
+
+
+
+/* ****************************************************************************
+*
+* transactionIdGet - 
+*
+* PARAMETERS
+*   readonly:   don't change the transactionId, just return it.
+*
+* Unless readonly, add one to the transactionId and return it.
+* If readonly - just return the current transactionId.
+*/
+int transactionIdGet(bool readonly = true);
+
+
+
 /* ****************************************************************************
 *
 * transactionIdSet - set the transaction ID
@@ -163,3 +291,4 @@ extern int64_t parse8601(const std::string& s);
 extern void transactionIdSet(void);
 
 #endif  // SRC_LIB_COMMON_GLOBALS_H_
+	

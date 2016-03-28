@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "logMsg/traceLevels.h"
 #include "common/Format.h"
 #include "common/tag.h"
 #include "convenience/ContextAttributeResponse.h"
@@ -41,7 +42,7 @@
 */
 UpdateContextElementResponse::UpdateContextElementResponse()
 {
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
 
 
@@ -60,18 +61,18 @@ std::string UpdateContextElementResponse::render
   std::string tag = "updateContextElementResponse";
   std::string out = "";
 
-  out += startTag(indent, tag, ciP->outFormat, false);
+  out += startTag1(indent, tag, false);
 
   if ((errorCode.code != SccNone) && (errorCode.code != SccOk))
   {
-    out += errorCode.render(ciP->outFormat, indent + "  ");
+    out += errorCode.render(indent + "  ");
   }
   else
   {
     out += contextAttributeResponseVector.render(ciP, requestType, indent + "  ");
   }
 
-  out += endTag(indent, tag, ciP->outFormat);
+  out += endTag(indent);
 
   return out;
 }
@@ -148,7 +149,17 @@ void UpdateContextElementResponse::fill(UpdateContextResponse* ucrsP)
     //
     for (unsigned int aIx = 0; aIx < cerP->contextElement.contextAttributeVector.size(); ++aIx)
     {
-      cerP->contextElement.contextAttributeVector[aIx]->value = "";
+      //
+      // NOTE
+      //   Only stringValue is cleared here (not numberValue nor boolValue, which are new for v2).
+      //   This is OK for /v1, where all fields are strings.
+      //   For /v2, we would need to reset the valueType to STRING as well, but since this function is used only
+      //   in v1, this is not strictly necessary.
+      //   However, it doesn't hurt, so that modification is included as well: 
+      //     cerP->contextElement.contextAttributeVector[aIx]->valueType = orion::ValueTypeString
+      //
+      cerP->contextElement.contextAttributeVector[aIx]->stringValue = "";
+      cerP->contextElement.contextAttributeVector[aIx]->valueType   = orion::ValueTypeString;
     }
 
     contextAttributeResponseVector.fill(&cerP->contextElement.contextAttributeVector, cerP->statusCode);
@@ -202,7 +213,7 @@ void UpdateContextElementResponse::fill(UpdateContextResponse* ucrsP)
 */
 void UpdateContextElementResponse::present(const std::string& indent)
 {
-  LM_F(("%sUpdateContextElementResponse:", indent.c_str()));
+  LM_T(LmtPresent,("%sUpdateContextElementResponse:", indent.c_str()));
   contextAttributeResponseVector.present(indent + "  ");
   errorCode.present(indent + "  ");
 }

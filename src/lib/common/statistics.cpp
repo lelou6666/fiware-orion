@@ -23,7 +23,45 @@
 * Author: Ken Zangelin
 */
 #include "common/statistics.h"
+#include "common/tag.h"
 #include "ngsi/Request.h"
+#include "logMsg/logMsg.h"
+#include "common/JsonHelper.h"
+
+
+/* ****************************************************************************
+*
+* STAT_ADD - 
+*/
+#define STAT_ADD(out, indent, buf, tag, comma)                                \
+do                                                                            \
+{                                                                             \
+  if (format == JSON)                                                         \
+  {                                                                           \
+    if (comma)                                                                \
+    {                                                                         \
+      out += indent + JSON_STR(tag) + ": " + JSON_STR(buf) + ",\n";           \
+    }                                                                         \
+    else                                                                      \
+    {                                                                         \
+      out += indent + JSON_STR(tag) + ": " + JSON_STR(buf) + "\n";            \
+    }                                                                         \
+  }                                                                           \
+  else                                                                        \
+  {                                                                           \
+    out += indent + "<" + tag + ">" + buf + "</" + tag + ">\n";               \
+  }                                                                           \
+} while (0)
+
+
+
+/* ****************************************************************************
+*
+* Statistic time counters -
+*/
+TimeStat           accTimeStat;
+TimeStat           lastTimeStat;
+__thread TimeStat  threadLastTimeStat;
 
 
 
@@ -32,7 +70,7 @@
 * Statistic counters for NGSI REST requests
 */
 int noOfJsonRequests                                     = -1;
-int noOfXmlRequests                                      = -1;
+int noOfRequestsWithoutPayload                           = -1;
 int noOfRegistrations                                    = -1;
 int noOfRegistrationErrors                               = -1;
 int noOfRegistrationUpdates                              = -1;
@@ -90,7 +128,8 @@ int noOfIndividualContextEntityAttributeWithTypeAndId    = -1;
 int noOfAttributeValueInstanceWithTypeAndId              = -1;
 int noOfEntityByIdAttributeByNameIdAndType               = -1;
 
-int noOfLogRequests                                      = -1;
+int noOfLogTraceRequests                                 = -1;
+int noOfLogLevelRequests                                 = -1;
 int noOfVersionRequests                                  = -1;
 int noOfExitRequests                                     = -1;
 int noOfLeakRequests                                     = -1;
@@ -113,6 +152,147 @@ int noOfAttributesForEntityTypeRequest                   = -1;
 int noOfAttributesForEntityTypeResponse                  = -1;
 int noOfContextEntitiesByEntityIdAndType                 = -1;
 
+int noOfEntitiesRequests                                 = -1;
+int noOfEntitiesResponses                                = -1;
+
+int noOfEntryPointsRequests                              = -1;
+int noOfEntryPointsResponses                             = -1;
+
+int noOfEntityRequests                                   = -1;
+int noOfEntityResponses                                  = -1;
+
+int noOfEntityAttributeRequests                          = -1;
+int noOfEntityAttributeResponses                         = -1;
+
+int noOfEntityAttributeValueRequests                     = -1;
+int noOfEntityAttributeValueResponses                    = -1;
+
+int noOfPostEntity                                       = -1;
+
+int noOfPostAttributes                                   = -1;
+int noOfDeleteEntity                                     = -1;
+int noOfSubCacheEntries                                  = -1;
+int noOfSubCacheLookups                                  = -1;
+int noOfSubCacheRemovals                                 = -1;
+int noOfSubCacheRemovalFailures                          = -1;
+int noOfEntityTypeRequest                                = -1;
+int noOfEntityAllTypesRequest                            = -1;
+int noOfSubscriptionsRequest                             = -1;
+int noOfIndividualSubscriptionRequest                    = -1;
+int noOfSimulatedNotifications                           = -1;
+int noOfBatchQueryRequest                                = -1;
+int noOfBatchUpdateRequest                               = -1;
+
+
+
+/* ****************************************************************************
+*
+* timeSpecToFloat -
+*
+*/
+inline float timeSpecToFloat(const struct timespec& t)
+{
+  return t.tv_sec + ((float) t.tv_nsec) / 1E9;
+}
+
+
+
+/* ****************************************************************************
+*
+* renderTimingStatistics -
+*
+* xxxReqTime           - the total time that the LAST request took.
+*                        Measuring from the first MHD callback to 'connectionTreat',
+*                        until the MHD callback to 'requestCompleted'.
+* xxxJsonV1ParseTime   - the time that the JSON parse+treat of the LAST request took.
+* xxxJsonV2ParseTime   - the time that the JSON parse+treat of the LAST request took.
+* xxxMongoBackendTime  - the time that the mongoBackend took to treat the last request
+* xxxReadWaitTime      - 
+* xxxWriteWaitTime     - 
+* xxxCommandWaitTime   - 
+* xxxRenderTime        - the time that the last render took to render the response
+*
+*/
+std::string renderTimingStatistics(void)
+{
+
+  timeStatSemTake(__FUNCTION__, "putting stats together");
+
+  bool accJsonV1ParseTime      = (accTimeStat.jsonV1ParseTime.tv_sec != 0)        || (accTimeStat.jsonV1ParseTime.tv_nsec != 0);
+  bool accJsonV2ParseTime      = (accTimeStat.jsonV2ParseTime.tv_sec != 0)        || (accTimeStat.jsonV2ParseTime.tv_nsec != 0);
+  bool accMongoBackendTime     = (accTimeStat.mongoBackendTime.tv_sec != 0)       || (accTimeStat.mongoBackendTime.tv_nsec != 0);
+  bool accMongoReadWaitTime    = (accTimeStat.mongoReadWaitTime.tv_sec != 0)      || (accTimeStat.mongoReadWaitTime.tv_nsec != 0);
+  bool accMongoWriteWaitTime   = (accTimeStat.mongoWriteWaitTime.tv_sec != 0)     || (accTimeStat.mongoWriteWaitTime.tv_nsec != 0);
+  bool accMongoCommandWaitTime = (accTimeStat.mongoCommandWaitTime.tv_sec != 0)   || (accTimeStat.mongoCommandWaitTime.tv_nsec != 0);
+  bool accRenderTime           = (accTimeStat.renderTime.tv_sec != 0)             || (accTimeStat.renderTime.tv_nsec != 0);
+  bool accReqTime              = (accTimeStat.reqTime.tv_sec != 0)                || (accTimeStat.reqTime.tv_nsec != 0);
+
+  bool lastJsonV1ParseTime      = (lastTimeStat.jsonV1ParseTime.tv_sec != 0)      || (lastTimeStat.jsonV1ParseTime.tv_nsec != 0);
+  bool lastJsonV2ParseTime      = (lastTimeStat.jsonV2ParseTime.tv_sec != 0)      || (lastTimeStat.jsonV2ParseTime.tv_nsec != 0);
+  bool lastMongoBackendTime     = (lastTimeStat.mongoBackendTime.tv_sec != 0)     || (lastTimeStat.mongoBackendTime.tv_nsec != 0);
+  bool lastMongoReadWaitTime    = (lastTimeStat.mongoReadWaitTime.tv_sec != 0)    || (lastTimeStat.mongoReadWaitTime.tv_nsec != 0);
+  bool lastMongoWriteWaitTime   = (lastTimeStat.mongoWriteWaitTime.tv_sec != 0)   || (lastTimeStat.mongoWriteWaitTime.tv_nsec != 0);
+  bool lastMongoCommandWaitTime = (lastTimeStat.mongoCommandWaitTime.tv_sec != 0) || (lastTimeStat.mongoCommandWaitTime.tv_nsec != 0);
+  bool lastRenderTime           = (lastTimeStat.renderTime.tv_sec != 0)           || (lastTimeStat.renderTime.tv_nsec != 0);
+  bool lastReqTime              = (lastTimeStat.reqTime.tv_sec != 0)              || (lastTimeStat.reqTime.tv_nsec != 0);
+
+  bool last = lastJsonV1ParseTime || lastJsonV2ParseTime || lastMongoBackendTime || lastRenderTime || lastReqTime;
+  bool acc  = accJsonV1ParseTime || accJsonV2ParseTime || accMongoBackendTime || accRenderTime || accReqTime;
+
+  if (!acc && !last)
+  {
+    timeStatSemGive(__FUNCTION__, "no stats to report");
+    return "{}";
+  }
+
+  JsonHelper jh;
+
+  if (acc)
+  {
+    JsonHelper accJh;
+
+    if (accJsonV1ParseTime)      accJh.addFloat("jsonV1Parse",      timeSpecToFloat(accTimeStat.jsonV1ParseTime));
+    if (accJsonV2ParseTime)      accJh.addFloat("jsonV2Parse",      timeSpecToFloat(accTimeStat.jsonV2ParseTime));
+    if (accMongoBackendTime)     accJh.addFloat("mongoBackend",     timeSpecToFloat(accTimeStat.mongoBackendTime));
+    if (accMongoReadWaitTime)    accJh.addFloat("mongoReadWait",    timeSpecToFloat(accTimeStat.mongoReadWaitTime));
+    if (accMongoWriteWaitTime)   accJh.addFloat("mongoWriteWait",   timeSpecToFloat(accTimeStat.mongoWriteWaitTime));
+    if (accMongoCommandWaitTime) accJh.addFloat("mongoCommandWait", timeSpecToFloat(accTimeStat.mongoCommandWaitTime));
+    if (accRenderTime)           accJh.addFloat("render",           timeSpecToFloat(accTimeStat.renderTime));
+    if (accReqTime)              accJh.addFloat("total",            timeSpecToFloat(accTimeStat.reqTime));
+
+    jh.addRaw("accumulated", accJh.str());
+  }
+  if (last)
+  {
+    JsonHelper lastJh;
+
+    if (lastJsonV1ParseTime)      lastJh.addFloat("jsonV1Parse",      timeSpecToFloat(lastTimeStat.jsonV1ParseTime));
+    if (lastJsonV2ParseTime)      lastJh.addFloat("jsonV2Parse",      timeSpecToFloat(lastTimeStat.jsonV2ParseTime));
+    if (lastMongoBackendTime)     lastJh.addFloat("mongoBackend",     timeSpecToFloat(lastTimeStat.mongoBackendTime));
+    if (lastMongoReadWaitTime)    lastJh.addFloat("mongoReadWait",    timeSpecToFloat(lastTimeStat.mongoReadWaitTime));
+    if (lastMongoWriteWaitTime)   lastJh.addFloat("mongoWriteWait",   timeSpecToFloat(lastTimeStat.mongoWriteWaitTime));
+    if (lastMongoCommandWaitTime) lastJh.addFloat("mongoCommandWait", timeSpecToFloat(lastTimeStat.mongoCommandWaitTime));
+    if (lastRenderTime)           lastJh.addFloat("render",           timeSpecToFloat(lastTimeStat.renderTime));
+    if (lastReqTime)              lastJh.addFloat("total",            timeSpecToFloat(lastTimeStat.reqTime));
+
+    jh.addRaw("last", lastJh.str());
+  }
+
+  timeStatSemGive(__FUNCTION__, "putting stats together");
+  return jh.str();
+}
+
+
+
+/* ****************************************************************************
+*
+* timingStatisticsReset - 
+*/
+void timingStatisticsReset(void)
+{
+  memset(&accTimeStat, 0, sizeof(accTimeStat));
+}
+
 
 
 /* ****************************************************************************
@@ -124,18 +304,19 @@ int noOfContextEntitiesByEntityIdAndType                 = -1;
 */
 void statisticsUpdate(RequestType request, Format inFormat)
 {
-  if (inFormat == XML)
-  {
-     ++noOfXmlRequests;
-  }
-
   if (inFormat == JSON)
   {
     ++noOfJsonRequests;
   }
+  else if (inFormat == NOFORMAT)
+  {
+    // FIXME P4: Include this counter in the statistics (Issue #1400)
+    ++noOfRequestsWithoutPayload;
+  }
 
   switch (request)
   {
+  case NoRequest:                                        break;
   case RegisterContext:                                  ++noOfRegistrations; break;
   case DiscoverContextAvailability:                      ++noOfDiscoveries; break;
   case SubscribeContextAvailability:                     ++noOfAvailabilitySubscriptions; break;
@@ -148,6 +329,7 @@ void statisticsUpdate(RequestType request, Format inFormat)
   case UpdateContextSubscription:                        ++noOfSubscriptionUpdates; break;
   case UnsubscribeContext:                               ++noOfUnsubscriptions; break;
   case NotifyContext:                                    ++noOfNotificationsReceived; break;
+  case NotifyContextSent:                                ++noOfNotificationsSent; break;
   case UpdateContext:                                    ++noOfUpdates; break;
   case RtQueryContextResponse:                           ++noOfQueryContextResponses; break;
   case RtUpdateContextResponse:                          ++noOfUpdateContextResponses; break;
@@ -179,7 +361,8 @@ void statisticsUpdate(RequestType request, Format inFormat)
   case ContextEntitiesByEntityIdAndType:                 ++noOfContextEntitiesByEntityIdAndType; break;
   case EntityByIdAttributeByNameIdAndType:               ++noOfEntityByIdAttributeByNameIdAndType; break;
 
-  case LogRequest:                                       ++noOfLogRequests; break;
+  case LogTraceRequest:                                  ++noOfLogTraceRequests; break;
+  case LogLevelRequest:                                  ++noOfLogLevelRequests; break;
   case VersionRequest:                                   ++noOfVersionRequests; break;
   case ExitRequest:                                      ++noOfExitRequests; break;
   case LeakRequest:                                      ++noOfLeakRequests; break;
@@ -200,5 +383,27 @@ void statisticsUpdate(RequestType request, Format inFormat)
   case AttributesForEntityType:                          ++noOfAttributesForEntityTypeRequest; break;
   case RtEntityTypesResponse:                            ++noOfEntityTypesResponse; break;
   case RtAttributesForEntityTypeResponse:                ++noOfAttributesForEntityTypeResponse; break;
+
+  case EntitiesRequest:                                  ++noOfEntitiesRequests; break;
+  case EntitiesResponse:                                 ++noOfEntitiesResponses; break;
+  case EntryPointsRequest:                               ++noOfEntryPointsRequests; break;
+  case EntryPointsResponse:                              ++noOfEntryPointsResponses; break;
+  case EntityRequest:                                    ++noOfEntityRequests; break;
+  case EntityResponse:                                   ++noOfEntityResponses; break;
+  case EntityAttributeRequest:                           ++noOfEntityAttributeRequests; break;
+  case EntityAttributeResponse:                          ++noOfEntityAttributeResponses; break;
+  case EntityAttributeValueRequest:                      ++noOfEntityAttributeValueRequests; break;
+  case EntityAttributeValueResponse:                     ++noOfEntityAttributeValueResponses; break;
+
+  case PostEntity:                                       ++noOfPostEntity; break;
+  case PostAttributes:                                   ++noOfPostAttributes; break;
+  case DeleteEntity:                                     ++noOfDeleteEntity; break;
+
+  case EntityTypeRequest:                                ++noOfEntityTypeRequest; break;
+  case EntityAllTypesRequest:                            ++noOfEntityAllTypesRequest; break;
+  case SubscriptionsRequest:                             ++noOfSubscriptionsRequest; break;
+  case IndividualSubscriptionRequest:                    ++noOfIndividualSubscriptionRequest; break;
+  case BatchQueryRequest:                                ++noOfBatchQueryRequest; break;
+  case BatchUpdateRequest:                               ++noOfBatchUpdateRequest; break;
   }
 }

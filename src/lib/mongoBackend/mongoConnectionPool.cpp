@@ -24,14 +24,20 @@
 */
 #include <time.h>
 #include <semaphore.h>
+#include <string>
+#include <vector>
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
 #include "common/clockFunctions.h"
 #include "common/string.h"
+#include "alarmMgr/alarmMgr.h"
+
 #include "mongoBackend/mongoConnectionPool.h"
 #include "mongoBackend/MongoGlobal.h"
+#include "mongoBackend/connectionOperations.h"
+#include "mongoBackend/safeMongo.h"
 
 
 
@@ -112,10 +118,13 @@ static DBClientBase* mongoConnect
 
   if (strlen(rplSet) == 0)
   {
-    /* Setting the first argument to true is to use autoreconnect */
+    // Setting the first argument to true is to use autoreconnect
     connection = new DBClientConnection(true);
 
-    /* Not sure of how to generalize the following code, given that DBClientBase class doesn't have a common connect() method (surprisingly) */
+    //
+    // Not sure of how to generalize the following code,
+    // given that DBClientBase class doesn't have a common connect() method (surprisingly)
+    //
     for (int tryNo = 0; tryNo < retries; ++tryNo)
     {
       if ( ((DBClientConnection*)connection)->connect(host, err))
@@ -126,14 +135,16 @@ static DBClientBase* mongoConnect
 
       if (tryNo == 0)
       {
-        LM_E(("Database Startup Error (cannot connect to mongo - doing %d retries with a %d microsecond interval)", retries, RECONNECT_DELAY));
+        LM_E(("Database Startup Error (cannot connect to mongo - doing %d retries with a %d microsecond interval)",
+              retries,
+              RECONNECT_DELAY));
       }
       else
       {
         LM_T(LmtMongo, ("Try %d connecting to mongo failed", tryNo));
       }
 
-      usleep(RECONNECT_DELAY * 1000); // usleep accepts microseconds
+      usleep(RECONNECT_DELAY * 1000);  // usleep accepts microseconds
     }
   }
   else
@@ -153,7 +164,10 @@ static DBClientBase* mongoConnect
 
     connection = new DBClientReplicaSet(rplSet, rplSetHosts, timeout);
 
-    /* Not sure of to generalize the following code, given that DBClientBase class hasn't a common connect() method (surprisingly) */
+    //
+    // Not sure of to generalize the following code,
+    // given that DBClientBase class hasn't a common connect() method (surprisingly)
+    //
     for (int tryNo = 0; tryNo < retries; ++tryNo)
     {
       if ( ((DBClientReplicaSet*)connection)->connect())
@@ -164,22 +178,29 @@ static DBClientBase* mongoConnect
 
       if (tryNo == 0)
       {
-        LM_E(("Database Startup Error (cannot connect to mongo - doing %d retries with a %d microsecond interval)", retries, RECONNECT_DELAY));
+        LM_E(("Database Startup Error (cannot connect to mongo - doing %d retries with a %d microsecond interval)",
+              retries,
+              RECONNECT_DELAY));
       }
       else
       {
         LM_T(LmtMongo, ("Try %d connecting to mongo failed", tryNo));
       }
 
-      usleep(RECONNECT_DELAY * 1000); // usleep accepts microseconds
+      usleep(RECONNECT_DELAY * 1000);  // usleep accepts microseconds
     }
   }
 
   if (connected == false)
   {
-    LM_E(("Database Error (connection failed, after %d retries: '%s')", retries, err.c_str()));
+    char cV[64];
+    snprintf(cV, sizeof(cV), "connection failed, after %d retries", retries);
+    std::string details = std::string(cV) + ": " + err;
+    
+    alarmMgr.dbError(details);
     return NULL;
   }
+  alarmMgr.dbErrorReset();
 
   LM_I(("Successful connection to database"));
 
@@ -188,18 +209,22 @@ static DBClientBase* mongoConnect
   //
   mongo::WriteConcern writeConcernCheck;
 
-  // In legacy driver writeConcern is no longer an int, but a class. We need a small
-  // conversion step here
+  //
+  // In the legacy driver, writeConcern is no longer an int, but a class.
+  // We need a small conversion step here
+  //
   mongo::WriteConcern wc = writeConcern == 1 ? mongo::WriteConcern::acknowledged : mongo::WriteConcern::unacknowledged;
 
-  connection->setWriteConcern((mongo::WriteConcern) wc);
-  writeConcernCheck = (mongo::WriteConcern) connection->getWriteConcern();
-    
+  setWriteConcern(connection, wc, &err);
+  getWriteConcern(connection, &writeConcernCheck, &err);
+
   if (writeConcernCheck.nodes() != wc.nodes())
   {
-    LM_E(("Database Error (Write Concern not set as desired)"));
+    alarmMgr.dbError("Write Concern not set as desired)");
     return NULL;
   }
+  alarmMgr.dbErrorReset();
+
   LM_T(LmtMongo, ("Active DB Write Concern mode: %d", writeConcern));
 
   /* Authentication is different depending if multiservice is used or not. In the case of not
@@ -211,9 +236,8 @@ static DBClientBase* mongoConnect
   {
     if (strlen(username) != 0 && strlen(passwd) != 0)
     {
-      if (!connection->auth("admin", std::string(username), std::string(passwd), err))
+      if (!connectionAuth(connection, "admin", std::string(username), std::string(passwd), &err))
       {
-        LM_E(("Database Startup Error (authentication: db='admin', username='%s', password='*****': %s)", username, err.c_str()));
         return NULL;
       }
     }
@@ -222,25 +246,28 @@ static DBClientBase* mongoConnect
   {
     if (strlen(db) != 0 && strlen(username) != 0 && strlen(passwd) != 0)
     {
-      if (!connection->auth(std::string(db), std::string(username), std::string(passwd), err))
+      if (!connectionAuth(connection, std::string(db), std::string(username), std::string(passwd), &err))
       {
-        LM_E(("Database Startup Error (authentication: db='%s', username='%s', password='*****': %s)", db, username, err.c_str()));
         return NULL;
       }
     }
   }
 
   /* Get mongo version with the 'buildinfo' command */
-  BSONObj result;
+  BSONObj     result;
   std::string extra;
-  connection->runCommand("admin", BSON("buildinfo" << 1), result);
-  std::string versionString = std::string(result.getStringField("version"));
+  runCollectionCommand(connection, "admin", BSON("buildinfo" << 1), &result, &err);
+  std::string versionString = std::string(getStringFieldF(result, "version"));
   if (!versionParse(versionString, mongoVersionMayor, mongoVersionMinor, extra))
   {
     LM_E(("Database Startup Error (invalid version format: %s)", versionString.c_str()));
     return NULL;
   }
-  LM_T(LmtMongo, ("mongo version server: %s (mayor: %d, minor: %d, extra: %s)", versionString.c_str(), mongoVersionMayor, mongoVersionMinor, extra.c_str()));
+  LM_T(LmtMongo, ("mongo version server: %s (mayor: %d, minor: %d, extra: %s)",
+                  versionString.c_str(),
+                  mongoVersionMayor,
+                  mongoVersionMinor,
+                  extra.c_str()));
 
   return connection;
 }
@@ -253,22 +280,28 @@ static DBClientBase* mongoConnect
 */
 int mongoConnectionPoolInit
 (
-  const char* host,
-  const char* db,
-  const char* rplSet,
-  const char* username,
-  const char* passwd,
-  bool        multitenant,
-  double      timeout,
-  int         writeConcern,
-  int         poolSize,
-  bool        semTimeStat
+  const char*  host,
+  const char*  db,
+  const char*  rplSet,
+  const char*  username,
+  const char*  passwd,
+  bool         multitenant,
+  double       timeout,
+  int          writeConcern,
+  int          poolSize,
+  bool         semTimeStat
 )
 {
+#ifdef UNIT_TEST
+  /* Basically, we are mocking all the DB pool with a single connection. The getMongoConnection() and mongoReleaseConnection() methods
+   * are mocked in similar way to ensure a coherent behaviour */
+  setMongoConnectionForUnitTest(mongoConnect(host, db, rplSet, username, passwd, multitenant, writeConcern, timeout));
+  return 0;
+#else
   //
   // Create the pool
   //
-  connectionPool     = (MongoConnection*) calloc(sizeof(MongoConnection), poolSize);
+  connectionPool  = (MongoConnection*) calloc(sizeof(MongoConnection), poolSize);
   if (connectionPool == NULL)
   {
     LM_E(("Runtime Error (insufficient memory to create connection pool of %d connections)", poolSize));
@@ -281,8 +314,9 @@ int mongoConnectionPoolInit
   //
   for (int ix = 0; ix < connectionPoolSize; ++ix)
   {
-    connectionPool[ix].connection = mongoConnect(host, db, rplSet, username, passwd, multitenant, writeConcern, timeout);
     connectionPool[ix].free       = true;
+    connectionPool[ix].connection =
+        mongoConnect(host, db, rplSet, username, passwd, multitenant, writeConcern, timeout);
   }
 
   //
@@ -309,8 +343,9 @@ int mongoConnectionPoolInit
 
   // Measure accumulated semaphore waiting time?
   semStatistics = semTimeStat;
-  
+
   return 0;
+#endif
 }
 
 
@@ -373,7 +408,7 @@ DBClientBase* mongoPoolConnectionGet(void)
   }
 
   sem_post(&connectionPoolSem);
-  
+
   return connection;
 }
 
@@ -406,18 +441,9 @@ void mongoPoolConnectionRelease(DBClientBase* connection)
 *
 * mongoPoolConnectionSemWaitingTimeGet - 
 */
-char* mongoPoolConnectionSemWaitingTimeGet(char* buf, int bufLen)
+float mongoPoolConnectionSemWaitingTimeGet(void)
 {
-  if (semStatistics)
-  {
-    snprintf(buf, bufLen, "%lu.%09d", semWaitingTime.tv_sec, (int) semWaitingTime.tv_nsec);
-  }
-  else
-  {
-    snprintf(buf, bufLen, "Disabled");
-  }
-
-  return buf;
+  return semWaitingTime.tv_sec + ((float) semWaitingTime.tv_nsec) / 1E9;
 }
 
 
@@ -431,6 +457,5 @@ void mongoPoolConnectionSemWaitingTimeReset(void)
   semWaitingTime.tv_sec  = 0;
   semWaitingTime.tv_nsec = 0;
 }
-
 
 

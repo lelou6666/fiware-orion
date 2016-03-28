@@ -28,6 +28,7 @@
 #include "logMsg/traceLevels.h"
 
 #include "common/sem.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/mongoQueryContext.h"
@@ -35,6 +36,8 @@
 #include "ngsi/ContextRegistrationResponse.h"
 #include "ngsi10/QueryContextRequest.h"
 #include "ngsi10/QueryContextResponse.h"
+
+
 
 /* ****************************************************************************
 *
@@ -48,7 +51,7 @@ bool someContextElementNotFound(ContextElementResponseVector& cerV)
 {
   for (unsigned int ix = 0; ix < cerV.size(); ++ix)
   {
-    if (someContextElementNotFound(*cerV.get(ix)))
+    if (someContextElementNotFound(*cerV[ix]))
     {
       return true;
     }
@@ -69,7 +72,7 @@ void fillContextProviders(ContextElementResponseVector& cerV, ContextRegistratio
 {
   for (unsigned int ix = 0; ix < cerV.size(); ++ix)
   {
-    fillContextProviders(cerV.get(ix), crrV);
+    fillContextProviders(cerV[ix], crrV);
   }
 }
 
@@ -82,9 +85,9 @@ void addContextProviderEntity(ContextElementResponseVector& cerV, EntityId* enP,
 {
   for (unsigned int ix = 0; ix < cerV.size(); ++ix)
   {
-    if (cerV.get(ix)->contextElement.entityId.id == enP->id && cerV.get(ix)->contextElement.entityId.type == enP->type)
+    if (cerV[ix]->contextElement.entityId.id == enP->id && cerV[ix]->contextElement.entityId.type == enP->type)
     {
-      cerV.get(ix)->contextElement.providingApplicationList.push_back(pa);
+      cerV[ix]->contextElement.providingApplicationList.push_back(pa);
       return;    /* by construction, no more than one CER with the same entity information should exist in the CERV) */
     }
   }
@@ -109,19 +112,26 @@ void addContextProviderEntity(ContextElementResponseVector& cerV, EntityId* enP,
 * limit has been reached with local entities.
 *
 */
-void addContextProviderAttribute(ContextElementResponseVector& cerV, EntityId* enP, ContextRegistrationAttribute* craP, const ProvidingApplication& pa, bool limitReached)
+void addContextProviderAttribute
+(
+  ContextElementResponseVector&   cerV,
+  EntityId*                       enP,
+  ContextRegistrationAttribute*   craP,
+  const ProvidingApplication&     pa,
+  bool                            limitReached
+)
 {
   for (unsigned int ix = 0; ix < cerV.size(); ++ix)
   {
-    if ((cerV.get(ix)->contextElement.entityId.id != enP->id) ||
-        (cerV.get(ix)->contextElement.entityId.type != enP->type))
+    if ((cerV[ix]->contextElement.entityId.id != enP->id) ||
+        (cerV[ix]->contextElement.entityId.type != enP->type))
     {
      continue;
     }
 
-    for (unsigned int jx = 0; jx < cerV.get(ix)->contextElement.contextAttributeVector.size(); ++jx)
+    for (unsigned int jx = 0; jx < cerV[ix]->contextElement.contextAttributeVector.size(); ++jx)
     {
-      std::string attrName = cerV.get(ix)->contextElement.contextAttributeVector.get(jx)->name;
+      std::string attrName = cerV[ix]->contextElement.contextAttributeVector[jx]->name;
       if (attrName == craP->name)
       {
         /* In this case, the attribute has been already found in local database. CPr is unnecessary */
@@ -131,7 +141,7 @@ void addContextProviderAttribute(ContextElementResponseVector& cerV, EntityId* e
     /* Reached this point, no attribute was found, so adding it with corresponding CPr info */
     ContextAttribute* caP = new ContextAttribute(craP->name, "", "");
     caP->providingApplication = pa;
-    cerV.get(ix)->contextElement.contextAttributeVector.push_back(caP);
+    cerV[ix]->contextElement.contextAttributeVector.push_back(caP);
     return;
 
   }
@@ -160,11 +170,11 @@ void addContextProviderAttribute(ContextElementResponseVector& cerV, EntityId* e
 * matchEntityInCrr -
 *
 */
-bool matchEntityInCrr(ContextRegistration& cr, EntityId* enP)
+bool matchEntityInCrr(ContextRegistration& cr, const EntityId* enP)
 {
   for (unsigned int ix = 0; ix < cr.entityIdVector.size(); ++ix)
   {
-    EntityId* crEnP = cr.entityIdVector.get(ix);
+    EntityId* crEnP = cr.entityIdVector[ix];
     if (matchEntity(crEnP, enP))
     {
       return true;
@@ -190,11 +200,11 @@ bool matchEntityInCrr(ContextRegistration& cr, EntityId* enP)
 * processGenericEntities() function)
 *
 */
-void addContextProviders(ContextElementResponseVector& cerV, ContextRegistrationResponseVector& crrV, bool limitReached, EntityId* enP = NULL)
+void addContextProviders(ContextElementResponseVector& cerV, ContextRegistrationResponseVector& crrV, bool limitReached, const EntityId* enP = NULL)
 {
   for (unsigned int ix = 0; ix < crrV.size(); ++ix)
   {
-    ContextRegistration cr = crrV.get(ix)->contextRegistration;
+    ContextRegistration cr = crrV[ix]->contextRegistration;
 
     /* In the case a "filtering" entity was provided, check that the current CRR matches or skip to next CRR */
     if (enP != NULL && !matchEntityInCrr(cr, enP)) {
@@ -206,9 +216,9 @@ void addContextProviders(ContextElementResponseVector& cerV, ContextRegistration
       if (!limitReached)
       {
         /* Registration without attributes */
-        for (unsigned int jx = 0; jx < cr.entityIdVector.size(); ++jx)
+        for (unsigned int eIx = 0; eIx < cr.entityIdVector.size(); ++eIx)
         {
-          addContextProviderEntity(cerV, cr.entityIdVector.get(jx), cr.providingApplication);
+          addContextProviderEntity(cerV, cr.entityIdVector[eIx], cr.providingApplication);
         }
       }
     }
@@ -219,7 +229,7 @@ void addContextProviders(ContextElementResponseVector& cerV, ContextRegistration
       {
         for (unsigned int aIx = 0; aIx < cr.contextRegistrationAttributeVector.size(); ++aIx)
         {
-          addContextProviderAttribute(cerV, cr.entityIdVector.get(eIx), cr.contextRegistrationAttributeVector.get(aIx), cr.providingApplication, limitReached);
+          addContextProviderAttribute(cerV, cr.entityIdVector[eIx], cr.contextRegistrationAttributeVector[aIx], cr.providingApplication, limitReached);
         }
       }
     }
@@ -237,11 +247,11 @@ void addContextProviders(ContextElementResponseVector& cerV, ContextRegistration
 * limit has been reached with local entities.
 *
 */
-void processGenericEntities(EntityIdVector& enV, ContextElementResponseVector& cerV, ContextRegistrationResponseVector& crrV, bool limitReached)
+void processGenericEntities(const EntityIdVector& enV, ContextElementResponseVector& cerV, ContextRegistrationResponseVector& crrV, bool limitReached)
 {
   for (unsigned int ix = 0; ix < enV.size(); ++ix)
   {
-    EntityId* enP = enV.get(ix);
+    const EntityId* enP = enV[ix];
     if (enP->type == "" || isTrue(enP->isPattern))
     {
       addContextProviders(cerV, crrV, limitReached, enP);
@@ -252,6 +262,13 @@ void processGenericEntities(EntityIdVector& enV, ContextElementResponseVector& c
 /* ****************************************************************************
 *
 * mongoQueryContext - 
+*
+* NOTE
+*   If the in/out-parameter countP is non-NULL then the number of matching entities
+*   must be returned in *countP.
+*
+*   This replaces the 'uriParams[URI_PARAM_PAGINATION_DETAILS]' way of passing this information.
+*   The old method was one-way, using the new method 
 */
 HttpStatusCode mongoQueryContext
 (
@@ -259,7 +276,10 @@ HttpStatusCode mongoQueryContext
   QueryContextResponse*                responseP,
   const std::string&                   tenant,
   const std::vector<std::string>&      servicePathV,
-  std::map<std::string, std::string>&  uriParams
+  std::map<std::string, std::string>&  uriParams,
+  std::map<std::string, bool>&         options,
+  long long*                           countP,
+  const std::string&                   apiVersion
 )
 {
     int         offset         = atoi(uriParams[URI_PARAM_PAGINATION_OFFSET].c_str());
@@ -267,22 +287,25 @@ HttpStatusCode mongoQueryContext
     std::string detailsString  = uriParams[URI_PARAM_PAGINATION_DETAILS];
     bool        details        = (strcasecmp("on", detailsString.c_str()) == 0)? true : false;
 
+    std::string sortOrderList  = uriParams[URI_PARAM_SORTED];
+
     LM_T(LmtMongo, ("QueryContext Request"));    
     LM_T(LmtPagination, ("Offset: %d, Limit: %d, Details: %s", offset, limit, (details == true)? "true" : "false"));
 
     /* FIXME: restriction not supported for the moment */
     if (!requestP->restriction.attributeExpression.isEmpty())
     {
-      LM_W(("Bad Input (restriction found, but restrictions are not supported by mongo backend)"));
+      alarmMgr.badInput(clientIp, "restriction found, but restrictions are not supported by mongo backend");
     }
 
     std::string err;
     bool        ok;
-    long long   count = -1;
     bool        limitReached = false;
+    bool        badInput     = false;
     bool        reqSemTaken;
 
     ContextElementResponseVector rawCerV;    
+
     reqSemTake(__FUNCTION__, "ngsi10 query request", SemReadOp, &reqSemTaken);
     ok = entitiesQuery(requestP->entityIdVector,
                        requestP->attributeList,
@@ -294,15 +317,27 @@ HttpStatusCode mongoQueryContext
                        servicePathV,
                        offset,
                        limit,
-                       details,                       
-                       &count,
-                       &limitReached);
-    reqSemGive(__FUNCTION__, "ngsi10 query request", reqSemTaken);
+                       &limitReached,
+                       countP,
+                       &badInput,
+                       sortOrderList,
+                       options[DATE_CREATED],
+                       options[DATE_MODIFIED],
+                       apiVersion);
+
+    if (badInput)
+    {
+      responseP->errorCode.fill(SccBadRequest, err);
+      rawCerV.release();
+      reqSemGive(__FUNCTION__, "ngsi10 query request", reqSemTaken);
+      return SccOk;      
+    }
 
     if (!ok)
     {
         responseP->errorCode.fill(SccReceiverInternalError, err);
         rawCerV.release();
+        reqSemGive(__FUNCTION__, "ngsi10 query request", reqSemTaken);
         return SccOk;
     }
 
@@ -318,11 +353,7 @@ HttpStatusCode mongoQueryContext
           processGenericEntities(requestP->entityIdVector, rawCerV, crrV, limitReached);
         }
       }
-      else
-      {
-        /* Different from errors in DB at entitiesQuery(), DB fails at registrationsQuery() are not considered "critical" */
-        LM_E(("Database Error (%s)", err.c_str()));
-      }
+
       crrV.release();
     }
 
@@ -337,11 +368,7 @@ HttpStatusCode mongoQueryContext
           processGenericEntities(requestP->entityIdVector, rawCerV, crrV, limitReached);
         }
       }
-      else
-      {
-        /* Different from errors in DB at entitiesQuery(), DB fails at registrationsQuery() are not considered "critical" */
-        LM_E(("Database Error (%s)", err.c_str()));
-      }
+
       crrV.release();
     }
 
@@ -356,11 +383,7 @@ HttpStatusCode mongoQueryContext
           fillContextProviders(rawCerV, crrV);
         }
       }
-      else
-      {
-        /* Different from errors in DB at entitiesQuery(), DB fails at registrationsQuery() are not considered "critical" */
-        LM_E(("Database Error (%s)", err.c_str()));
-      }
+
       crrV.release();
     }
 
@@ -376,11 +399,7 @@ HttpStatusCode mongoQueryContext
           addContextProviders(rawCerV, crrV, limitReached);
         }
       }
-      else
-      {
-        /* Different from fails in DB at entitiesQuery(), DB fails at registrationsQuery() are not considered "critical" */
-        LM_E(("Database Error (%s)", err.c_str()));
-      }
+
       crrV.release();
     }
 
@@ -398,11 +417,11 @@ HttpStatusCode mongoQueryContext
       // the number of hits without pagination.
       //
 
-      if (details && (count > 0) && (offset >= count))
+      if ((countP != NULL) && (*countP > 0) && (offset >= *countP))
       {
         char details[256];
 
-        snprintf(details, sizeof(details), "Number of matching entities: %lld. Offset is %d", count, offset);
+        snprintf(details, sizeof(details), "Number of matching entities: %lld. Offset is %d", *countP, offset);
         responseP->errorCode.fill(SccContextElementNotFound, details);
       }
       else
@@ -410,7 +429,7 @@ HttpStatusCode mongoQueryContext
         responseP->errorCode.fill(SccContextElementNotFound);
       }
     }
-    else if (details)
+    else if (countP != NULL)
     {
       //
       // If all was OK, but the details URI param was set to 'on', then the responses error code details
@@ -419,10 +438,12 @@ HttpStatusCode mongoQueryContext
 
       char details[64];
 
-      snprintf(details, sizeof(details), "Count: %lld", count);
+      snprintf(details, sizeof(details), "Count: %lld", *countP);
       responseP->errorCode.fill(SccOk, details);
     }
 
     rawCerV.release();
+    
+    reqSemGive(__FUNCTION__, "ngsi10 query request", reqSemTaken);
     return SccOk;
 }

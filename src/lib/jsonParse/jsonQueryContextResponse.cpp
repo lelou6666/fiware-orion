@@ -124,6 +124,7 @@ static std::string attribute(const std::string& path, const std::string& value, 
 {
   LM_T(LmtParse, ("Creating an attribute"));
   parseDataP->qcrs.attributeP = new ContextAttribute();
+  parseDataP->qcrs.attributeP->valueType = orion::ValueTypeNone;
   parseDataP->qcrs.cerP->contextElement.contextAttributeVector.push_back(parseDataP->qcrs.attributeP);
   return "OK";
 }
@@ -164,7 +165,8 @@ static std::string attributeValue(const std::string& path, const std::string& va
 {
   LM_T(LmtParse, ("Got an attribute value: '%s'", value.c_str()));
   parseDataP->lastContextAttribute = parseDataP->qcrs.attributeP;
-  parseDataP->qcrs.attributeP->value = value;
+  parseDataP->qcrs.attributeP->stringValue = value;
+  parseDataP->qcrs.attributeP->valueType = orion::ValueTypeString;
   return "OK";
 }
 
@@ -217,7 +219,7 @@ static std::string attributeMetadataType(const std::string& path, const std::str
 static std::string attributeMetadataValue(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an attributeMetadata value: '%s'", value.c_str()));
-  parseDataP->qcrs.metadataP->value = value;
+  parseDataP->qcrs.metadataP->stringValue = value;
   return "OK";
 }
 
@@ -270,7 +272,7 @@ static std::string domainMetadataType(const std::string& path, const std::string
 static std::string domainMetadataValue(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a domainMetadata value: '%s'", value.c_str()));
-  parseDataP->qcrs.domainMetadataP->value = value;
+  parseDataP->qcrs.domainMetadataP->stringValue = value;
   return "OK";
 }
 
@@ -353,6 +355,7 @@ static std::string errorCodeDetails(const std::string& path, const std::string& 
   parseDataP->qcrs.res.errorCode.details = value;
   return "OK";
 }
+
 
 
 
@@ -459,6 +462,6 @@ void jsonQcrsPresent(ParseData* reqDataP)
   if (!lmTraceIsSet(LmtPresent))
     return;
 
-  LM_F(("QueryContextResponse:"));
+  LM_T(LmtPresent, ("QueryContextResponse:"));
   reqDataP->qcrs.res.present("  ", "jsonQcrsPresent");
 }

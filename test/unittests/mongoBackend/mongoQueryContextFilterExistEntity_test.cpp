@@ -36,6 +36,8 @@
 #include "ngsi/Scope.h"
 #include "mongo/client/dbclient.h"
 
+extern void setMongoConnectionForUnitTest(DBClientBase*);
+
 /* ****************************************************************************
 *
 * Tests
@@ -112,7 +114,7 @@ TEST(mongoQueryContextExistEntity, entityTypeWithoutFilter)
     req.entityIdVector.push_back(&en);
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+    ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
@@ -129,7 +131,7 @@ TEST(mongoQueryContextExistEntity, entityTypeWithoutFilter)
     ASSERT_EQ(1, RES_CER(0).contextAttributeVector.size());
     EXPECT_EQ("A1", RES_CER_ATTR(0, 0)->name);
     EXPECT_EQ("TA1", RES_CER_ATTR(0, 0)->type);
-    EXPECT_EQ("val1", RES_CER_ATTR(0, 0)->value);
+    EXPECT_EQ("val1", RES_CER_ATTR(0, 0)->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
     EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
     EXPECT_EQ("", RES_CER_STATUS(0).details);
@@ -141,14 +143,11 @@ TEST(mongoQueryContextExistEntity, entityTypeWithoutFilter)
     ASSERT_EQ(1, RES_CER(1).contextAttributeVector.size());
     EXPECT_EQ("A1", RES_CER_ATTR(1, 0)->name);
     EXPECT_EQ("TA1", RES_CER_ATTR(1, 0)->type);
-    EXPECT_EQ("val1b", RES_CER_ATTR(1, 0)->value);
+    EXPECT_EQ("val1b", RES_CER_ATTR(1, 0)->stringValue);
     EXPECT_EQ(SccOk, RES_CER_STATUS(1).code);
     EXPECT_EQ("OK", RES_CER_STATUS(1).reasonPhrase);
     EXPECT_EQ(0, RES_CER_STATUS(1).details.size());
-
-    /* Release connection */
-    mongoDisconnect();
-
+ 
     utExit();
 }
 
@@ -180,7 +179,7 @@ TEST(mongoQueryContextExistEntity, entityTypeFilterExist)
   req.restriction.scopeVector.push_back(&sc);
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -197,13 +196,10 @@ TEST(mongoQueryContextExistEntity, entityTypeFilterExist)
   ASSERT_EQ(1, RES_CER(0).contextAttributeVector.size());
   EXPECT_EQ("A1", RES_CER_ATTR(0, 0)->name);
   EXPECT_EQ("TA1", RES_CER_ATTR(0, 0)->type);
-  EXPECT_EQ("val1", RES_CER_ATTR(0, 0)->value);
+  EXPECT_EQ("val1", RES_CER_ATTR(0, 0)->stringValue);
   EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
   EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
   EXPECT_EQ("", RES_CER_STATUS(0).details);
-
-  /* Release connection */
-  mongoDisconnect();
 
   utExit();
 }
@@ -236,7 +232,7 @@ TEST(mongoQueryContextExistEntity, entityTypeFilterNotExist)
   req.restriction.scopeVector.push_back(&sc);
 
   /* Invoke the function in mongoBackend library */
-  ms = mongoQueryContext(&req, &res, "", servicePathVector , uriParams);
+  ms = mongoQueryContext(&req, &res, "", servicePathVector, uriParams, options);
 
   /* Check response is as expected */
   EXPECT_EQ(SccOk, ms);
@@ -253,13 +249,10 @@ TEST(mongoQueryContextExistEntity, entityTypeFilterNotExist)
   ASSERT_EQ(1, RES_CER(0).contextAttributeVector.size());
   EXPECT_EQ("A1", RES_CER_ATTR(0, 0)->name);
   EXPECT_EQ("TA1", RES_CER_ATTR(0, 0)->type);
-  EXPECT_EQ("val1b", RES_CER_ATTR(0, 0)->value);
+  EXPECT_EQ("val1b", RES_CER_ATTR(0, 0)->stringValue);
   EXPECT_EQ(SccOk, RES_CER_STATUS(0).code);
   EXPECT_EQ("OK", RES_CER_STATUS(0).reasonPhrase);
   EXPECT_EQ("", RES_CER_STATUS(0).details);
-
-  /* Release connection */
-  mongoDisconnect();
 
   utExit();
 }

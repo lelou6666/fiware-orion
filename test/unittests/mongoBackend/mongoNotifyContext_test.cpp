@@ -41,6 +41,7 @@ using ::testing::_;
 using ::testing::Throw;
 using ::testing::Return;
 
+extern void setMongoConnectionForUnitTest(DBClientBase*);
 
 /* ****************************************************************************
 *
@@ -311,12 +312,8 @@ TEST(mongoNotifyContextRequest, Ent1Attr1)
     EXPECT_FALSE(a2.hasField("value"));
     EXPECT_FALSE(a2.hasField("modDate"));
 
-    /* Release connection */
-    mongoDisconnect();
-
     /* Release mock */
     delete timerMock;
-
 }
 
 /* ****************************************************************************
@@ -462,12 +459,8 @@ TEST(mongoNotifyContextRequest, Ent1AttrN)
     EXPECT_FALSE(a2.hasField("value"));
     EXPECT_FALSE(a2.hasField("modDate"));
 
-    /* Release connection */
-    mongoDisconnect();
-
     /* Release mock */
     delete timerMock;
-
 }
 
 /* ****************************************************************************
@@ -616,12 +609,8 @@ TEST(mongoNotifyContextRequest, EntNAttr1)
     EXPECT_FALSE(a2.hasField("value"));
     EXPECT_FALSE(a2.hasField("modDate"));
 
-    /* Release connection */
-    mongoDisconnect();
-
     /* Release mock */
     delete timerMock;
-
 }
 
 /* ****************************************************************************
@@ -774,12 +763,8 @@ TEST(mongoNotifyContextRequest, EntNAttrN)
     EXPECT_FALSE(a2.hasField("value"));
     EXPECT_FALSE(a2.hasField("modDate"));
 
-    /* Release connection */
-    mongoDisconnect();
-
     /* Release mock */
     delete timerMock;
-
 }
 
 /* ****************************************************************************
@@ -939,11 +924,7 @@ TEST(mongoNotifyContextRequest, createEntity)
     EXPECT_FALSE(a2.hasField("value"));
     EXPECT_FALSE(a2.hasField("modDate"));
 
-    /* Release connection */
-    mongoDisconnect();
-
     /* Release mock */
     delete timerMock;
-
 }
 
