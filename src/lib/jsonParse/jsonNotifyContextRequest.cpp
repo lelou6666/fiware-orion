@@ -148,6 +148,7 @@ static std::string attribute(const std::string& path, const std::string& value, 
 {
   LM_T(LmtParse, ("Creating an attribute"));
   parseDataP->ncr.attributeP = new ContextAttribute();
+  parseDataP->ncr.attributeP->valueType = orion::ValueTypeNone;
   parseDataP->ncr.cerP->contextElement.contextAttributeVector.push_back(parseDataP->ncr.attributeP);
   return "OK";
 }
@@ -188,7 +189,8 @@ static std::string attributeValue(const std::string& path, const std::string& va
 {
   LM_T(LmtParse, ("Got an attribute value: '%s'", value.c_str()));
   parseDataP->lastContextAttribute = parseDataP->ncr.attributeP;
-  parseDataP->ncr.attributeP->value = value;
+  parseDataP->ncr.attributeP->stringValue = value;
+  parseDataP->ncr.attributeP->valueType = orion::ValueTypeString;
   return "OK";
 }
 
@@ -281,7 +283,7 @@ static std::string attributeMetadataType(const std::string& path, const std::str
 static std::string attributeMetadataValue(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an attributeMetadata value: '%s'", value.c_str()));
-  parseDataP->ncr.attributeMetadataP->value = value;
+  parseDataP->ncr.attributeMetadataP->stringValue = value;
   return "OK";
 }
 
@@ -334,7 +336,7 @@ static std::string domainMetadataType(const std::string& path, const std::string
 static std::string domainMetadataValue(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a domainMetadata value: '%s'", value.c_str()));
-  parseDataP->ncr.domainMetadataP->value = value;
+  parseDataP->ncr.domainMetadataP->stringValue = value;
   return "OK";
 }
 
@@ -433,6 +435,6 @@ void jsonNcrPresent(ParseData* parseDataP)
   if (!lmTraceIsSet(LmtPresent))
     return;
 
-  PRINTF("\n\n");
+  LM_T(LmtPresent,("\n\n"));
   parseDataP->ncr.res.present("");
 }

@@ -30,10 +30,13 @@
 #include "common/globals.h"
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/mongoQueryTypes.h"
-#include "orionTypes/EntityTypesResponse.h"
-#include "orionTypes/EntityTypeAttributesResponse.h"
+#include "orionTypes/EntityTypeVectorResponse.h"
+#include "orionTypes/EntityTypeResponse.h"
 
 #include "mongo/client/dbclient.h"
+
+extern void setMongoConnectionForUnitTest(DBClientBase*);
+
 
 /* ****************************************************************************
 *
@@ -65,7 +68,7 @@
 * - queryGivenTypeGenericException
 *
 * (*) FIXME: currently mongoBackend doesn't interprets collapse parameter (considering
-* that the "collapse prunning" is done at render layer). However, if in the future
+* that the "collapse pruning" is done at render layer). However, if in the future
 * we change this operation, a new case has to be added to test that mongoBackend honour
 * the collapse parameter.
 *
@@ -93,7 +96,7 @@ static void prepareDatabase(void) {
    *
    * - Type Car:
    *     Car1: pos, temp, plate
-   *     Car2: pos, plate(*), fuel
+   *     Car2: pos, plate, fuel
    *     Car3: pos, colour
    * - Type Room:
    *     Room1: pos, temp
@@ -105,46 +108,52 @@ static void prepareDatabase(void) {
    */
 
   BSONObj en1 = BSON("_id" << BSON("id" << "Car1" << "type" << "Car") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "pos" << "type" << "pos_T" << "value" << "1") <<
-                        BSON("name" << "temp" << "type" << "temp_T" << "value" << "2") <<
-                        BSON("name" << "plate" << "type" << "plate_T" << "value" << "3")
+                     "attrNames" << BSON_ARRAY("pos" << "temp" << "plate") <<
+                     "attrs" << BSON(
+                        "pos"   << BSON("type" << "pos_T" << "value" << "1") <<
+                        "temp"  << BSON("type" << "temp_T" << "value" << "2") <<
+                        "plate" << BSON("type" << "plate_T" << "value" << "3")
                         )
                     );
 
   BSONObj en2 = BSON("_id" << BSON("id" << "Car2" << "type" << "Car") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "pos" << "type" << "pos_T" << "value" << "4") <<
-                        BSON("name" << "plate" << "type" << "plate_T2" << "value" << "5") <<
-                        BSON("name" << "fuel" << "type" << "fuel_T" << "value" << "6")
+                     "attrNames" << BSON_ARRAY("pos" << "plate" << "fuel") <<
+                     "attrs" << BSON(
+                        "pos"   << BSON("type" << "pos_T" << "value" << "4") <<
+                        "plate" << BSON("type" << "plate_T2" << "value" << "5") <<
+                        "fuel"  << BSON("type" << "fuel_T" << "value" << "6")
                         )
                     );
 
   BSONObj en3 = BSON("_id" << BSON("id" << "Car3" << "type" << "Car") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "pos" << "type" << "pos_T" << "value" << "7") <<
-                        BSON("name" << "colour" << "type" << "colour_T" << "value" << "8")
+                     "attrNames" << BSON_ARRAY("pos" << "colour") <<
+                     "attrs" << BSON(
+                        "pos"    << BSON("type" << "pos_T" << "value" << "7") <<
+                        "colour" << BSON("type" << "colour_T" << "value" << "8")
                         )
                     );
 
   BSONObj en4 = BSON("_id" << BSON("id" << "Room1" << "type" << "Room") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "pos" << "type" << "pos_T" << "value" << "9") <<
-                        BSON("name" << "temp" << "type" << "temp_T" << "value" << "10")
+                     "attrNames" << BSON_ARRAY("pos" << "temp") <<
+                     "attrs" << BSON(
+                        "pos"  << BSON("type" << "pos_T" << "value" << "9") <<
+                        "temp" << BSON("type" << "temp_T" << "value" << "10")
                         )
                     );
 
   BSONObj en5 = BSON("_id" << BSON("id" << "Room2" << "type" << "Room") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "pos" << "type" << "pos_T" << "value" << "11") <<
-                        BSON("name" << "humidity" << "type" << "humidity_T" << "value" << "12")
+                     "attrNames" << BSON_ARRAY("pos" << "humidity") <<
+                     "attrs" << BSON(
+                        "pos"      << BSON("type" << "pos_T" << "value" << "11") <<
+                        "humidity" << BSON("type" << "humidity_T" << "value" << "12")
                         )
                     );
 
   BSONObj en6 = BSON("_id" << BSON("id" << "Lamp1" << "type" << "Lamp") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "battery" << "type" << "battery_T" << "value" << "13") <<
-                        BSON("name" << "status" << "type" << "status_T" << "value" << "14")
+                     "attrNames" << BSON_ARRAY("battery" << "status") <<
+                     "attrs" << BSON(
+                        "battery" << BSON("type" << "battery_T" << "value" << "13") <<
+                        "status"  << BSON("type" << "status_T" << "value" << "14")
                         )
                     );
 
@@ -162,17 +171,17 @@ ContextAttribute* getAttr(ContextAttributeVector& caV, std::string name, std::st
 {
   for (unsigned int ix = 0; ix < caV.size() ; ix++)
   {
-    if (caV.get(ix)->name == name)
+    if (caV[ix]->name == name)
     {
-      if (type == "" || caV.get(ix)->type == type)
+      if (type == "" || caV[ix]->type == type)
       {
-        return caV.get(ix);
+        return caV[ix];
       }
     }
   }
   /* Usually (i.e. in no-test code) we should return NULL. However, it helps to debug to use
    * a ContextAttribute value with crazy values */
-  ContextAttribute* ca = new ContextAttribute("error", "error_T");
+  ContextAttribute* ca = new ContextAttribute("error", "error_T", "error_V");
   return ca;
 }
 
@@ -184,7 +193,7 @@ ContextAttribute* getAttr(ContextAttributeVector& caV, std::string name, std::st
 TEST(mongoQueryTypes, queryAllType)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -201,100 +210,93 @@ TEST(mongoQueryTypes, queryAllType)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(3, res.typeEntityVector.size());
+    ASSERT_EQ(3, res.entityTypeVector.size());
     ContextAttribute* ca;
 
     /* Type # 1 */
-    EXPECT_EQ("Car", res.typeEntityVector.get(0)->type);
-    ASSERT_EQ(6, res.typeEntityVector.get(0)->contextAttributeVector.size());
+    EXPECT_EQ("Car", res.entityTypeVector[0]->type);
+    EXPECT_EQ(3, res.entityTypeVector[0]->count);
+    ASSERT_EQ(5, res.entityTypeVector[0]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "fuel");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "fuel");
     EXPECT_EQ("fuel", ca->name);
     EXPECT_EQ("fuel_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "plate", "plate_T");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "plate");
     EXPECT_EQ("plate", ca->name);
     EXPECT_EQ("plate_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "colour");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "colour");
     EXPECT_EQ("colour", ca->name);
     EXPECT_EQ("colour_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "plate", "plate_T2");
-    EXPECT_EQ("plate", ca->name);
-    EXPECT_EQ("plate_T2", ca->type);
-    EXPECT_EQ("", ca->value);
-    EXPECT_EQ(NULL, ca->compoundValueP);
-    EXPECT_EQ(0, ca->metadataVector.size());
-
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
     /* Type # 2 */
-    EXPECT_EQ("Lamp", res.typeEntityVector.get(1)->type);
-    ASSERT_EQ(2, res.typeEntityVector.get(1)->contextAttributeVector.size());
+    EXPECT_EQ("Lamp", res.entityTypeVector[1]->type);
+    EXPECT_EQ(1, res.entityTypeVector[1]->count);
+    ASSERT_EQ(2, res.entityTypeVector[1]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "status");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "status");
     EXPECT_EQ("status", ca->name);
     EXPECT_EQ("status_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "battery");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "battery");
     EXPECT_EQ("battery", ca->name);
     EXPECT_EQ("battery_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
     /* Type # 3 */
-    EXPECT_EQ("Room", res.typeEntityVector.get(2)->type);
-    ASSERT_EQ(3, res.typeEntityVector.get(2)->contextAttributeVector.size());
+    EXPECT_EQ("Room", res.entityTypeVector[2]->type);
+    EXPECT_EQ(2, res.entityTypeVector[2]->count);
+    ASSERT_EQ(3, res.entityTypeVector[2]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "humidity");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "humidity");
     EXPECT_EQ("humidity", ca->name);
     EXPECT_EQ("humidity_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -307,7 +309,7 @@ TEST(mongoQueryTypes, queryAllType)
 TEST(mongoQueryTypes, queryAllPaginationDetails)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -326,100 +328,93 @@ TEST(mongoQueryTypes, queryAllPaginationDetails)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("Count: 3", res.statusCode.details);
 
-    ASSERT_EQ(3, res.typeEntityVector.size());
+    ASSERT_EQ(3, res.entityTypeVector.size());
     ContextAttribute* ca;
 
     /* Type # 1 */
-    EXPECT_EQ("Car", res.typeEntityVector.get(0)->type);
-    ASSERT_EQ(6, res.typeEntityVector.get(0)->contextAttributeVector.size());
+    EXPECT_EQ("Car", res.entityTypeVector[0]->type);
+    EXPECT_EQ(3, res.entityTypeVector[0]->count);
+    ASSERT_EQ(5, res.entityTypeVector[0]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "fuel");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "fuel");
     EXPECT_EQ("fuel", ca->name);
     EXPECT_EQ("fuel_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "plate", "plate_T");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "plate");
     EXPECT_EQ("plate", ca->name);
     EXPECT_EQ("plate_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "colour");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "colour");
     EXPECT_EQ("colour", ca->name);
     EXPECT_EQ("colour_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "plate", "plate_T2");
-    EXPECT_EQ("plate", ca->name);
-    EXPECT_EQ("plate_T2", ca->type);
-    EXPECT_EQ("", ca->value);
-    EXPECT_EQ(NULL, ca->compoundValueP);
-    EXPECT_EQ(0, ca->metadataVector.size());
-
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
     /* Type # 2 */
-    EXPECT_EQ("Lamp", res.typeEntityVector.get(1)->type);
-    ASSERT_EQ(2, res.typeEntityVector.get(1)->contextAttributeVector.size());
+    EXPECT_EQ("Lamp", res.entityTypeVector[1]->type);
+    EXPECT_EQ(1, res.entityTypeVector[1]->count);
+    ASSERT_EQ(2, res.entityTypeVector[1]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "status");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "status");
     EXPECT_EQ("status", ca->name);
     EXPECT_EQ("status_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "battery");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "battery");
     EXPECT_EQ("battery", ca->name);
     EXPECT_EQ("battery_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
     /* Type # 3 */
-    EXPECT_EQ("Room", res.typeEntityVector.get(2)->type);
-    ASSERT_EQ(3, res.typeEntityVector.get(2)->contextAttributeVector.size());
+    EXPECT_EQ("Room", res.entityTypeVector[2]->type);
+    EXPECT_EQ(2, res.entityTypeVector[2]->count);
+    ASSERT_EQ(3, res.entityTypeVector[2]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "humidity");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "humidity");
     EXPECT_EQ("humidity", ca->name);
     EXPECT_EQ("humidity_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -432,7 +427,7 @@ TEST(mongoQueryTypes, queryAllPaginationDetails)
 TEST(mongoQueryTypes, queryAllPaginationAll)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -451,100 +446,93 @@ TEST(mongoQueryTypes, queryAllPaginationAll)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(3, res.typeEntityVector.size());
+    ASSERT_EQ(3, res.entityTypeVector.size());
     ContextAttribute* ca;
 
     /* Type # 1 */
-    EXPECT_EQ("Car", res.typeEntityVector.get(0)->type);
-    ASSERT_EQ(6, res.typeEntityVector.get(0)->contextAttributeVector.size());
+    EXPECT_EQ("Car", res.entityTypeVector[0]->type);
+    EXPECT_EQ(3, res.entityTypeVector[0]->count);
+    ASSERT_EQ(5, res.entityTypeVector[0]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "fuel");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "fuel");
     EXPECT_EQ("fuel", ca->name);
     EXPECT_EQ("fuel_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "plate", "plate_T");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "plate");
     EXPECT_EQ("plate", ca->name);
     EXPECT_EQ("plate_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "colour");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "colour");
     EXPECT_EQ("colour", ca->name);
     EXPECT_EQ("colour_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "plate", "plate_T2");
-    EXPECT_EQ("plate", ca->name);
-    EXPECT_EQ("plate_T2", ca->type);
-    EXPECT_EQ("", ca->value);
-    EXPECT_EQ(NULL, ca->compoundValueP);
-    EXPECT_EQ(0, ca->metadataVector.size());
-
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
     /* Type # 2 */
-    EXPECT_EQ("Lamp", res.typeEntityVector.get(1)->type);
-    ASSERT_EQ(2, res.typeEntityVector.get(1)->contextAttributeVector.size());
+    EXPECT_EQ("Lamp", res.entityTypeVector[1]->type);
+    EXPECT_EQ(1, res.entityTypeVector[1]->count);
+    ASSERT_EQ(2, res.entityTypeVector[1]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "status");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "status");
     EXPECT_EQ("status", ca->name);
     EXPECT_EQ("status_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "battery");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "battery");
     EXPECT_EQ("battery", ca->name);
     EXPECT_EQ("battery_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
     /* Type # 3 */
-    EXPECT_EQ("Room", res.typeEntityVector.get(2)->type);
-    ASSERT_EQ(3, res.typeEntityVector.get(2)->contextAttributeVector.size());
+    EXPECT_EQ("Room", res.entityTypeVector[2]->type);
+    EXPECT_EQ(2, res.entityTypeVector[2]->count);
+    ASSERT_EQ(3, res.entityTypeVector[2]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "humidity");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "humidity");
     EXPECT_EQ("humidity", ca->name);
     EXPECT_EQ("humidity_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(2)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[2]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -557,7 +545,7 @@ TEST(mongoQueryTypes, queryAllPaginationAll)
 TEST(mongoQueryTypes, queryAllPaginationOnlyFirst)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -576,57 +564,48 @@ TEST(mongoQueryTypes, queryAllPaginationOnlyFirst)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(1, res.typeEntityVector.size());
+    ASSERT_EQ(1, res.entityTypeVector.size());
     ContextAttribute* ca;
 
     /* Type # 1 */
-    EXPECT_EQ("Car", res.typeEntityVector.get(0)->type);
-    ASSERT_EQ(6, res.typeEntityVector.get(0)->contextAttributeVector.size());
+    EXPECT_EQ("Car", res.entityTypeVector[0]->type);
+    EXPECT_EQ(3, res.entityTypeVector[0]->count);
+    ASSERT_EQ(5, res.entityTypeVector[0]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "fuel");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "fuel");
     EXPECT_EQ("fuel", ca->name);
     EXPECT_EQ("fuel_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "plate", "plate_T");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "plate");
     EXPECT_EQ("plate", ca->name);
     EXPECT_EQ("plate_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "colour");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "colour");
     EXPECT_EQ("colour", ca->name);
     EXPECT_EQ("colour_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "plate", "plate_T2");
-    EXPECT_EQ("plate", ca->name);
-    EXPECT_EQ("plate_T2", ca->type);
-    EXPECT_EQ("", ca->value);
-    EXPECT_EQ(NULL, ca->compoundValueP);
-    EXPECT_EQ(0, ca->metadataVector.size());
-
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -639,7 +618,7 @@ TEST(mongoQueryTypes, queryAllPaginationOnlyFirst)
 TEST(mongoQueryTypes, queryAllPaginationOnlySecond)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -659,29 +638,27 @@ TEST(mongoQueryTypes, queryAllPaginationOnlySecond)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(1, res.typeEntityVector.size());
+    ASSERT_EQ(1, res.entityTypeVector.size());
     ContextAttribute* ca;
 
     /* Type # 2 */
-    EXPECT_EQ("Lamp", res.typeEntityVector.get(0)->type);
-    ASSERT_EQ(2, res.typeEntityVector.get(0)->contextAttributeVector.size());
+    EXPECT_EQ("Lamp", res.entityTypeVector[0]->type);
+    EXPECT_EQ(1, res.entityTypeVector[0]->count);
+    ASSERT_EQ(2, res.entityTypeVector[0]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "status");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "status");
     EXPECT_EQ("status", ca->name);
     EXPECT_EQ("status_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "battery");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "battery");
     EXPECT_EQ("battery", ca->name);
     EXPECT_EQ("battery_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -694,7 +671,7 @@ TEST(mongoQueryTypes, queryAllPaginationOnlySecond)
 TEST(mongoQueryTypes, queryAllPaginationRange)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -714,54 +691,53 @@ TEST(mongoQueryTypes, queryAllPaginationRange)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(2, res.typeEntityVector.size());
+    ASSERT_EQ(2, res.entityTypeVector.size());
     ContextAttribute* ca;
 
     /* Type # 1 */
-    EXPECT_EQ("Lamp", res.typeEntityVector.get(0)->type);
-    ASSERT_EQ(2, res.typeEntityVector.get(0)->contextAttributeVector.size());
+    EXPECT_EQ("Lamp", res.entityTypeVector[0]->type);
+    EXPECT_EQ(1, res.entityTypeVector[0]->count);
+    ASSERT_EQ(2, res.entityTypeVector[0]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "status");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "status");
     EXPECT_EQ("status", ca->name);
     EXPECT_EQ("status_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "battery");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "battery");
     EXPECT_EQ("battery", ca->name);
     EXPECT_EQ("battery_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
     /* Type # 2 */
-    EXPECT_EQ("Room", res.typeEntityVector.get(1)->type);
-    ASSERT_EQ(3, res.typeEntityVector.get(1)->contextAttributeVector.size());
+    EXPECT_EQ("Room", res.entityTypeVector[1]->type);
+    EXPECT_EQ(2, res.entityTypeVector[1]->count);
+    ASSERT_EQ(3, res.entityTypeVector[1]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "humidity");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "humidity");
     EXPECT_EQ("humidity", ca->name);
     EXPECT_EQ("humidity_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(1)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[1]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -774,7 +750,7 @@ TEST(mongoQueryTypes, queryAllPaginationRange)
 TEST(mongoQueryTypes, queryAllPaginationNonExisting)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -794,10 +770,7 @@ TEST(mongoQueryTypes, queryAllPaginationNonExisting)
     EXPECT_EQ("No context element found", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(0, res.typeEntityVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_EQ(0, res.entityTypeVector.size());
 
     utExit();
 }
@@ -810,7 +783,7 @@ TEST(mongoQueryTypes, queryAllPaginationNonExisting)
 TEST(mongoQueryTypes, queryAllPaginationNonExistingOverlap)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -830,36 +803,34 @@ TEST(mongoQueryTypes, queryAllPaginationNonExistingOverlap)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(1, res.typeEntityVector.size());
+    ASSERT_EQ(1, res.entityTypeVector.size());
     ContextAttribute* ca;
 
     /* Type # 1 */
-    EXPECT_EQ("Room", res.typeEntityVector.get(0)->type);
-    ASSERT_EQ(3, res.typeEntityVector.get(0)->contextAttributeVector.size());
+    EXPECT_EQ("Room", res.entityTypeVector[0]->type);
+    EXPECT_EQ(2, res.entityTypeVector[0]->count);
+    ASSERT_EQ(3, res.entityTypeVector[0]->contextAttributeVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "humidity");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "humidity");
     EXPECT_EQ("humidity", ca->name);
     EXPECT_EQ("humidity_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "temp");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "temp");
     EXPECT_EQ("temp", ca->name);
     EXPECT_EQ("temp_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
     EXPECT_EQ(0, ca->metadataVector.size());
 
-    ca = getAttr(res.typeEntityVector.get(0)->contextAttributeVector, "pos");
+    ca = getAttr(res.entityTypeVector[0]->contextAttributeVector, "pos");
     EXPECT_EQ("pos", ca->name);
     EXPECT_EQ("pos_T", ca->type);
-    EXPECT_EQ("", ca->value);
+    EXPECT_EQ("", ca->stringValue);
     EXPECT_EQ(NULL, ca->compoundValueP);
-    EXPECT_EQ(0, ca->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    EXPECT_EQ(0, ca->metadataVector.size());    
 
     utExit();
 }
@@ -872,7 +843,7 @@ TEST(mongoQueryTypes, queryAllPaginationNonExistingOverlap)
 TEST(mongoQueryTypes, queryAllPaginationNonExistingDetails)
 {
     HttpStatusCode         ms;
-    EntityTypesResponse    res;
+    EntityTypeVectorResponse    res;
 
     utInit();
 
@@ -892,10 +863,7 @@ TEST(mongoQueryTypes, queryAllPaginationNonExistingDetails)
     EXPECT_EQ("No context element found", res.statusCode.reasonPhrase);
     EXPECT_EQ("Number of types: 3. Offset is 7", res.statusCode.details);
 
-    ASSERT_EQ(0, res.typeEntityVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_EQ(0, res.entityTypeVector.size());
 
     utExit();
 }
@@ -908,34 +876,37 @@ TEST(mongoQueryTypes, queryAllPaginationNonExistingDetails)
 TEST(mongoQueryTypes, queryAllDbException)
 {
   HttpStatusCode         ms;
-  EntityTypesResponse    res;
+  EntityTypeVectorResponse    res;
 
   /* Prepare mock */
   const DBException e = DBException("boom!!", 33);
   DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-  ON_CALL(*connectionMock, runCommand(_,_,_,_,_))
+  ON_CALL(*connectionMock, runCommand(_,_,_,_))
       .WillByDefault(Throw(e));
 
   utInit();
 
   /* Set MongoDB connection */
-  mongoConnect(connectionMock);
+  DBClientBase* connectionDb = getMongoConnection();
+  setMongoConnectionForUnitTest(connectionMock);
 
   /* Invoke the function in mongoBackend library */
   ms = mongoEntityTypes(&res, "", servicePathVector, uriParams);
 
   /* Check response is as expected */
-  EXPECT_EQ(SccOk, ms);
-
+  EXPECT_EQ(SccOk, ms); 
   EXPECT_EQ(SccReceiverInternalError, res.statusCode.code);
   EXPECT_EQ("Internal Server Error", res.statusCode.reasonPhrase);
-  EXPECT_EQ("database: unittest - "
-            "command: { aggregate: \"entities\", pipeline: [ { $match: { _id.servicePath: { $in: [ /^/.*/, null ] } } }, { $project: { _id: 1, attrs.name: 1, attrs.type: 1 } }, { $project: { attrs: { $cond: [ { $eq: [ \"$attrs\", {} ] }, [ null ], \"$attrs\" ] } } }, { $unwind: \"$attrs\" }, { $group: { _id: \"$_id.type\", attrs: { $addToSet: \"$attrs\" } } }, { $sort: { _id: 1 } } ] } - "
-            "exception: boom!!", res.statusCode.details);
-  EXPECT_EQ(0,res.typeEntityVector.size());
+  EXPECT_EQ("Database Error (collection: utest "
+            "- runCommand(): { aggregate: \"entities\", pipeline: [ { $match: { _id.servicePath: { $in: [ /^/.*/, null ] } } }, { $project: { _id: 1, attrNames: 1 } }, { $project: { attrNames: { $cond: [ { $eq: [ \"$attrNames\", [] ] }, [ null ], \"$attrNames\" ] } } }, { $unwind: \"$attrNames\" }, { $group: { _id: \"$_id.type\", attrs: { $addToSet: \"$attrNames\" } } }, { $sort: { _id: 1 } } ] } "
+            "- exception: boom!!)", res.statusCode.details);
+  EXPECT_EQ(0,res.entityTypeVector.size());
+
+  /* Restore real DB connection */
+  setMongoConnectionForUnitTest(connectionDb);
 
   /* Release mock */
-  delete connectionMock;
+  delete connectionMock;  
 
   utExit();
 
@@ -949,18 +920,19 @@ TEST(mongoQueryTypes, queryAllDbException)
 TEST(mongoQueryTypes, queryAllGenericException)
 {
   HttpStatusCode         ms;
-  EntityTypesResponse    res;
+  EntityTypeVectorResponse    res;
 
   /* Prepare mock */
   const std::exception e;
   DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-  ON_CALL(*connectionMock, runCommand(_,_,_,_,_))
+  ON_CALL(*connectionMock, runCommand(_,_,_,_))
       .WillByDefault(Throw(e));
 
   utInit();
 
   /* Set MongoDB connection */
-  mongoConnect(connectionMock);
+  DBClientBase* connectionDb = getMongoConnection();
+  setMongoConnectionForUnitTest(connectionMock);
 
   /* Invoke the function in mongoBackend library */
   ms = mongoEntityTypes(&res, "", servicePathVector, uriParams);
@@ -970,10 +942,13 @@ TEST(mongoQueryTypes, queryAllGenericException)
 
   EXPECT_EQ(SccReceiverInternalError, res.statusCode.code);
   EXPECT_EQ("Internal Server Error", res.statusCode.reasonPhrase);
-  EXPECT_EQ("database: unittest - "
-            "command: { aggregate: \"entities\", pipeline: [ { $match: { _id.servicePath: { $in: [ /^/.*/, null ] } } }, { $project: { _id: 1, attrs.name: 1, attrs.type: 1 } }, { $project: { attrs: { $cond: [ { $eq: [ \"$attrs\", {} ] }, [ null ], \"$attrs\" ] } } }, { $unwind: \"$attrs\" }, { $group: { _id: \"$_id.type\", attrs: { $addToSet: \"$attrs\" } } }, { $sort: { _id: 1 } } ] } - "
-            "exception: generic", res.statusCode.details);
-  EXPECT_EQ(0,res.typeEntityVector.size());
+  EXPECT_EQ("Database Error (collection: utest "
+            "- runCommand(): { aggregate: \"entities\", pipeline: [ { $match: { _id.servicePath: { $in: [ /^/.*/, null ] } } }, { $project: { _id: 1, attrNames: 1 } }, { $project: { attrNames: { $cond: [ { $eq: [ \"$attrNames\", [] ] }, [ null ], \"$attrNames\" ] } } }, { $unwind: \"$attrNames\" }, { $group: { _id: \"$_id.type\", attrs: { $addToSet: \"$attrNames\" } } }, { $sort: { _id: 1 } } ] } "
+            "- exception: std::exception)", res.statusCode.details);
+  EXPECT_EQ(0,res.entityTypeVector.size());
+
+  /* Restore real DB connection */
+  setMongoConnectionForUnitTest(connectionDb);
 
   /* Release mock */
   delete connectionMock;
@@ -990,7 +965,7 @@ TEST(mongoQueryTypes, queryAllGenericException)
 TEST(mongoQueryTypes, queryGivenTypeBasic)
 {
     HttpStatusCode                ms;
-    EntityTypeAttributesResponse  res;
+    EntityTypeResponse  res;
 
     utInit();
 
@@ -1007,52 +982,43 @@ TEST(mongoQueryTypes, queryGivenTypeBasic)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(6, res.entityType.contextAttributeVector.size());
+    EXPECT_EQ(3, res.entityType.count);
+    ASSERT_EQ(5, res.entityType.contextAttributeVector.size());
 
-    /* Type # 1 */
-    EXPECT_EQ("colour", res.entityType.contextAttributeVector.get(0)->name);
-    EXPECT_EQ("colour_T", res.entityType.contextAttributeVector.get(0)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(0)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(0)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(0)->metadataVector.size());
+    /* Attr # 1 */
+    EXPECT_EQ("colour", res.entityType.contextAttributeVector[0]->name);
+    EXPECT_EQ("colour_T", res.entityType.contextAttributeVector[0]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[0]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[0]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[0]->metadataVector.size());
 
-    /* Type 2 */
-    EXPECT_EQ("fuel", res.entityType.contextAttributeVector.get(1)->name);
-    EXPECT_EQ("fuel_T", res.entityType.contextAttributeVector.get(1)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(1)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(1)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(1)->metadataVector.size());
+    /* Attr 2 */
+    EXPECT_EQ("fuel", res.entityType.contextAttributeVector[1]->name);
+    EXPECT_EQ("fuel_T", res.entityType.contextAttributeVector[1]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[1]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[1]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[1]->metadataVector.size());
 
-    /* Type 3 */
-    EXPECT_EQ("plate", res.entityType.contextAttributeVector.get(2)->name);
-    EXPECT_EQ("plate_T", res.entityType.contextAttributeVector.get(2)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(2)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(2)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(2)->metadataVector.size());
+    /* Attr 3 */
+    EXPECT_EQ("plate", res.entityType.contextAttributeVector[2]->name);
+    EXPECT_EQ("plate_T", res.entityType.contextAttributeVector[2]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[2]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[2]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[2]->metadataVector.size());
 
-    /* Type 4 */
-    EXPECT_EQ("plate", res.entityType.contextAttributeVector.get(3)->name);
-    EXPECT_EQ("plate_T2", res.entityType.contextAttributeVector.get(3)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(3)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(3)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(3)->metadataVector.size());
+    /* Attr 4 */
+    EXPECT_EQ("pos", res.entityType.contextAttributeVector[3]->name);
+    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector[3]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[3]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[3]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[3]->metadataVector.size());
 
-    /* Type 5 */
-    EXPECT_EQ("pos", res.entityType.contextAttributeVector.get(4)->name);
-    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector.get(4)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(4)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(4)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(4)->metadataVector.size());
-
-    /* Type 6 */
-    EXPECT_EQ("temp", res.entityType.contextAttributeVector.get(5)->name);
-    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector.get(5)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(5)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(5)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(5)->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    /* Attr 5 */
+    EXPECT_EQ("temp", res.entityType.contextAttributeVector[4]->name);
+    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector[4]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[4]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[4]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[4]->metadataVector.size());
 
     utExit();
 }
@@ -1065,7 +1031,7 @@ TEST(mongoQueryTypes, queryGivenTypeBasic)
 TEST(mongoQueryTypes, queryGivenTypePaginationDetails)
 {
     HttpStatusCode               ms;
-    EntityTypeAttributesResponse res;
+    EntityTypeResponse res;
 
     utInit();
 
@@ -1082,54 +1048,45 @@ TEST(mongoQueryTypes, queryGivenTypePaginationDetails)
 
     EXPECT_EQ(SccOk, res.statusCode.code);
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
-    EXPECT_EQ("Count: 6", res.statusCode.details);
+    EXPECT_EQ("Count: 5", res.statusCode.details);
 
-    ASSERT_EQ(6, res.entityType.contextAttributeVector.size());
+    EXPECT_EQ(3, res.entityType.count);
+    ASSERT_EQ(5, res.entityType.contextAttributeVector.size());
 
-    /* Type # 1 */
-    EXPECT_EQ("colour", res.entityType.contextAttributeVector.get(0)->name);
-    EXPECT_EQ("colour_T", res.entityType.contextAttributeVector.get(0)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(0)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(0)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(0)->metadataVector.size());
+    /* Attr # 1 */
+    EXPECT_EQ("colour", res.entityType.contextAttributeVector[0]->name);
+    EXPECT_EQ("colour_T", res.entityType.contextAttributeVector[0]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[0]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[0]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[0]->metadataVector.size());
 
-    /* Type 2 */
-    EXPECT_EQ("fuel", res.entityType.contextAttributeVector.get(1)->name);
-    EXPECT_EQ("fuel_T", res.entityType.contextAttributeVector.get(1)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(1)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(1)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(1)->metadataVector.size());
+    /* Attr 2 */
+    EXPECT_EQ("fuel", res.entityType.contextAttributeVector[1]->name);
+    EXPECT_EQ("fuel_T", res.entityType.contextAttributeVector[1]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[1]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[1]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[1]->metadataVector.size());
 
-    /* Type 3 */
-    EXPECT_EQ("plate", res.entityType.contextAttributeVector.get(2)->name);
-    EXPECT_EQ("plate_T", res.entityType.contextAttributeVector.get(2)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(2)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(2)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(2)->metadataVector.size());
+    /* Attr 3 */
+    EXPECT_EQ("plate", res.entityType.contextAttributeVector[2]->name);
+    EXPECT_EQ("plate_T", res.entityType.contextAttributeVector[2]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[2]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[2]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[2]->metadataVector.size());
 
-    /* Type 4 */
-    EXPECT_EQ("plate", res.entityType.contextAttributeVector.get(3)->name);
-    EXPECT_EQ("plate_T2", res.entityType.contextAttributeVector.get(3)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(3)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(3)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(3)->metadataVector.size());
+    /* Attr 4 */
+    EXPECT_EQ("pos", res.entityType.contextAttributeVector[3]->name);
+    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector[3]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[3]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[3]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[3]->metadataVector.size());
 
-    /* Type 5 */
-    EXPECT_EQ("pos", res.entityType.contextAttributeVector.get(4)->name);
-    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector.get(4)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(4)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(4)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(4)->metadataVector.size());
-
-    /* Type 6 */
-    EXPECT_EQ("temp", res.entityType.contextAttributeVector.get(5)->name);
-    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector.get(5)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(5)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(5)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(5)->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    /* Attr 5 */
+    EXPECT_EQ("temp", res.entityType.contextAttributeVector[4]->name);
+    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector[4]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[4]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[4]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[4]->metadataVector.size());
 
     utExit();
 }
@@ -1142,7 +1099,7 @@ TEST(mongoQueryTypes, queryGivenTypePaginationDetails)
 TEST(mongoQueryTypes, queryGivenTypePaginationAll)
 {
     HttpStatusCode               ms;
-    EntityTypeAttributesResponse res;
+    EntityTypeResponse res;
 
     utInit();
 
@@ -1161,52 +1118,43 @@ TEST(mongoQueryTypes, queryGivenTypePaginationAll)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
-    ASSERT_EQ(6, res.entityType.contextAttributeVector.size());
+    EXPECT_EQ(3, res.entityType.count);
+    ASSERT_EQ(5, res.entityType.contextAttributeVector.size());
 
-    /* Type # 1 */
-    EXPECT_EQ("colour", res.entityType.contextAttributeVector.get(0)->name);
-    EXPECT_EQ("colour_T", res.entityType.contextAttributeVector.get(0)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(0)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(0)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(0)->metadataVector.size());
+    /* Attr # 1 */
+    EXPECT_EQ("colour", res.entityType.contextAttributeVector[0]->name);
+    EXPECT_EQ("colour_T", res.entityType.contextAttributeVector[0]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[0]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[0]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[0]->metadataVector.size());
 
-    /* Type 2 */
-    EXPECT_EQ("fuel", res.entityType.contextAttributeVector.get(1)->name);
-    EXPECT_EQ("fuel_T", res.entityType.contextAttributeVector.get(1)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(1)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(1)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(1)->metadataVector.size());
+    /* Attr 2 */
+    EXPECT_EQ("fuel", res.entityType.contextAttributeVector[1]->name);
+    EXPECT_EQ("fuel_T", res.entityType.contextAttributeVector[1]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[1]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[1]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[1]->metadataVector.size());
 
-    /* Type 3 */
-    EXPECT_EQ("plate", res.entityType.contextAttributeVector.get(2)->name);
-    EXPECT_EQ("plate_T", res.entityType.contextAttributeVector.get(2)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(2)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(2)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(2)->metadataVector.size());
+    /* Attr 3 */
+    EXPECT_EQ("plate", res.entityType.contextAttributeVector[2]->name);
+    EXPECT_EQ("plate_T", res.entityType.contextAttributeVector[2]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[2]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[2]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[2]->metadataVector.size());
 
-    /* Type 4 */
-    EXPECT_EQ("plate", res.entityType.contextAttributeVector.get(3)->name);
-    EXPECT_EQ("plate_T2", res.entityType.contextAttributeVector.get(3)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(3)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(3)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(3)->metadataVector.size());
+    /* Attr 4 */
+    EXPECT_EQ("pos", res.entityType.contextAttributeVector[3]->name);
+    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector[3]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[3]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[3]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[3]->metadataVector.size());
 
-    /* Type 5 */
-    EXPECT_EQ("pos", res.entityType.contextAttributeVector.get(4)->name);
-    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector.get(4)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(4)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(4)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(4)->metadataVector.size());
-
-    /* Type 6 */
-    EXPECT_EQ("temp", res.entityType.contextAttributeVector.get(5)->name);
-    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector.get(5)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(5)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(5)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(5)->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    /* Attr 5 */
+    EXPECT_EQ("temp", res.entityType.contextAttributeVector[4]->name);
+    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector[4]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[4]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[4]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[4]->metadataVector.size());
 
     utExit();
 }
@@ -1219,7 +1167,7 @@ TEST(mongoQueryTypes, queryGivenTypePaginationAll)
 TEST(mongoQueryTypes, queryGivenTypePaginationOnlyFirst)
 {
     HttpStatusCode               ms;
-    EntityTypeAttributesResponse res;
+    EntityTypeResponse res;
 
     utInit();
 
@@ -1240,15 +1188,12 @@ TEST(mongoQueryTypes, queryGivenTypePaginationOnlyFirst)
 
     ASSERT_EQ(1, res.entityType.contextAttributeVector.size());
 
-    /* Type # 1 */
-    EXPECT_EQ("colour", res.entityType.contextAttributeVector.get(0)->name);
-    EXPECT_EQ("colour_T", res.entityType.contextAttributeVector.get(0)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(0)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(0)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(0)->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    /* Attr # 1 */
+    EXPECT_EQ("colour", res.entityType.contextAttributeVector[0]->name);
+    EXPECT_EQ("colour_T", res.entityType.contextAttributeVector[0]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[0]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[0]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[0]->metadataVector.size());
 
     utExit();
 }
@@ -1261,7 +1206,7 @@ TEST(mongoQueryTypes, queryGivenTypePaginationOnlyFirst)
 TEST(mongoQueryTypes, queryGivenTypePaginationOnlySecond)
 {
     HttpStatusCode               ms;
-    EntityTypeAttributesResponse res;
+    EntityTypeResponse res;
 
     utInit();
 
@@ -1281,17 +1226,15 @@ TEST(mongoQueryTypes, queryGivenTypePaginationOnlySecond)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
+    EXPECT_EQ(3, res.entityType.count);
     ASSERT_EQ(1, res.entityType.contextAttributeVector.size());
 
-    /* Type 1 */
-    EXPECT_EQ("fuel", res.entityType.contextAttributeVector.get(0)->name);
-    EXPECT_EQ("fuel_T", res.entityType.contextAttributeVector.get(0)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(0)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(0)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(0)->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    /* Attr 1 */
+    EXPECT_EQ("fuel", res.entityType.contextAttributeVector[0]->name);
+    EXPECT_EQ("fuel_T", res.entityType.contextAttributeVector[0]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[0]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[0]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[0]->metadataVector.size());
 
     utExit();
 }
@@ -1304,7 +1247,7 @@ TEST(mongoQueryTypes, queryGivenTypePaginationOnlySecond)
 TEST(mongoQueryTypes, queryGivenTypePaginationRange)
 {
     HttpStatusCode               ms;
-    EntityTypeAttributesResponse res;
+    EntityTypeResponse res;
 
     utInit();
 
@@ -1324,31 +1267,29 @@ TEST(mongoQueryTypes, queryGivenTypePaginationRange)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
+    EXPECT_EQ(3, res.entityType.count);
     ASSERT_EQ(3, res.entityType.contextAttributeVector.size());
 
-    /* Type 3 */
-    EXPECT_EQ("plate", res.entityType.contextAttributeVector.get(0)->name);
-    EXPECT_EQ("plate_T", res.entityType.contextAttributeVector.get(0)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(0)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(0)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(0)->metadataVector.size());
+    /* Attr 3 */
+    EXPECT_EQ("plate", res.entityType.contextAttributeVector[0]->name);
+    EXPECT_EQ("plate_T", res.entityType.contextAttributeVector[0]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[0]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[0]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[0]->metadataVector.size());
 
-    /* Type 4 */
-    EXPECT_EQ("plate", res.entityType.contextAttributeVector.get(1)->name);
-    EXPECT_EQ("plate_T2", res.entityType.contextAttributeVector.get(1)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(1)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(1)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(1)->metadataVector.size());
+    /* Attr 4 */
+    EXPECT_EQ("pos", res.entityType.contextAttributeVector[1]->name);
+    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector[1]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[1]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[1]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[1]->metadataVector.size());
 
-    /* Type 5 */
-    EXPECT_EQ("pos", res.entityType.contextAttributeVector.get(2)->name);
-    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector.get(2)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(2)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(2)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(2)->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    /* Attr 5 */
+    EXPECT_EQ("temp", res.entityType.contextAttributeVector[2]->name);
+    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector[2]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[2]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[2]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[2]->metadataVector.size());
 
     utExit();
 }
@@ -1361,7 +1302,7 @@ TEST(mongoQueryTypes, queryGivenTypePaginationRange)
 TEST(mongoQueryTypes, queryGivenTypePaginationNonExisting)
 {
     HttpStatusCode               ms;
-    EntityTypeAttributesResponse res;
+    EntityTypeResponse res;
 
     utInit();
 
@@ -1383,9 +1324,6 @@ TEST(mongoQueryTypes, queryGivenTypePaginationNonExisting)
 
     ASSERT_EQ(0, res.entityType.contextAttributeVector.size());
 
-    /* Release connection */
-    mongoDisconnect();
-
     utExit();
 }
 
@@ -1397,7 +1335,7 @@ TEST(mongoQueryTypes, queryGivenTypePaginationNonExisting)
 TEST(mongoQueryTypes, queryGivenTypePaginationNonExistingOverlap)
 {
     HttpStatusCode               ms;
-    EntityTypeAttributesResponse res;
+    EntityTypeResponse res;
 
     utInit();
 
@@ -1406,7 +1344,7 @@ TEST(mongoQueryTypes, queryGivenTypePaginationNonExistingOverlap)
 
     /* Invoke the function in mongoBackend library */
     uriParams[URI_PARAM_PAGINATION_DETAILS]  = "off";
-    uriParams[URI_PARAM_PAGINATION_OFFSET] = "4";
+    uriParams[URI_PARAM_PAGINATION_OFFSET] = "3";
     uriParams[URI_PARAM_PAGINATION_LIMIT]  = "3";
     ms = mongoAttributesForEntityType("Car", &res, "", servicePathVector, uriParams);
 
@@ -1417,24 +1355,22 @@ TEST(mongoQueryTypes, queryGivenTypePaginationNonExistingOverlap)
     EXPECT_EQ("OK", res.statusCode.reasonPhrase);
     EXPECT_EQ("", res.statusCode.details);
 
+    EXPECT_EQ(3, res.entityType.count);
     ASSERT_EQ(2, res.entityType.contextAttributeVector.size());
 
-    /* Type 1 */
-    EXPECT_EQ("pos", res.entityType.contextAttributeVector.get(0)->name);
-    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector.get(0)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(0)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(0)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(0)->metadataVector.size());
+    /* Attr 1 */
+    EXPECT_EQ("pos", res.entityType.contextAttributeVector[0]->name);
+    EXPECT_EQ("pos_T", res.entityType.contextAttributeVector[0]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[0]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[0]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[0]->metadataVector.size());
 
-    /* Type 2 */
-    EXPECT_EQ("temp", res.entityType.contextAttributeVector.get(1)->name);
-    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector.get(1)->type);
-    EXPECT_EQ("", res.entityType.contextAttributeVector.get(1)->value);
-    EXPECT_EQ(NULL, res.entityType.contextAttributeVector.get(1)->compoundValueP);
-    EXPECT_EQ(0, res.entityType.contextAttributeVector.get(1)->metadataVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
+    /* Attr 2 */
+    EXPECT_EQ("temp", res.entityType.contextAttributeVector[1]->name);
+    EXPECT_EQ("temp_T", res.entityType.contextAttributeVector[1]->type);
+    EXPECT_EQ("", res.entityType.contextAttributeVector[1]->stringValue);
+    EXPECT_EQ(NULL, res.entityType.contextAttributeVector[1]->compoundValueP);
+    EXPECT_EQ(0, res.entityType.contextAttributeVector[1]->metadataVector.size());
 
     utExit();
 }
@@ -1447,7 +1383,7 @@ TEST(mongoQueryTypes, queryGivenTypePaginationNonExistingOverlap)
 TEST(mongoQueryTypes, queryGivenTypePaginationNonExistingDetails)
 {
     HttpStatusCode               ms;
-    EntityTypeAttributesResponse res;
+    EntityTypeResponse res;
 
     utInit();
 
@@ -1465,12 +1401,9 @@ TEST(mongoQueryTypes, queryGivenTypePaginationNonExistingDetails)
 
     EXPECT_EQ(SccContextElementNotFound, res.statusCode.code);
     EXPECT_EQ("No context element found", res.statusCode.reasonPhrase);
-    EXPECT_EQ("Number of attributes: 6. Offset is 7", res.statusCode.details);
+    EXPECT_EQ("Number of attributes: 5. Offset is 7", res.statusCode.details);
 
     ASSERT_EQ(0, res.entityType.contextAttributeVector.size());
-
-    /* Release connection */
-    mongoDisconnect();
 
     utExit();
 }
@@ -1480,21 +1413,22 @@ TEST(mongoQueryTypes, queryGivenTypePaginationNonExistingDetails)
 * queryGivenTypeDbException -
 *
 */
-TEST(mongoQueryTypes, queryGiveyTypeDbException)
+TEST(mongoQueryTypes, queryGivenTypeDbException)
 {
   HttpStatusCode               ms;
-  EntityTypeAttributesResponse res;
+  EntityTypeResponse res;
 
   /* Prepare mock */
   const DBException e = DBException("boom!!", 33);
   DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-  ON_CALL(*connectionMock, runCommand(_,_,_,_,_))
+  ON_CALL(*connectionMock, runCommand(_,_,_,_))
       .WillByDefault(Throw(e));
 
   utInit();
 
   /* Set MongoDB connection */
-  mongoConnect(connectionMock);
+  DBClientBase* connectionDb = getMongoConnection();
+  setMongoConnectionForUnitTest(connectionMock);
 
   /* Invoke the function in mongoBackend library */
   ms = mongoAttributesForEntityType("Car", &res, "", servicePathVector, uriParams);
@@ -1504,16 +1438,18 @@ TEST(mongoQueryTypes, queryGiveyTypeDbException)
 
   EXPECT_EQ(SccReceiverInternalError, res.statusCode.code);
   EXPECT_EQ("Internal Server Error", res.statusCode.reasonPhrase);
-  EXPECT_EQ("database: unittest - "
-            "command: { aggregate: \"entities\", pipeline: [ { $match: { _id.type: \"Car\", _id.servicePath: { $in: [ /^/.*/, null ] } } }, { $project: { _id: 1, attrs.name: 1, attrs.type: 1 } }, { $unwind: \"$attrs\" }, { $group: { _id: \"$_id.type\", attrs: { $addToSet: \"$attrs\" } } }, { $unwind: \"$attrs\" }, { $group: { _id: \"$attrs\" } }, { $sort: { _id.name: 1, _id.type: 1 } } ] } - "
-            "exception: boom!!", res.statusCode.details);
+  EXPECT_EQ("Database Error (collection: utest "
+            "- runCommand(): { aggregate: \"entities\", pipeline: [ { $match: { _id.type: \"Car\", _id.servicePath: { $in: [ /^/.*/, null ] } } }, { $project: { _id: 1, attrNames: 1 } }, { $unwind: \"$attrNames\" }, { $group: { _id: \"$_id.type\", attrs: { $addToSet: \"$attrNames\" } } }, { $unwind: \"$attrs\" }, { $group: { _id: \"$attrs\" } }, { $sort: { _id: 1 } } ] } "
+            "- exception: boom!!)", res.statusCode.details);
   EXPECT_EQ(0,res.entityType.contextAttributeVector.size());
 
+  /* Restore real DB connection */
+  setMongoConnectionForUnitTest(connectionDb);
+
   /* Release mock */
-  delete connectionMock;
+  delete connectionMock;  
 
   utExit();
-
 }
 
 /* ****************************************************************************
@@ -1524,18 +1460,19 @@ TEST(mongoQueryTypes, queryGiveyTypeDbException)
 TEST(mongoQueryTypes, queryGivenTypeGenericException)
 {
   HttpStatusCode               ms;
-  EntityTypeAttributesResponse res;
+  EntityTypeResponse res;
 
   /* Prepare mock */
   const std::exception e;
   DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-  ON_CALL(*connectionMock, runCommand(_,_,_,_,_))
+  ON_CALL(*connectionMock, runCommand(_,_,_,_))
       .WillByDefault(Throw(e));
 
   utInit();
 
   /* Set MongoDB connection */
-  mongoConnect(connectionMock);
+  DBClientBase* connectionDb = getMongoConnection();
+  setMongoConnectionForUnitTest(connectionMock);
 
   /* Invoke the function in mongoBackend library */
   ms = mongoAttributesForEntityType("Car", &res, "", servicePathVector, uriParams);
@@ -1545,14 +1482,16 @@ TEST(mongoQueryTypes, queryGivenTypeGenericException)
 
   EXPECT_EQ(SccReceiverInternalError, res.statusCode.code);
   EXPECT_EQ("Internal Server Error", res.statusCode.reasonPhrase);
-  EXPECT_EQ("database: unittest - "
-            "command: { aggregate: \"entities\", pipeline: [ { $match: { _id.type: \"Car\", _id.servicePath: { $in: [ /^/.*/, null ] } } }, { $project: { _id: 1, attrs.name: 1, attrs.type: 1 } }, { $unwind: \"$attrs\" }, { $group: { _id: \"$_id.type\", attrs: { $addToSet: \"$attrs\" } } }, { $unwind: \"$attrs\" }, { $group: { _id: \"$attrs\" } }, { $sort: { _id.name: 1, _id.type: 1 } } ] } - "
-            "exception: generic", res.statusCode.details);
+  EXPECT_EQ("Database Error (collection: utest "
+            "- runCommand(): { aggregate: \"entities\", pipeline: [ { $match: { _id.type: \"Car\", _id.servicePath: { $in: [ /^/.*/, null ] } } }, { $project: { _id: 1, attrNames: 1 } }, { $unwind: \"$attrNames\" }, { $group: { _id: \"$_id.type\", attrs: { $addToSet: \"$attrNames\" } } }, { $unwind: \"$attrs\" }, { $group: { _id: \"$attrs\" } }, { $sort: { _id: 1 } } ] } "
+            "- exception: std::exception)", res.statusCode.details);
   EXPECT_EQ(0,res.entityType.contextAttributeVector.size());
 
+  /* Restore real DB connection */
+  setMongoConnectionForUnitTest(connectionDb);
+
   /* Release mock */
-  delete connectionMock;
+  delete connectionMock; 
 
   utExit();
-
 }

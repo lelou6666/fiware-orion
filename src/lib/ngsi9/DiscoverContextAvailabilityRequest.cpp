@@ -63,7 +63,7 @@ void DiscoverContextAvailabilityRequest::release(void)
 *
 * DiscoverContextAvailabilityRequest::check - 
 */
-std::string DiscoverContextAvailabilityRequest::check(RequestType requestType, Format format, const std::string& indent, const std::string& predetectedError, int counter)
+std::string DiscoverContextAvailabilityRequest::check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
   DiscoverContextAvailabilityResponse  response;
   std::string                          res;
@@ -76,16 +76,16 @@ std::string DiscoverContextAvailabilityRequest::check(RequestType requestType, F
   {
     response.errorCode.fill(SccContextElementNotFound);
   }
-  else if (((res = entityIdVector.check(DiscoverContextAvailability, format, indent, predetectedError, restrictions))                      != "OK") ||
-           ((res = attributeList.check(DiscoverContextAvailability, format, indent, predetectedError, restrictions))                       != "OK") ||
-           ((restrictions != 0) && ((res = restriction.check(DiscoverContextAvailability, format, indent, predetectedError, restrictions)) != "OK")))
+  else if (((res = entityIdVector.check(ciP, DiscoverContextAvailability, indent, predetectedError, restrictions))                      != "OK") ||
+           ((res = attributeList.check(DiscoverContextAvailability, indent, predetectedError, restrictions))                       != "OK") ||
+           ((restrictions != 0) && ((res = restriction.check(DiscoverContextAvailability, indent, predetectedError, restrictions)) != "OK")))
   {
     response.errorCode.fill(SccBadRequest, res);
   }
   else
     return "OK";
 
-  return response.render(DiscoverContextAvailability, format, indent);
+  return response.render(DiscoverContextAvailability, indent);
 }
 
 
@@ -99,4 +99,73 @@ void DiscoverContextAvailabilityRequest::present(const std::string& indent)
    entityIdVector.present(indent);
    attributeList.present(indent);
    restriction.present(indent);
+}
+
+
+
+/* ****************************************************************************
+*
+* DiscoverContextAvailabilityRequest::fill - 
+*/
+void DiscoverContextAvailabilityRequest::fill
+(
+  EntityId&                            eid,
+  const std::vector<std::string>&      attributeV,
+  const Restriction&                   restriction
+)
+{
+  entityIdVector.push_back(&eid);
+
+  for (unsigned int ix = 0; ix < attributeV.size(); ++ix)
+  {
+    attributeList.push_back(attributeV[ix]);
+  }
+
+  // FIXME P9: restriction with scope-vector must be copied to this->restriction
+}
+
+
+
+/* ****************************************************************************
+*
+* DiscoverContextAvailabilityRequest::fill - 
+*/
+void DiscoverContextAvailabilityRequest::fill(const std::string& entityId, const std::string& entityType)
+{
+  EntityId* eidP = new EntityId(entityId, entityType, "false");
+
+  entityIdVector.push_back(eidP);
+}
+
+
+
+/* ****************************************************************************
+*
+* DiscoverContextAvailabilityRequest::fill - 
+*/
+void DiscoverContextAvailabilityRequest::fill
+(
+  const std::string&  entityId,
+  const std::string&  entityType,
+  EntityTypeInfo      typeInfo,
+  const std::string&  attributeName
+)
+{
+  EntityId* eidP = new EntityId(entityId, entityType, "false");
+
+  entityIdVector.push_back(eidP);
+
+  if ((typeInfo == EntityTypeEmpty) || (typeInfo == EntityTypeNotEmpty))
+  {
+    Scope* scopeP = new Scope(SCOPE_FILTER_EXISTENCE, SCOPE_VALUE_ENTITY_TYPE);
+
+    scopeP->oper  = (typeInfo == EntityTypeEmpty)? SCOPE_OPERATOR_NOT : "";
+      
+    restriction.scopeVector.push_back(scopeP);
+  }
+
+  if (attributeName != "")
+  {
+    attributeList.push_back(attributeName);
+  }
 }

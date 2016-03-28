@@ -27,6 +27,7 @@
 
 #include "common/tag.h"
 #include "common/Format.h"
+#include "rest/ConnectionInfo.h"
 #include "rest/OrionError.h"
 
 
@@ -46,12 +47,12 @@ OrionError::OrionError()
 
 /* ****************************************************************************
 *
-* OrionError::OrionError - 
+* OrionError::OrionError -
 */
-OrionError::OrionError(HttpStatusCode _code, const std::string& _details)
+OrionError::OrionError(HttpStatusCode _code, const std::string& _details, const std::string& _reasonPhrase)
 {
   code          = _code;
-  reasonPhrase  = httpStatusCodeString(code);
+  reasonPhrase  = _reasonPhrase == "" ? httpStatusCodeString(code) : _reasonPhrase;
   details       = _details;
 }
 
@@ -69,39 +70,114 @@ OrionError::OrionError(StatusCode& sc)
 }
 
 
+/* ****************************************************************************
+*
+* OrionError::fill - 
+*/
+void OrionError::fill(HttpStatusCode _code, const char* _details)
+{
+  code          = _code;
+  reasonPhrase  = httpStatusCodeString(code);
+  details       = _details;
+}
+
+
+
+/* ****************************************************************************
+*
+* OrionError::errorStringForV2 - 
+*/
+std::string OrionError::errorStringForV2(const std::string& _reasonPhrase)
+{
+  if (_reasonPhrase == "Bad Request")
+  {
+    return "BadRequest";
+  }
+  else if (_reasonPhrase == "Length Required")
+  {
+    return "LengthRequired";
+  }
+  else if (_reasonPhrase == "Request Entity Too Large")
+  {
+    return "RequestEntityTooLarge";
+  }
+  else if (_reasonPhrase == "Unsupported Media Type")
+  {
+    return "UnsupportedMediaType";
+  }
+  else if (_reasonPhrase == "Invalid Modification")
+  {
+    return "InvalidModification";
+  }
+  else if (_reasonPhrase == "Too Many Results")
+  {
+    return "TooManyResults";
+  }
+  else if (_reasonPhrase == "No context element found")
+  {
+    return "NotFound";
+  }
+
+  return _reasonPhrase;
+}
+
+
 
 /* ****************************************************************************
 *
 * OrionError::render - 
 */
-std::string OrionError::render(Format format, const std::string& _indent)
+std::string OrionError::render(ConnectionInfo* ciP, const std::string& _indent)
 {
-  std::string out           = "";
-  std::string tag           = "orionError";
-  std::string initialIndent = _indent;
-  std::string indent        = _indent;
+  //
+  // For API version 2 this is pretty easy ...
+  //
+  if (ciP->apiVersion == "v2")
+  {
+    if ((ciP->httpStatusCode == SccOk) || (ciP->httpStatusCode == SccNone))
+    {
+      ciP->httpStatusCode = SccBadRequest;
+    }
+
+    if (details == "Already Exists")
+    {
+      details = "Entity already exists";
+    }
+
+    reasonPhrase = errorStringForV2(reasonPhrase);
+    return "{" + JSON_STR("error") + ":" + JSON_STR(reasonPhrase) + "," + JSON_STR("description") + ":" + JSON_STR(details) + "}";
+  }
+
+
+  //
+  // A little more hairy for API version 1
+  //
+
+  std::string  out           = "";
+  std::string  tag           = "orionError";
+  std::string  initialIndent = _indent;
+  std::string  indent        = _indent;
 
   //
   // OrionError is NEVER part of any other payload, so the JSON start/end braces must be added here
   //
 
-  if (format == JSON)
-  {
-    out     = initialIndent + "{\n";
-    indent += "  ";
-  }
 
-  out += startTag(indent, tag, format);
-  out += valueTag(indent + "  ", "code",          code,         format, true);
-  out += valueTag(indent + "  ", "reasonPhrase",  reasonPhrase, format, details != "");
+  out     = initialIndent + "{\n";
+  indent += "  ";
+
+  out += startTag1(indent, tag);
+  out += valueTag(indent + "  ", "code",          code,         true);
+  out += valueTag1(indent + "  ", "reasonPhrase",  reasonPhrase, details != "");
 
   if (details != "")
-    out += valueTag(indent + "  ", "details",       details,      format);
+  {
+    out += valueTag1(indent + "  ", "details",       details);
+  }
 
-  out += endTag(indent, tag, format);
+  out += endTag(indent);
 
-  if (format == JSON)
-    out += initialIndent + "}\n";
+  out += initialIndent + "}\n";
 
   return out;
 }

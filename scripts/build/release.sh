@@ -31,7 +31,7 @@ progName=$0
 #
 function usage
 {
-  echo "$progName <NEW_VERSION> <BROKER_RELEASE> <FIWARE_VERSION> <FIWARE_RELEASE> <changelog-file>"
+  echo "$progName <NEW_VERSION> <BROKER_RELEASE> <changelog-file>"
   exit 1
 }
 
@@ -45,7 +45,7 @@ then
   usage
 fi
 
-if [ $# != 5 ]
+if [ $# != 3 ]
 then
   usage
 fi
@@ -56,9 +56,7 @@ fi
 #
 export NEW_VERSION=$1
 export BROKER_RELEASE=$2
-export FIWARE_VERSION=$3
-export FIWARE_RELEASE=$4
-export CHANGELOG_FILE=$5
+export CHANGELOG_FILE=$3
 
 
 
@@ -66,10 +64,10 @@ export CHANGELOG_FILE=$5
 # correct date format
 #
 DATE=$(LANG=C date +"%a %b %d %Y")
-export dateLine="$DATE Fermin Galan <fermin@tid.es> ${NEW_VERSION}-${BROKER_RELEASE} (FIWARE-${FIWARE_VERSION}-${FIWARE_RELEASE})"
+export dateLine="$DATE Fermin Galan <fermin.galanmarquez@telefonica.com> ${NEW_VERSION}-${BROKER_RELEASE}"
 
 
-# Modify rpm/SPECS/contextBroker.spec only when step to a non-deve release
+# Modify rpm/SPECS/contextBroker.spec only when step to a non-dev release
 if [ "$BROKER_RELEASE" != "dev" ]
 then
     #
@@ -142,18 +140,38 @@ echo "new version:     $NEW_VERSION"
 #
 # Edit files that depend on the current version (which just changed)
 #
-sed "s/$currentVersion/$NEW_VERSION/" test/functionalTest/cases/000_version_operation/version_via_rest.test > /tmp/version_via_rest.test
-sed "s/$currentVersion/$NEW_VERSION/" test/functionalTest/cases/000_cli/version.test                        > /tmp/version.test
+sed "s/$currentVersion/$NEW_VERSION/" test/functionalTest/cases/0000_version_operation/version_via_rest.test > /tmp/version_via_rest.test
+sed "s/$currentVersion/$NEW_VERSION/" test/functionalTest/cases/0000_cli/version.test                        > /tmp/version.test
 sed "s/$currentVersion/$NEW_VERSION/" src/app/contextBroker/version.h        > /tmp/version.h
 
-mv /tmp/version_via_rest.test  test/functionalTest/cases/000_version_operation/version_via_rest.test
-mv /tmp/version.test           test/functionalTest/cases/000_cli/version.test
+mv /tmp/version_via_rest.test  test/functionalTest/cases/0000_version_operation/version_via_rest.test
+mv /tmp/version.test           test/functionalTest/cases/0000_cli/version.test
 mv /tmp/version.h              src/app/contextBroker/version.h
 
 
 # Clean the inter-release changes file
 rm -rf CHANGES_NEXT_RELEASE
 touch CHANGES_NEXT_RELEASE
+
+# Adjust Readthedocs documentation badge. Note that the procedure is not symmetric (like in version.h), as
+# dev release sets 'latest' and not 'X.Y.Z-next"
+if [ "$BROKER_RELEASE" != "dev" ]
+then
+  sed "s/(https:\/\/readthedocs.org\/projects\/fiware-orion\/badge\/?version=latest)](http:\/\/fiware-orion.readthedocs.org\/en\/latest\/?badge=latest)/(https:\/\/readthedocs.org\/projects\/fiware-orion\/badge\/?version=$NEW_VERSION)](http:\/\/fiware-orion.readthedocs.org\/en\/$NEW_VERSION\/?badge=$NEW_VERSION)/" README.md > /tmp/README.md
+else
+  sed "s/(https:\/\/readthedocs.org\/projects\/fiware-orion\/badge\/?version=$currentVersion)](http:\/\/fiware-orion.readthedocs.org\/en\/$currentVersion\/?badge=$currentVersion)/(https:\/\/readthedocs.org\/projects\/fiware-orion\/badge\/?version=latest)](http:\/\/fiware-orion.readthedocs.org\/en\/latest\/?badge=latest)/" README.md > /tmp/README.md
+fi
+mv /tmp/README.md README.md
+
+# Adjust Dockerfile GIT_REV_ORION. Note that the procedure is not symmetric (like in version.h), as
+# dev release sets 'develop' and not 'X.Y.Z-next"
+if [ "$BROKER_RELEASE" != "dev" ]
+then
+  sed "s/ENV GIT_REV_ORION develop/ENV GIT_REV_ORION release\/$NEW_VERSION/" docker/Dockerfile > /tmp/Dockerfile
+else
+  sed "s/ENV GIT_REV_ORION release\/$currentVersion/ENV GIT_REV_ORION develop/" docker/Dockerfile > /tmp/Dockerfile
+fi
+mv /tmp/Dockerfile docker/Dockerfile
 
 #
 # Do the git stuff only if we are in develop branch
@@ -163,25 +181,23 @@ if [ "$CURRENT_BRANCH" == "develop" ]
 then
     git add rpm/SPECS/contextBroker.spec
     git add src/app/contextBroker/version.h
-    git add test/functionalTest/cases/000_cli/version.test
-    git add test/functionalTest/cases/000_version_operation/version_via_rest.test
+    git add test/functionalTest/cases/0000_cli/version.test
+    git add test/functionalTest/cases/0000_version_operation/version_via_rest.test
     git add CHANGES_NEXT_RELEASE
+    git add README.md
+    git add docker/Dockerfile
     git commit -m "Step: $currentVersion -> $NEW_VERSION"
     git push origin develop
     # We do the tag only and merge to master only in the case of  non "dev" release
     if [ "$BROKER_RELEASE" != "dev" ]
     then
-       # FIXME: disabled so the releasing script doesn't automatically produce a merge commit into
-       # master, according to REL procedures
-       #git checkout master
-       #git pull
-       #git merge develop
+       git checkout master
+       git pull
+       git merge develop
        git push origin master
        git checkout -b release/$NEW_VERSION
-       # FIXME: disabled so the releasing script doesn't automatically produce a tag, according to
-       # REL procedures
-       #git tag $NEW_VERSION-FIWARE-$FIWARE_VERSION
-       #git push --tags origin release/$NEW_VERSION
+       git tag $NEW_VERSION
+       git push --tags origin release/$NEW_VERSION
        git push origin release/$NEW_VERSION
 
        # Build release only when step to a non-dev release. Note that, taking into account

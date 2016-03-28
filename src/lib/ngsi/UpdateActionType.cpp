@@ -41,15 +41,16 @@
 std::string UpdateActionType::check
 (
   RequestType         requestType,
-  Format              format,
   const std::string&  indent,
   const std::string&  predetectedError,
   int                 counter
 )
 {
-  if ((string == "update") || (string == "UPDATE") || (string == "Update") ||
-      (string == "append") || (string == "APPEND") || (string == "Append") ||
-      (string == "delete") || (string == "DELETE") || (string == "Delete"))
+  if ((string == "update")        || (string == "UPDATE")        || (string == "Update")        ||
+      (string == "append")        || (string == "APPEND")        || (string == "Append")        ||
+      (string == "append_strict") || (string == "APPEND_STRICT") || (string == "Append_Strict") ||
+      (string == "delete")        || (string == "DELETE")        || (string == "Delete")        ||
+      (string == "replace")       || (string == "REPLACE")       || (string == "Replace"))
   {
     return "OK";
   }
@@ -105,11 +106,13 @@ void UpdateActionType::present(const std::string& indent)
 {
   if (string != "")
   {
-    PRINTF("%sUpdateActionType: %s\n", indent.c_str(), string.c_str());
+    LM_T(LmtPresent, ("%sUpdateActionType: %s\n", 
+		      indent.c_str(), 
+		      string.c_str()));
   }
   else
   {
-    PRINTF("%sNo UpdateActionType\n", indent.c_str());
+    LM_T(LmtPresent, ("%sNo UpdateActionType\n", indent.c_str()));
   }
 }
 
@@ -119,14 +122,14 @@ void UpdateActionType::present(const std::string& indent)
 *
 * UpdateActionType::render - 
 */
-std::string UpdateActionType::render(Format format, const std::string& indent, bool comma)
+std::string UpdateActionType::render(const std::string& indent, bool comma)
 {
   if (string == "")
   {
     return "";
   }
 
-  return valueTag(indent, "updateAction", string, format, comma);
+  return valueTag1(indent, "updateAction", string, comma);
 }
 
 

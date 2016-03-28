@@ -24,6 +24,7 @@
 */
 #include <time.h>
 #include <stdint.h>
+#include <math.h>
 
 #include <string>
 
@@ -32,9 +33,9 @@
 
 #include "common/globals.h"
 #include "common/sem.h"
+#include "alarmMgr/alarmMgr.h"
 #include "serviceRoutines/versionTreat.h"     // For orionInit()
 #include "mongoBackend/MongoGlobal.h"         // For orionInit()
-#include "ngsiNotify/onTimeIntervalThread.h"  // For orionInit()
 
 
 
@@ -42,11 +43,40 @@
 *
 * Globals
 */
-static Timer*          timer             = NULL;
-int                    startTime         = -1;
-int                    statisticsTime    = -1;
-OrionExitFunction      orionExitFunction = NULL;
+static Timer*          timer                = NULL;
+int                    startTime            = -1;
+int                    statisticsTime       = -1;
+OrionExitFunction      orionExitFunction    = NULL;
 static struct timeval  logStartTime;
+bool                   countersStatistics   = false;
+bool                   semWaitStatistics    = false;
+bool                   timingStatistics     = false;
+bool                   notifQueueStatistics = false;
+bool                   checkIdv1            = false;
+
+
+/* ****************************************************************************
+*
+* transactionIdGet - 
+*
+* Unless readonly, add one to the transactionId and return it.
+* If readonly - just return the current transactionId.
+*/
+int transactionIdGet(bool readonly)
+{
+  static int transactionId = 0;
+
+  if (readonly == false)
+  {
+    ++transactionId;
+    if (transactionId < 0)
+    {
+      transactionId = 1;
+    }
+  }
+
+  return transactionId;
+}
 
 
 
@@ -59,7 +89,13 @@ static struct timeval  logStartTime;
 * Furthermore, a running number is appended for the transaction.
 * A 32 bit signed number is used, so its max value is 0x7FFFFFFF (2,147,483,647).
 *
-* If the running number overflows, a millisecond is added to the start time.
+* If the running number overflows, a millisecond is added to the start time of the broker.
+* As the running number starts from 1 again after overflow, we need this to distinguish the first transaction
+* after a running number overflow from the VERY first transaction (as both will have running number 1).
+* Imagine that the start time of the broker is XXXXXXXXX.123:
+*
+*   XXXXXXXXX.123.1  # the VERY first transaction
+*   XXXXXXXXX.124.1  # the first transaction after running number overflow
 *
 * The whole thing is stored in the thread variable 'transactionId', supported by the
 * logging library 'liblm'.
@@ -67,21 +103,23 @@ static struct timeval  logStartTime;
 */
 void transactionIdSet(void)
 {
-  static int transaction = 0;
+  static int firstTime = true;
 
   transSemTake("transactionIdSet", "changing the transaction id");
-  ++transaction;
 
-  if (transaction < 0)
+  int   transaction = transactionIdGet(false);
+
+  if ((firstTime == false) && (transaction == 1))  // Overflow - see function header for explanation
   {
     logStartTime.tv_usec += 1;
-    transaction = 1;
   }
 
   snprintf(transactionId, sizeof(transactionId), "%lu-%03d-%011d",
            logStartTime.tv_sec, (int) logStartTime.tv_usec / 1000, transaction);
 
   transSemGive("transactionIdSet", "changing the transaction id");
+
+  firstTime = false;
 }
 
 
@@ -90,7 +128,15 @@ void transactionIdSet(void)
 *
 * orionInit - 
 */
-void orionInit(OrionExitFunction exitFunction, const char* version)
+void orionInit
+(OrionExitFunction  exitFunction,
+  const char*        version,
+  SemOpType          reqPolicy,
+  bool               _countersStatistics,
+  bool               _semWaitStatistics,
+  bool               _timingStatistics,
+  bool               _notifQueueStatistics,
+  bool _checkIdv1)
 {
   // Give the rest library the correct version string of this executable
   versionSet(version);
@@ -99,7 +145,7 @@ void orionInit(OrionExitFunction exitFunction, const char* version)
   orionExitFunction = exitFunction;
 
   // Initialize the semaphore used by mongoBackend
-  semInit();
+  semInit(reqPolicy, _semWaitStatistics);
 
   // Set timer object (singleton)
   setTimer(new Timer());
@@ -115,7 +161,14 @@ void orionInit(OrionExitFunction exitFunction, const char* version)
   startTime      = logStartTime.tv_sec;
   statisticsTime = startTime;
 
+  // Set other flags related with statistics
+  countersStatistics   = _countersStatistics;
+  timingStatistics     = _timingStatistics;
+  notifQueueStatistics = _notifQueueStatistics;
+
   strncpy(transactionId, "N/A", sizeof(transactionId));
+
+  checkIdv1 = _checkIdv1;
 }
 
 
@@ -237,7 +290,7 @@ int64_t toSeconds(int value, char what, bool dayPart)
 
   if (result == -1)
   {
-    LM_W(("Bad Input (ERROR in duration string)"));
+    alarmMgr.badInput(clientIp, "ERROR in duration string");
   }
 
   return result;
@@ -284,7 +337,7 @@ int64_t parse8601(const std::string& s)
 
   while (*duration != 0)
   {
-    if (isdigit(*duration))
+    if (isdigit(*duration) || (*duration == '.') || (*duration == ','))
     {
       ++duration;
       digitsPending = true;
@@ -299,8 +352,10 @@ int64_t parse8601(const std::string& s)
 
       if ((value == 0) && (*start != '0'))
       {
+        std::string details = std::string("parse error for duration '") + start + "'";
+        alarmMgr.badInput(clientIp, details);
+
         free(toFree);
-        LM_W(("Bad Input (parse error for duration '%s')", start));
         return -1;
       }
 
@@ -320,9 +375,20 @@ int64_t parse8601(const std::string& s)
              ((*duration == 'H') || (*duration == 'M') || (*duration == 'S')))
     {
       char what = *duration;
+      int  value;
 
       *duration = 0;
-      int value = atoi(start);
+
+      if (what == 'S')  // We support floats for the seconds, but only to round to an integer
+      {
+        // NOTE: here we use atof and not str2double on purpose
+        float secs  = atof(start);
+        value       = (int) round(secs);
+      }
+      else
+      {
+        value = atoi(start);
+      }
 
       accumulated += toSeconds(value, what, dayPart);
       digitsPending = false;
@@ -344,4 +410,24 @@ int64_t parse8601(const std::string& s)
   }
 
   return accumulated;
+}
+
+/*****************************************************************************
+*
+* parse8601Time -
+*
+* This is common code for Duration and Throttling (at least)
+*
+*/
+int64_t parse8601Time(const std::string& s)
+{
+  struct tm   tm = {0};
+  const char* p;
+
+  p = strptime (s.c_str(), " %Y-%m-%dT%T", &tm);
+  if (p == NULL)
+  {
+    return -1;
+  }
+  return (int64_t) timegm(&tm);
 }

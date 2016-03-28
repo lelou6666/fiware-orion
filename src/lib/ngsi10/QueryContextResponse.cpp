@@ -26,8 +26,10 @@
 
 #include "logMsg/traceLevels.h"
 #include "logMsg/logMsg.h"
+
 #include "common/string.h"
 #include "common/tag.h"
+#include "alarmMgr/alarmMgr.h"
 #include "rest/HttpStatusCode.h"
 #include "ngsi/StatusCode.h"
 #include "ngsi10/QueryContextResponse.h"
@@ -41,7 +43,7 @@
 */
 QueryContextResponse::QueryContextResponse()
 {
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
 
 
@@ -53,8 +55,26 @@ QueryContextResponse::QueryContextResponse()
 QueryContextResponse::QueryContextResponse(StatusCode& _errorCode)
 {
   errorCode.fill(&_errorCode);
-  errorCode.tagSet("errorCode");
-  LM_T(LmtDestructor, ("destroyed"));
+  errorCode.keyNameSet("errorCode");
+}
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::QueryContextResponse - 
+*/
+QueryContextResponse::QueryContextResponse(EntityId* eP, ContextAttribute* aP)
+{
+  ContextElementResponse* cerP = new ContextElementResponse();
+  ContextAttribute*       caP  = new ContextAttribute(aP);
+
+  cerP->contextElement.entityId.fill(eP);
+  cerP->contextElement.contextAttributeVector.push_back(caP);  
+  cerP->statusCode.fill(SccOk);
+
+  contextElementResponseVector.push_back(cerP);
+  errorCode.fill(SccOk);
 }
 
 
@@ -67,7 +87,6 @@ QueryContextResponse::~QueryContextResponse()
 {
   errorCode.release();
   contextElementResponseVector.release();
-  LM_T(LmtDestructor,("destroyed"));
 }
 
 
@@ -78,30 +97,62 @@ QueryContextResponse::~QueryContextResponse()
 */
 std::string QueryContextResponse::render(ConnectionInfo* ciP, RequestType requestType, const std::string& indent)
 {
-  std::string out = "";
-  std::string tag = "queryContextResponse";
+  std::string  out               = "";
+  std::string  tag               = "queryContextResponse";
+  bool         errorCodeRendered = false;
+  
+  //
+  // 01. Decide whether errorCode should be rendered
+  //
+  if ((errorCode.code != SccNone) && (errorCode.code != SccOk))
+  {
+    errorCodeRendered = true;
+  }
+  else if (contextElementResponseVector.size() == 0)
+  {
+    errorCodeRendered = true;
+  }
+  else if (errorCode.details != "")
+  {
+    if (errorCode.code == SccNone)
+    {
+      errorCode.code = SccOk;
+    }
 
-  out += startTag(indent, tag, ciP->outFormat, false);
+    errorCodeRendered = true;
+  }
+
+
+  //
+  // 02. render 
+  //
+  out += startTag1(indent, tag, false);
 
   if (contextElementResponseVector.size() > 0)
   {
-    bool commaNeeded = (errorCode.code != SccNone);
-    out += contextElementResponseVector.render(ciP, QueryContext, indent + "  ", commaNeeded);
+    out += contextElementResponseVector.render(ciP, QueryContext, indent + "  ", errorCodeRendered);
   }
 
-  if (errorCode.code != SccNone)
+  if (errorCodeRendered == true)
   {
-    out += errorCode.render(ciP->outFormat, indent + "  ");
+    out += errorCode.render(indent + "  ");
   }
 
-  /* Safety check: neither errorCode nor CER vector was filled by mongoBackend */
-  if (errorCode.code == SccNone && contextElementResponseVector.size() == 0)
+
+  //
+  // 03. Safety Check
+  //
+  // If neither errorCode nor CER vector was filled by mongoBackend, then we
+  // report a special kind of error.
+  //
+  if ((errorCode.code == SccNone) && (contextElementResponseVector.size() == 0))
   {
-      errorCode.fill(SccReceiverInternalError, "Both the error-code structure and the response vector were empty");
-      out += errorCode.render(ciP->outFormat, indent + "  ");
+    LM_W(("Internal Error (Both error-code and response vector empty)"));
+    errorCode.fill(SccReceiverInternalError, "Both the error-code structure and the response vector were empty");
+    out += errorCode.render(indent + "  ");
   }
 
-  out += endTag(indent, tag, ciP->outFormat);
+  out += endTag(indent);
 
   return out;
 }
@@ -114,19 +165,21 @@ std::string QueryContextResponse::render(ConnectionInfo* ciP, RequestType reques
 */
 std::string QueryContextResponse::check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
-  std::string           res;
+  std::string  res;
 
   if (predetectedError != "")
   {
     errorCode.fill(SccBadRequest, predetectedError);
   }
-  else if ((res = contextElementResponseVector.check(QueryContext, ciP->outFormat, indent, predetectedError, 0)) != "OK")
+  else if ((res = contextElementResponseVector.check(ciP, QueryContext, indent, predetectedError, 0)) != "OK")
   {
-    LM_W(("Bad Input (%s)", res.c_str()));
+    alarmMgr.badInput(clientIp, res);
     errorCode.fill(SccBadRequest, res);
   }
   else
+  {
     return "OK";
+  }
 
   return render(ciP, QueryContext, indent);
 }
@@ -137,8 +190,9 @@ std::string QueryContextResponse::check(ConnectionInfo* ciP, RequestType request
 *
 * QueryContextResponse::present -
 */
-void QueryContextResponse::present(const std::string& indent)
+void QueryContextResponse::present(const std::string& indent, const std::string& caller)
 {
+  LM_T(LmtPresent, ("QueryContextResponse presented by %s", caller.c_str()));
   contextElementResponseVector.present(indent + "  ");
   errorCode.present(indent + "  ");
 }
@@ -153,5 +207,39 @@ void QueryContextResponse::release(void)
 {
   contextElementResponseVector.release();
   errorCode.release();
-  errorCode.tagSet("errorCode");
+}
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::fill - 
+*/
+void QueryContextResponse::fill(QueryContextResponse* qcrsP)
+{
+  errorCode.fill(qcrsP->errorCode);
+
+  for (unsigned int cerIx = 0; cerIx < qcrsP->contextElementResponseVector.size(); ++cerIx)
+  {
+    ContextElementResponse* cerP = new ContextElementResponse();
+
+    cerP->fill(qcrsP->contextElementResponseVector[cerIx]);
+
+    contextElementResponseVector.push_back(cerP);
+  }
+}
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::clone - 
+*/
+QueryContextResponse* QueryContextResponse::clone(void)
+{
+  QueryContextResponse* clon = new QueryContextResponse();
+
+  clon->fill(this);
+
+  return clon;
 }

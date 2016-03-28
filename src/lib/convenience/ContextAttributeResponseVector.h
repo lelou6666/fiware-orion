@@ -45,13 +45,16 @@ typedef struct ContextAttributeResponseVector
   void                       present(std::string indent);
   void                       push_back(ContextAttributeResponse* item);
   unsigned int               size(void);
-  ContextAttributeResponse*  get(int ix);
   void                       release(void);
   std::string                check(ConnectionInfo*  ciP,
                                    RequestType      requestType,
                                    std::string      indent,
                                    std::string      predetectedError,
                                    int              counter);
+  void                       fill(ContextAttributeVector* cavP, const StatusCode& statusCode);
+
+  ContextAttributeResponse*  operator[](unsigned int ix) const;
+
 } ContextAttributeResponseVector;
 
 #endif  // SRC_LIB_CONVENIENCE_CONTEXTATTRIBUTERESPONSEVECTOR_H_

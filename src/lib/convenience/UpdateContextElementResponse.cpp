@@ -25,11 +25,13 @@
 #include <string>
 #include <vector>
 
+#include "logMsg/traceLevels.h"
 #include "common/Format.h"
 #include "common/tag.h"
 #include "convenience/ContextAttributeResponse.h"
-#include "ngsi/StatusCode.h"
 #include "convenience/UpdateContextElementResponse.h"
+#include "ngsi/StatusCode.h"
+#include "ngsi10/UpdateContextResponse.h"
 #include "rest/ConnectionInfo.h"
 
 
@@ -40,7 +42,7 @@
 */
 UpdateContextElementResponse::UpdateContextElementResponse()
 {
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
 
 
@@ -59,18 +61,18 @@ std::string UpdateContextElementResponse::render
   std::string tag = "updateContextElementResponse";
   std::string out = "";
 
-  out += startTag(indent, tag, ciP->outFormat, false);
+  out += startTag1(indent, tag, false);
 
   if ((errorCode.code != SccNone) && (errorCode.code != SccOk))
   {
-    out += errorCode.render(ciP->outFormat, indent + "  ");
+    out += errorCode.render(indent + "  ");
   }
   else
   {
     out += contextAttributeResponseVector.render(ciP, requestType, indent + "  ");
   }
 
-  out += endTag(indent, tag, ciP->outFormat);
+  out += endTag(indent);
 
   return out;
 }
@@ -118,4 +120,100 @@ void UpdateContextElementResponse::release(void)
 {
   contextAttributeResponseVector.release();
   errorCode.release();
+}
+
+
+
+/* ****************************************************************************
+*
+* UpdateContextElementResponse::fill -
+*
+* NOTE
+* This method is used in the service routine of 'PUT /v1/contextEntities/{entityId::id}.
+* Only ONE response in the vector contextElementResponseVector of UpdateContextResponse is possible.
+*/
+void UpdateContextElementResponse::fill(UpdateContextResponse* ucrsP)
+{
+  ContextElementResponse* cerP = ucrsP->contextElementResponseVector[0];
+
+  errorCode.fill(ucrsP->errorCode);
+  if (errorCode.code == SccNone)
+  {
+    errorCode.fill(SccOk, errorCode.details);
+  }
+
+  if (ucrsP->contextElementResponseVector.size() != 0)
+  {
+    //
+    // Remove values from the context attributes
+    //
+    for (unsigned int aIx = 0; aIx < cerP->contextElement.contextAttributeVector.size(); ++aIx)
+    {
+      //
+      // NOTE
+      //   Only stringValue is cleared here (not numberValue nor boolValue, which are new for v2).
+      //   This is OK for /v1, where all fields are strings.
+      //   For /v2, we would need to reset the valueType to STRING as well, but since this function is used only
+      //   in v1, this is not strictly necessary.
+      //   However, it doesn't hurt, so that modification is included as well: 
+      //     cerP->contextElement.contextAttributeVector[aIx]->valueType = orion::ValueTypeString
+      //
+      cerP->contextElement.contextAttributeVector[aIx]->stringValue = "";
+      cerP->contextElement.contextAttributeVector[aIx]->valueType   = orion::ValueTypeString;
+    }
+
+    contextAttributeResponseVector.fill(&cerP->contextElement.contextAttributeVector, cerP->statusCode);
+  }
+
+
+  //
+  // Special treatment if only one contextElementResponse that is NOT FOUND and if
+  // UpdateContextElementResponse::errorCode is not 404 already
+  //
+  // Also if NO contextElementResponse is present
+  //
+  // These 'fixes' are mainly to maintain backward compatibility
+  //
+  if ((errorCode.code != SccContextElementNotFound) && (contextAttributeResponseVector.size() == 1) && (contextAttributeResponseVector[0]->statusCode.code == SccContextElementNotFound))
+  {
+    errorCode.fill(SccContextElementNotFound);
+  }
+  else if ((errorCode.code != SccContextElementNotFound) && (contextAttributeResponseVector.size() == 0))
+  {
+    errorCode.fill(SccContextElementNotFound);
+  }
+  else if (contextAttributeResponseVector.size() == 1)
+  {
+    //
+    // Now, if any error inside ContextAttributeResponse, move it to the outside, but only if we have ONLY ONE contextAttributeResponse
+    // and only if there is no error already in the 'external' errorCode.
+    //
+    if (((errorCode.code == SccNone) || (errorCode.code == SccOk)) && 
+        ((contextAttributeResponseVector[0]->statusCode.code != SccNone) && (contextAttributeResponseVector[0]->statusCode.code != SccOk)))
+    {
+      errorCode.fill(contextAttributeResponseVector[0]->statusCode);
+    }
+  }
+
+  // Now, if the external error code is 404 and 'details' is empty - add the name of the incoming entity::id as details
+  if ((errorCode.code == SccContextElementNotFound) && (errorCode.details == ""))
+  {
+    if (ucrsP->contextElementResponseVector.size() == 1)
+    {
+      errorCode.details = ucrsP->contextElementResponseVector[0]->contextElement.entityId.id;
+    }
+  }
+}
+
+
+
+/* ****************************************************************************
+*
+* present - 
+*/
+void UpdateContextElementResponse::present(const std::string& indent)
+{
+  LM_T(LmtPresent,("%sUpdateContextElementResponse:", indent.c_str()));
+  contextAttributeResponseVector.present(indent + "  ");
+  errorCode.present(indent + "  ");
 }

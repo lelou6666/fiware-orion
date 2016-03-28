@@ -30,6 +30,8 @@ SET (SOURCES
     idCheck.cpp
     wsStrip.cpp
     statistics.cpp
+    clockFunctions.cpp
+    JsonHelper.cpp
 )
 
 SET (HEADERS
@@ -41,6 +43,10 @@ SET (HEADERS
     idCheck.h
     wsStrip.h
     statistics.h
+    clockFunctions.h
+    JsonHelper.h
+    SyncQOverflow.h
+    errorMessages.h
 )
 
 

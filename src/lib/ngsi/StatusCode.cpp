@@ -28,14 +28,17 @@
 #include <string>
 
 #include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
 #include "common/string.h"
 #include "common/tag.h"
-#include "ngsi/Request.h"
 #include "common/Format.h"
-#include "rest/HttpStatusCode.h"
+#include "common/limits.h"
+#include "ngsi/Request.h"
 #include "ngsi/StatusCode.h"
+#include "ngsi10/UpdateContextResponse.h"
+#include "rest/HttpStatusCode.h"
 
 
 
@@ -48,7 +51,7 @@ StatusCode::StatusCode()
   code         = SccNone;
   reasonPhrase = "";
   details      = "";
-  tag          = "statusCode";
+  keyName      = "statusCode";
 }
 
 
@@ -57,12 +60,12 @@ StatusCode::StatusCode()
 *
 * StatusCode::StatusCode -
 */
-StatusCode::StatusCode(const std::string& _tag)
+StatusCode::StatusCode(const std::string& _keyName)
 {
   code         = SccNone;
   reasonPhrase = "";
   details      = "";
-  tag          = _tag;
+  keyName      = _keyName;
 }
 
 
@@ -71,12 +74,12 @@ StatusCode::StatusCode(const std::string& _tag)
 *
 * StatusCode::StatusCode -
 */
-StatusCode::StatusCode(HttpStatusCode _code, const std::string& _details, const std::string& _tag)
+StatusCode::StatusCode(HttpStatusCode _code, const std::string& _details, const std::string& _keyName)
 {
   code          = _code;
   reasonPhrase  = httpStatusCodeString(code);
   details       = _details;
-  tag           = _tag;
+  keyName       = _keyName;
 }
 
 
@@ -85,18 +88,18 @@ StatusCode::StatusCode(HttpStatusCode _code, const std::string& _details, const 
 *
 * StatusCode::render -
 */
-std::string StatusCode::render(Format format, const std::string& indent, bool comma, bool showTag)
+std::string StatusCode::render(const std::string& indent, bool comma, bool showKey)
 {
   std::string  out  = "";
 
   if (strstr(details.c_str(), "\"") != NULL)
   {
-    int    len = details.length() * 2;
-    char*  s2    = (char*) calloc(1, len + 1);
+    int    len  = details.length() * 2;
+    char*  s    = (char*) calloc(1, len + 1);
 
-    strReplace(s2, len, details.c_str(), "\"", "\\\"");
-    details = s2;
-    free(s2);
+    strReplace(s, len, details.c_str(), "\"", "\\\"");
+    details = s;
+    free(s);
   }
 
   if (code == SccNone)
@@ -105,16 +108,61 @@ std::string StatusCode::render(Format format, const std::string& indent, bool co
     details += " - ZERO code set to 500";
   }
 
-  out += startTag(indent, tag, format, showTag);
-  out += valueTag(indent + "  ", "code", code, format, true);
-  out += valueTag(indent + "  ", "reasonPhrase", reasonPhrase, format, details != "");
+  out += startTag1(indent, keyName, showKey);
+  out += valueTag(indent + "  ", "code", code, true);
+  out += valueTag1(indent + "  ", "reasonPhrase", reasonPhrase, details != "");
 
   if (details != "")
   {
-    out += valueTag(indent + "  ", "details", details, format, false);
+    out += valueTag1(indent + "  ", "details", details, false);
   }
 
-  out += endTag(indent, tag, format, comma);
+  out += endTag(indent, comma);
+
+  return out;
+}
+
+
+
+/* ****************************************************************************
+*
+* StatusCode::toJson -
+*
+* For version 2 of the API, the unnecessary 'reasonPhrase' is removed.
+*/
+std::string StatusCode::toJson(bool isLastElement)
+{
+  std::string  out  = "";
+
+  if (strstr(details.c_str(), "\"") != NULL)
+  {
+    int    len = details.length() * 2;
+    char*  s    = (char*) calloc(1, len + 1);
+
+    strReplace(s, len, details.c_str(), "\"", "\\\"");
+    details = s;
+    free(s);
+  }
+
+  char codeV[STRING_SIZE_FOR_INT];
+
+  snprintf(codeV, sizeof(codeV), "%d", code);
+
+  out += "{";
+
+  out += std::string("\"code\":\"") + codeV + "\"";
+  
+  if (details != "")
+  {
+    out += ",\"details\":\"" + details + "\"";
+  }
+
+  out += "}";
+
+  if (!isLastElement)
+  {
+    out += ",";
+  }
 
   return out;
 }
@@ -147,12 +195,51 @@ void StatusCode::fill(StatusCode* scP)
 
 /* ****************************************************************************
 *
+* StatusCode::fill -
+*/
+void StatusCode::fill(const StatusCode& sc)
+{
+  fill(sc.code, sc.details);
+}
+
+
+
+/* ****************************************************************************
+*
+* StatusCode::fill - 
+*/
+void StatusCode::fill(const struct UpdateContextResponse& ucrs)
+{
+  if ((ucrs.errorCode.code != SccOk) && (ucrs.errorCode.code != SccNone))
+  {
+    fill(ucrs.errorCode);
+  }
+  else if (ucrs.contextElementResponseVector.vec.size() == 1)
+  {
+    fill(ucrs.contextElementResponseVector.vec[0]->statusCode);
+  }
+  else if (ucrs.contextElementResponseVector.vec.size() > 1)
+  {
+    LM_W(("Filling StatusCode from UpdateContextResponse with more than one contextElementResponse, picking one of them ..."));
+    fill(ucrs.contextElementResponseVector.vec[0]->statusCode);
+  }
+  else
+  {
+    // Empty UpdateContextResponse::contextElementResponseVector AND unfilled UpdateContextResponse::errorCode
+    LM_E(("Internal Error (can't fill StatusCode from UpdateContextResponse)"));
+    fill(SccReceiverInternalError, "can't fill StatusCode from UpdateContextResponse");
+  }
+}
+
+
+
+/* ****************************************************************************
+*
 * StatusCode::check -
 */
 std::string StatusCode::check
 (
   RequestType         requestType,
-  Format              format,
   const std::string&  indent,
   const std::string&  predetectedError,
   int                 counter
@@ -179,10 +266,18 @@ std::string StatusCode::check
 */
 void StatusCode::present(const std::string& indent)
 {
-  PRINTF("%sCode:            %d\n",   indent.c_str(), code);
-  PRINTF("%sReasonPhrase:    '%s'\n", indent.c_str(), reasonPhrase.c_str());
-  PRINTF("%sDetail:          '%s'\n", indent.c_str(), details.c_str());
-  PRINTF("%sTag:             '%s'\n", indent.c_str(), tag.c_str());
+  LM_T(LmtPresent, ("%s%s:", 
+		    indent.c_str(), 
+        keyName.c_str()));
+  LM_T(LmtPresent, ("%s  Code:            %d",   
+		    indent.c_str(), 
+		    code));
+  LM_T(LmtPresent, ("%s  ReasonPhrase:    '%s'", 
+		    indent.c_str(), 
+		    reasonPhrase.c_str()));
+  LM_T(LmtPresent, ("%s  Detail:          '%s'", 
+		    indent.c_str(), 
+		    details.c_str()));
 }
 
 
@@ -196,16 +291,16 @@ void StatusCode::release(void)
   code         = SccNone;
   reasonPhrase = "";
   details      = "";
-  tag          = "statusCode";
+  keyName      = "statusCode";
 }
 
 
 
 /* ****************************************************************************
 *
-* tagSet -
+* keyNameSet -
 */
-void StatusCode::tagSet(const std::string& _tag)
+void StatusCode::keyNameSet(const std::string& _keyName)
 {
-  tag = _tag;
+  keyName = _keyName;
 }

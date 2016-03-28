@@ -35,6 +35,8 @@
 #include "ngsi/Reference.h"
 #include "ngsi/Restriction.h"
 #include "ngsi/Throttling.h"
+#include "rest/EntityTypeInfo.h"
+#include "apiTypesV2/SubscriptionExpression.h"
 
 
 
@@ -51,15 +53,19 @@ typedef struct SubscribeContextRequest
   Restriction            restriction;            // Optional
   NotifyConditionVector  notifyConditionVector;  // Optional
   Throttling             throttling;             // Optional
+  int64_t                expires;
+  SubscriptionExpression expression;             // Only used by NGSIv2 subscription
 
   /* The number of restrictions */
   int                    restrictions;
 
-  SubscribeContextRequest();
-  std::string  render(RequestType requestType, Format format, const std::string& indent);
-  std::string  check(RequestType requestType, Format format, const std::string& indent, const std::string& predetectedError, int counter);
+  SubscribeContextRequest(): expires(-1), restrictions(0) {}
+  std::string  render(RequestType requestType, const std::string& indent);
+  std::string  check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter);
   void         present(const std::string& indent);
   void         release(void);
+
+  void         fill(EntityTypeInfo typeInfo);
 } SubscribeContextRequest;
 
 #endif

@@ -28,6 +28,8 @@
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
+#include "common/limits.h"
+#include "alarmMgr/alarmMgr.h"
 #include "ngsi/Request.h"
 #include "ngsi/ParseData.h"
 
@@ -43,7 +45,9 @@
 #include "jsonParse/jsonUpdateContextAvailabilitySubscriptionRequest.h"
 
 #include "jsonParse/jsonQueryContextRequest.h"
+#include "jsonParse/jsonQueryContextResponse.h"
 #include "jsonParse/jsonUpdateContextRequest.h"
+#include "jsonParse/jsonUpdateContextResponse.h"
 #include "jsonParse/jsonSubscribeContextRequest.h"
 #include "jsonParse/jsonUnsubscribeContextRequest.h"
 #include "jsonParse/jsonNotifyContextRequest.h"
@@ -123,7 +127,10 @@ static JsonRequest jsonRequest[] =
   { AttributeValueInstanceWithTypeAndId,           "POST", "updateContextAttributeRequest",         FUNCS(Upcar) },
 
   { ContextEntitiesByEntityIdAndType,              "POST", "registerProviderRequest",               FUNCS(Rpr)   },
-  { EntityByIdAttributeByNameIdAndType,            "POST", "registerProviderRequest",               FUNCS(Rpr)   }
+  { EntityByIdAttributeByNameIdAndType,            "POST", "registerProviderRequest",               FUNCS(Rpr)   },
+
+  { RtQueryContextResponse,                        "POST", "queryContextResponse",                  FUNCS(Qcrs)  },
+  { RtUpdateContextResponse,                       "POST", "updateContextResponse",                 FUNCS(Upcrs) }
 };
 
 
@@ -148,7 +155,9 @@ static JsonRequest* jsonRequestGet(RequestType request, std::string method)
     }
   }
 
-  LM_W(("Bad Input (no request found for RequestType '%s', method '%s')", requestType(request), method.c_str()));
+  std::string details = std::string("no request found for RequestType '") + requestType(request) + "'', method '" + method + "'";
+  alarmMgr.badInput(clientIp, details);
+
   return NULL;
 }
 
@@ -173,9 +182,12 @@ std::string jsonTreat
 
 
   //
-  // If the payload is empty, the XML parsing library does an assert
-  // and the broker dies. I don't know about the JSON library, but just in case ...
-  // 
+  // FIXME P4 #1862:
+  //
+  // This check comes from the old XML days, as the the XML parsing library did an assert
+  // and the broker died. We need to test what happen with the JSON library.
+  // If JSON library is "safer" with that regards, the check should be removed.
+  //
   // 'OK' is returned as there is no error to send a request without payload.
   //
   if ((content == NULL) || (*content == 0))
@@ -191,14 +203,19 @@ std::string jsonTreat
   {
     std::string errorReply =
       restErrorReplyGet(ciP,
-                        ciP->outFormat,
                         "",
                         requestType(request),
                         SccBadRequest,
                         std::string("Sorry, no request treating object found for RequestType /") +
                         requestType(request) + "/");
 
-    LM_W(("Bad Input (no request treating object found for RequestType %d (%s))", request, requestType(request)));
+
+    char reqTypeV[STRING_SIZE_FOR_INT];
+
+    snprintf(reqTypeV, sizeof(reqTypeV), "%d", request);
+    std::string details = std::string("no request treating object found for RequestType ") + reqTypeV + " (" + requestType(request) + ")";
+    alarmMgr.badInput(clientIp, details);
+
     return errorReply;
   }
 
@@ -218,34 +235,35 @@ std::string jsonTreat
   catch (const std::exception &e)
   {
     std::string errorReply  = restErrorReplyGet(ciP,
-                                                ciP->outFormat,
                                                 "",
                                                 reqP->keyword,
                                                 SccBadRequest,
                                                 std::string("JSON Parse Error"));
 
-    LM_W(("Bad Input (JSON Parse Error: %s)", e.what()));
+    std::string details = std::string("JSON Parse Error: ") + e.what();
+    alarmMgr.badInput(clientIp, details);
     return errorReply;
   }
   catch (...)
   {
     std::string errorReply  = restErrorReplyGet(ciP,
-                                                ciP->outFormat,
                                                 "",
                                                 reqP->keyword,
                                                 SccBadRequest,
                                                 std::string("JSON Generic Error"));
 
-    LM_W(("Bad Input (JSON parse generic error)"));
+    alarmMgr.badInput(clientIp, "JSON parse generic error");
     return errorReply;
   }
 
   if (res != "OK")
   {
-    LM_W(("Bad Input (JSON parse error: %s)", res.c_str()));
+    std::string details = std::string("JSON parse error: ") + res;
+    alarmMgr.badInput(clientIp, details);
+
     ciP->httpStatusCode = SccBadRequest;
 
-    std::string answer = restErrorReplyGet(ciP, ciP->outFormat, "", payloadWord, ciP->httpStatusCode, res);
+    std::string answer = restErrorReplyGet(ciP, "", payloadWord, ciP->httpStatusCode, res);
     return answer;
   }
 
@@ -258,16 +276,13 @@ std::string jsonTreat
     ciP->compoundValueP->shortShow("after parse: ");
   }
 
-  reqP->present(parseDataP);
-
   LM_T(LmtParseCheck, ("Calling check for JSON parsed tree (%s)", ciP->payloadWord));
   res = reqP->check(parseDataP, ciP);
   if (res != "OK")
   {
-    LM_W(("Bad Input (%s: %s)", reqP->keyword.c_str(), res.c_str()));
+    std::string details = reqP->keyword + ": " + res;
+    alarmMgr.badInput(clientIp, details);
   }
-
-  reqP->present(parseDataP);
 
   return res;
 }

@@ -36,6 +36,7 @@
 #include "rest/rest.h"
 #include "rest/restReply.h"
 #include "serviceRoutines/exitTreat.h"
+#include "cache/subCache.h"
 
 
 
@@ -59,7 +60,7 @@ std::string exitTreat
     OrionError orionError(SccBadRequest, "no such service");
 
     ciP->httpStatusCode = SccOk;
-    out = orionError.render(ciP->outFormat, "");
+    out = orionError.render(ciP, "");
     return out;
   }
 
@@ -72,16 +73,29 @@ std::string exitTreat
   {
     OrionError orionError(SccBadRequest, "Password requested");
     ciP->httpStatusCode = SccOk;
-    out = orionError.render(ciP->outFormat, "");
+    out = orionError.render(ciP, "");
   }
   else if (password != "harakiri")
   {
     OrionError orionError(SccBadRequest, "Request denied - password erroneous");
     ciP->httpStatusCode = SccOk;
-    out = orionError.render(ciP->outFormat, "");
+    out = orionError.render(ciP, "");
   }
   else
   {
+    if (subCacheState == ScsSynchronizing)
+    {
+      // 
+      // Subscription Cache is busy doing a synchronization.
+      // Two secs should be enough for it to finish.
+      //
+      // Not very important anyway. This 'hack' is just to avoid
+      // false leaks in the valgrind test suite.
+      //
+      LM_W(("Subscription cache is synchronizing, wait a few seconds before dying"));
+      sleep(2);
+    }
+
     compV.clear();
     return "DIE";
   }

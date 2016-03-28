@@ -28,6 +28,7 @@
 #include "logMsg/traceLevels.h"
 
 #include "common/sem.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/mongoQueryContext.h"
@@ -36,9 +37,238 @@
 #include "ngsi10/QueryContextRequest.h"
 #include "ngsi10/QueryContextResponse.h"
 
+
+
+/* ****************************************************************************
+*
+* someContextElementNotFound -
+*
+* Returns true if some attribute with 'found' set to 'false' is found in the CER vector passed
+* as argument
+*
+*/
+bool someContextElementNotFound(ContextElementResponseVector& cerV)
+{
+  for (unsigned int ix = 0; ix < cerV.size(); ++ix)
+  {
+    if (someContextElementNotFound(*cerV[ix]))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ****************************************************************************
+*
+* fillContextProviders -
+*
+* Looks in the elements of the CER vector passed as argument, searching for a suitable CPr in the CRR
+* vector passed as argument. If a suitable CPr is found, it is added to the CER (and the 'found' field
+* is changed to true)
+*
+*/
+void fillContextProviders(ContextElementResponseVector& cerV, ContextRegistrationResponseVector& crrV)
+{
+  for (unsigned int ix = 0; ix < cerV.size(); ++ix)
+  {
+    fillContextProviders(cerV[ix], crrV);
+  }
+}
+
+/* ****************************************************************************
+*
+* addContextProviderEntity -
+*
+*/
+void addContextProviderEntity(ContextElementResponseVector& cerV, EntityId* enP, ProvidingApplication pa)
+{
+  for (unsigned int ix = 0; ix < cerV.size(); ++ix)
+  {
+    if (cerV[ix]->contextElement.entityId.id == enP->id && cerV[ix]->contextElement.entityId.type == enP->type)
+    {
+      cerV[ix]->contextElement.providingApplicationList.push_back(pa);
+      return;    /* by construction, no more than one CER with the same entity information should exist in the CERV) */
+    }
+  }
+
+  /* Reached this point, it means that the cerV doesn't contain a proper CER, so we create it */
+  ContextElementResponse* cerP            = new ContextElementResponse();
+  cerP->contextElement.entityId.id        = enP->id;
+  cerP->contextElement.entityId.type      = enP->type;
+  cerP->contextElement.entityId.isPattern = "false";
+  cerP->contextElement.providingApplicationList.push_back(pa);
+
+  cerP->statusCode.fill(SccOk);
+  cerV.push_back(cerP);
+
+}
+
+/* ****************************************************************************
+*
+* addContextProviderAttribute -
+*
+* The limitReached parameter is to prevent the addition of new entities, which is needed in the case of the pagination
+* limit has been reached with local entities.
+*
+*/
+void addContextProviderAttribute
+(
+  ContextElementResponseVector&   cerV,
+  EntityId*                       enP,
+  ContextRegistrationAttribute*   craP,
+  const ProvidingApplication&     pa,
+  bool                            limitReached
+)
+{
+  for (unsigned int ix = 0; ix < cerV.size(); ++ix)
+  {
+    if ((cerV[ix]->contextElement.entityId.id != enP->id) ||
+        (cerV[ix]->contextElement.entityId.type != enP->type))
+    {
+     continue;
+    }
+
+    for (unsigned int jx = 0; jx < cerV[ix]->contextElement.contextAttributeVector.size(); ++jx)
+    {
+      std::string attrName = cerV[ix]->contextElement.contextAttributeVector[jx]->name;
+      if (attrName == craP->name)
+      {
+        /* In this case, the attribute has been already found in local database. CPr is unnecessary */
+        return;
+      }
+    }
+    /* Reached this point, no attribute was found, so adding it with corresponding CPr info */
+    ContextAttribute* caP = new ContextAttribute(craP->name, "", "");
+    caP->providingApplication = pa;
+    cerV[ix]->contextElement.contextAttributeVector.push_back(caP);
+    return;
+
+  }
+
+  if (!limitReached)
+  {
+    /* Reached this point, it means that the cerV doesn't contain a proper CER, so we create it */
+    ContextElementResponse* cerP            = new ContextElementResponse();
+    cerP->contextElement.entityId.id        = enP->id;
+    cerP->contextElement.entityId.type      = enP->type;
+    cerP->contextElement.entityId.isPattern = "false";
+
+    cerP->statusCode.fill(SccOk);
+
+    ContextAttribute* caP = new ContextAttribute(craP->name, "", "");
+    caP->providingApplication = pa;
+    cerP->contextElement.contextAttributeVector.push_back(caP);
+
+    cerV.push_back(cerP);
+  }
+}
+
+
+/* ****************************************************************************
+*
+* matchEntityInCrr -
+*
+*/
+bool matchEntityInCrr(ContextRegistration& cr, const EntityId* enP)
+{
+  for (unsigned int ix = 0; ix < cr.entityIdVector.size(); ++ix)
+  {
+    EntityId* crEnP = cr.entityIdVector[ix];
+    if (matchEntity(crEnP, enP))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+/* ****************************************************************************
+*
+* addContextProviders -
+*
+* This function takes a CRR vector and adds the Context Providers in the CER vector
+* (except the ones corresponding to some locally found attribute, i.e. info already in the
+* CER vector)
+*
+* The limitReached parameter is to prevent the addition of new entities, which is needed in the case of the pagination
+* limit has been reached with local entities.
+*
+* The enP parameter is optional. If not NULL, then before adding a CPr the function checks that the
+* containting CRR matches the entity (this is used for funcionality related to  "generic queries", see
+* processGenericEntities() function)
+*
+*/
+void addContextProviders(ContextElementResponseVector& cerV, ContextRegistrationResponseVector& crrV, bool limitReached, const EntityId* enP = NULL)
+{
+  for (unsigned int ix = 0; ix < crrV.size(); ++ix)
+  {
+    ContextRegistration cr = crrV[ix]->contextRegistration;
+
+    /* In the case a "filtering" entity was provided, check that the current CRR matches or skip to next CRR */
+    if (enP != NULL && !matchEntityInCrr(cr, enP)) {
+      continue;
+    }
+
+    if (cr.contextRegistrationAttributeVector.size() == 0)
+    {
+      if (!limitReached)
+      {
+        /* Registration without attributes */
+        for (unsigned int eIx = 0; eIx < cr.entityIdVector.size(); ++eIx)
+        {
+          addContextProviderEntity(cerV, cr.entityIdVector[eIx], cr.providingApplication);
+        }
+      }
+    }
+    else
+    {
+      /* Registration with attributes */
+      for (unsigned int eIx = 0; eIx < cr.entityIdVector.size(); ++eIx)
+      {
+        for (unsigned int aIx = 0; aIx < cr.contextRegistrationAttributeVector.size(); ++aIx)
+        {
+          addContextProviderAttribute(cerV, cr.entityIdVector[eIx], cr.contextRegistrationAttributeVector[aIx], cr.providingApplication, limitReached);
+        }
+      }
+    }
+  }
+}
+
+/* ****************************************************************************
+*
+* processGenericEntities -
+*
+* If the request included some "generic" entity, some additional CPr could be needed in the CER array. There are
+* three cases of "generic" entities: 1) not pattern + null type, 2) pattern + not null type, 3) pattern + null type
+*
+* The limitReached parameter is to prevent the addition of new entities, which is needed in the case of the pagination
+* limit has been reached with local entities.
+*
+*/
+void processGenericEntities(const EntityIdVector& enV, ContextElementResponseVector& cerV, ContextRegistrationResponseVector& crrV, bool limitReached)
+{
+  for (unsigned int ix = 0; ix < enV.size(); ++ix)
+  {
+    const EntityId* enP = enV[ix];
+    if (enP->type == "" || isTrue(enP->isPattern))
+    {
+      addContextProviders(cerV, crrV, limitReached, enP);
+    }
+  }
+}
+
 /* ****************************************************************************
 *
 * mongoQueryContext - 
+*
+* NOTE
+*   If the in/out-parameter countP is non-NULL then the number of matching entities
+*   must be returned in *countP.
+*
+*   This replaces the 'uriParams[URI_PARAM_PAGINATION_DETAILS]' way of passing this information.
+*   The old method was one-way, using the new method 
 */
 HttpStatusCode mongoQueryContext
 (
@@ -46,7 +276,10 @@ HttpStatusCode mongoQueryContext
   QueryContextResponse*                responseP,
   const std::string&                   tenant,
   const std::vector<std::string>&      servicePathV,
-  std::map<std::string, std::string>&  uriParams
+  std::map<std::string, std::string>&  uriParams,
+  std::map<std::string, bool>&         options,
+  long long*                           countP,
+  const std::string&                   apiVersion
 )
 {
     int         offset         = atoi(uriParams[URI_PARAM_PAGINATION_OFFSET].c_str());
@@ -54,64 +287,129 @@ HttpStatusCode mongoQueryContext
     std::string detailsString  = uriParams[URI_PARAM_PAGINATION_DETAILS];
     bool        details        = (strcasecmp("on", detailsString.c_str()) == 0)? true : false;
 
+    std::string sortOrderList  = uriParams[URI_PARAM_SORTED];
+
     LM_T(LmtMongo, ("QueryContext Request"));    
     LM_T(LmtPagination, ("Offset: %d, Limit: %d, Details: %s", offset, limit, (details == true)? "true" : "false"));
 
     /* FIXME: restriction not supported for the moment */
     if (!requestP->restriction.attributeExpression.isEmpty())
     {
-      LM_W(("Bad Input (restriction found, but restrictions are not supported by mongo backend)"));
+      alarmMgr.badInput(clientIp, "restriction found, but restrictions are not supported by mongo backend");
     }
 
     std::string err;
     bool        ok;
-    long long   count = -1;
+    bool        limitReached = false;
+    bool        badInput     = false;
+    bool        reqSemTaken;
 
-    reqSemTake(__FUNCTION__, "ngsi10 query request");
+    ContextElementResponseVector rawCerV;    
+
+    reqSemTake(__FUNCTION__, "ngsi10 query request", SemReadOp, &reqSemTaken);
     ok = entitiesQuery(requestP->entityIdVector,
                        requestP->attributeList,
                        requestP->restriction,
-                       &responseP->contextElementResponseVector,
+                       &rawCerV,
                        &err,
                        true,
                        tenant,
                        servicePathV,
                        offset,
                        limit,
-                       details,
-                       &count);
-    reqSemGive(__FUNCTION__, "ngsi10 query request");
+                       &limitReached,
+                       countP,
+                       &badInput,
+                       sortOrderList,
+                       options[DATE_CREATED],
+                       options[DATE_MODIFIED],
+                       apiVersion);
+
+    if (badInput)
+    {
+      responseP->errorCode.fill(SccBadRequest, err);
+      rawCerV.release();
+      reqSemGive(__FUNCTION__, "ngsi10 query request", reqSemTaken);
+      return SccOk;      
+    }
 
     if (!ok)
     {
         responseP->errorCode.fill(SccReceiverInternalError, err);
+        rawCerV.release();
+        reqSemGive(__FUNCTION__, "ngsi10 query request", reqSemTaken);
+        return SccOk;
     }
-    else if (responseP->contextElementResponseVector.size() == 0)
+
+    ContextRegistrationResponseVector crrV;
+
+    /* In the case of empty response, if only generic processing is needed */
+    if (rawCerV.size() == 0)
     {
-      // Check a pontential Context Provider in the registrations collection
-      ContextRegistrationResponseVector crrV;
-      std::string err;      
-      // For now, we use limit=1. That ensures that max one providing application is returned. In the future,
-      // we should consider leaving this limit open and define an algorithm to pick the right one, and ordered list, etc.
-      if (registrationsQuery(requestP->entityIdVector, requestP->attributeList, &crrV, &err, tenant, servicePathV, 0, 1, false))
+      if (registrationsQuery(requestP->entityIdVector, requestP->attributeList, &crrV, &err, tenant, servicePathV, 0, 0, false))
       {
         if (crrV.size() > 0)
         {
-          // Suitable CProvider has been found: creating response and returning
-          std::string prApp = crrV[0]->contextRegistration.providingApplication.get();
-          LM_T(LmtCtxProviders, ("context provide found: %s", prApp.c_str()));
-          responseP->errorCode.fill(SccFound, prApp);
-          crrV.release();
-          return SccOk;
+          processGenericEntities(requestP->entityIdVector, rawCerV, crrV, limitReached);
         }
       }
-      else
+
+      crrV.release();
+    }
+
+    /* First CPr lookup (in the case some CER is not found): looking in E-A registrations */
+    if (someContextElementNotFound(rawCerV))
+    {
+      if (registrationsQuery(requestP->entityIdVector, requestP->attributeList, &crrV, &err, tenant, servicePathV, 0, 0, false))
       {
-        LM_E(("Database Error (%s)", err.c_str()));
-        crrV.release();  // Just in case
+        if (crrV.size() > 0)
+        {
+          fillContextProviders(rawCerV, crrV);
+          processGenericEntities(requestP->entityIdVector, rawCerV, crrV, limitReached);
+        }
       }
 
-      //
+      crrV.release();
+    }
+
+    /* Second CPr lookup (in the case some element stills not being found): looking in E-<null> registrations */
+    AttributeList attrNullList;
+    if (someContextElementNotFound(rawCerV))
+    {
+      if (registrationsQuery(requestP->entityIdVector, attrNullList, &crrV, &err, tenant, servicePathV, 0, 0, false))
+      {
+        if (crrV.size() > 0)
+        {
+          fillContextProviders(rawCerV, crrV);
+        }
+      }
+
+      crrV.release();
+    }
+
+    /* Special case: request with <null> attributes. In that case, entitiesQuery() may have captured some local attribute, but
+     * the list need to be completed. Note that in the case of having this request someContextElementNotFound() is always false
+     * so we efficient not invoking registrationQuery() too much times */
+    if (requestP->attributeList.size() == 0)
+    {
+      if (registrationsQuery(requestP->entityIdVector, requestP->attributeList, &crrV, &err, tenant, servicePathV, 0, 0, false))
+      {
+        if (crrV.size() > 0)
+        {
+          addContextProviders(rawCerV, crrV, limitReached);
+        }
+      }
+
+      crrV.release();
+    }
+
+    /* Prune "not found" CERs */
+    pruneContextElements(rawCerV, &responseP->contextElementResponseVector);
+
+    /* Pagination stuff */
+    if (responseP->contextElementResponseVector.size() == 0)
+    {
+
       // If the query has an empty response, we have to fill in the status code part in the response.
       //
       // However, if the response was empty due to a too high pagination offset,
@@ -119,21 +417,19 @@ HttpStatusCode mongoQueryContext
       // the number of hits without pagination.
       //
 
-      if (details)
+      if ((countP != NULL) && (*countP > 0) && (offset >= *countP))
       {
-        if ((count > 0) && (offset >= count))
-        {
-          char details[256];
+        char details[256];
 
-          snprintf(details, sizeof(details), "Number of matching entities: %lld. Offset is %d", count, offset);
-          responseP->errorCode.fill(SccContextElementNotFound, details);
-          return SccOk;
-        }
+        snprintf(details, sizeof(details), "Number of matching entities: %lld. Offset is %d", *countP, offset);
+        responseP->errorCode.fill(SccContextElementNotFound, details);
       }
-
-      responseP->errorCode.fill(SccContextElementNotFound);
+      else
+      {
+        responseP->errorCode.fill(SccContextElementNotFound);
+      }
     }
-    else if (details == true)
+    else if (countP != NULL)
     {
       //
       // If all was OK, but the details URI param was set to 'on', then the responses error code details
@@ -142,9 +438,12 @@ HttpStatusCode mongoQueryContext
 
       char details[64];
 
-      snprintf(details, sizeof(details), "Count: %lld", count);
+      snprintf(details, sizeof(details), "Count: %lld", *countP);
       responseP->errorCode.fill(SccOk, details);
     }
 
+    rawCerV.release();
+    
+    reqSemGive(__FUNCTION__, "ngsi10 query request", reqSemTaken);
     return SccOk;
 }

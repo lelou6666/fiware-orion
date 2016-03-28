@@ -88,7 +88,7 @@ static std::string contextMetadataType(const std::string& path, const std::strin
 static std::string contextMetadataValue(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata value '%s'", value.c_str()));
-  reqData->rpr.metadataP->value = value;
+  reqData->rpr.metadataP->stringValue = value;
   return "OK";
 }
 
@@ -184,7 +184,7 @@ void jsonRprRelease(ParseData* reqData)
 */
 std::string jsonRprCheck(ParseData* reqData, ConnectionInfo* ciP)
 {
-  return reqData->rpr.res.check(ContextEntitiesByEntityId, ciP->outFormat, "", reqData->errorString, 0);
+  return reqData->rpr.res.check(ciP, ContextEntitiesByEntityId, "", reqData->errorString, 0);
 }
 
 

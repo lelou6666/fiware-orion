@@ -38,10 +38,20 @@
 *
 * EntityId::EntityId -
 */
-EntityId::EntityId() : tag("entityId")
+EntityId::EntityId() : keyName("entityId")
 {
 }
 
+
+
+/* ****************************************************************************
+*
+* EntityId::EntityId -
+*/
+EntityId::EntityId(EntityId* eP) : keyName("entityId")
+{
+  fill(eP);
+}
 
 
 /* ****************************************************************************
@@ -53,11 +63,11 @@ EntityId::EntityId
   const std::string&  _id,
   const std::string&  _type,
   const std::string&  _isPattern,
-  const std::string&  _tag
+  const std::string&  _keyName
 ) : id(_id),
     type(_type),
     isPattern(_isPattern),
-    tag(_tag)
+    keyName(_keyName)
 {
 }
 
@@ -65,11 +75,11 @@ EntityId::EntityId
 
 /* ****************************************************************************
 *
-* tagSet -
+* keyNameSet -
 */
-void EntityId::tagSet(const std::string& tagName)
+void EntityId::keyNameSet(const std::string& _keyName)
 {
-  tag = tagName;
+  keyName = _keyName;
 }
 
 
@@ -78,16 +88,12 @@ void EntityId::tagSet(const std::string& tagName)
 *
 * EntityId::render -
 *
-* FIXME P1: startTag() is not enough for the XML case of entityId - XML attributes ...
-*           Perhaps add a vector of attributes to startTag() ?
 */
 std::string EntityId::render
 (
-  Format              format,
   const std::string&  indent,
   bool                comma,
-  bool                isInVector,
-  const std::string&  assocTag
+  bool                isInVector
 )
 {
   std::string  out              = "";
@@ -95,37 +101,28 @@ std::string EntityId::render
   char*        typeEscaped      = htmlEscape(type.c_str());
   char*        idEscaped        = htmlEscape(id.c_str());
 
-  if (format == XML)
+
+  std::string indent2 = indent;
+
+  if (isInVector)
   {
-    out += indent + "<"  + tag + " type=\"" + typeEscaped + "\" isPattern=\"" + isPatternEscaped + "\">\n";
-    out += indent + "  " + "<id>"           + idEscaped   + "</id>"           + "\n";
-    out += indent + "</" + tag + ">\n";
+    indent2 += "  ";
+  }
+
+  out += (isInVector? indent + "{\n" : "");
+  out += indent2 + "\"type\" : \""      + typeEscaped      + "\","  + "\n";
+  out += indent2 + "\"isPattern\" : \"" + isPatternEscaped + "\","  + "\n";
+  out += indent2 + "\"id\" : \""        + idEscaped        + "\"";
+
+  if ((comma == true) && (isInVector == false))
+  {
+    out += ",\n";
   }
   else
   {
-    bool        isAssoc = !assocTag.empty();
-    std::string indent2 = indent;
-
-    if (isInVector)
-    {
-       indent2 += "  ";
-    }
-
-    out += (isInVector? indent + (isAssoc? "\"" + assocTag + "\" : ": "") + "{\n": "");
-    out += indent2 + "\"type\" : \""      + typeEscaped      + "\","  + "\n";
-    out += indent2 + "\"isPattern\" : \"" + isPatternEscaped + "\","  + "\n";
-    out += indent2 + "\"id\" : \""        + idEscaped        + "\"";
-
-    if ((comma == true) && (isInVector == false))
-    {
-       out += ",\n";
-    }
-    else
-    {
-      out += "\n";
-      out += (isInVector? indent + "}" : "");
-      out += (comma == true)? ",\n" : (isInVector? "\n" : "");
-    }
+    out += "\n";
+    out += (isInVector? indent + "}" : "");
+    out += (comma == true)? ",\n" : (isInVector? "\n" : "");
   }
 
   free(typeEscaped);
@@ -143,8 +140,8 @@ std::string EntityId::render
 */
 std::string EntityId::check
 (
+  ConnectionInfo* ciP,
   RequestType         requestType,
-  Format              format,
   const std::string&  indent,
   const std::string&  predetectedError,
   int                 counter
@@ -187,11 +184,17 @@ void EntityId::fill(const std::string& _id, const std::string& _type, const std:
 *
 * EntityId::fill -
 */
-void EntityId::fill(const struct EntityId* eidP)
+void EntityId::fill(const struct EntityId* eidP, bool useDefaultType)
 {
-  id        = eidP->id;
-  type      = eidP->type;
-  isPattern = eidP->isPattern;
+  id          = eidP->id;
+  type        = eidP->type;
+  isPattern   = eidP->isPattern;
+  servicePath = eidP->servicePath;
+
+  if (useDefaultType && (type == ""))
+  {
+    type = DEFAULT_TYPE;
+  }
 }
 
 
@@ -204,16 +207,24 @@ void EntityId::present(const std::string& indent, int ix)
 {
   if (ix == -1)
   {
-    PRINTF("%sEntity Id:\n",       indent.c_str());
+    LM_T(LmtPresent, ("%sEntity Id:",       indent.c_str()));
   }
   else
   {
-    PRINTF("%sEntity Id %d:\n",       indent.c_str(), ix);
+    LM_T(LmtPresent, ("%sEntity Id %d:",       
+		      indent.c_str(), 
+		      ix));
   }
 
-  PRINTF("%s  Id:         '%s'\n", indent.c_str(), id.c_str());
-  PRINTF("%s  Type:       '%s'\n", indent.c_str(), type.c_str());
-  PRINTF("%s  isPattern:  '%s'\n", indent.c_str(), isPattern.c_str());
+  LM_T(LmtPresent, ("%s  Id:         '%s'", 
+		    indent.c_str(), 
+		    id.c_str()));
+  LM_T(LmtPresent, ("%s  Type:       '%s'", 
+		    indent.c_str(), 
+		    type.c_str()));
+  LM_T(LmtPresent, ("%s  isPattern:  '%s'", 
+		    indent.c_str(), 
+		    isPattern.c_str()));
 }
 
 
@@ -245,4 +256,41 @@ std::string EntityId::toString(bool useIsPattern, const std::string& delimiter)
   }
 
   return s;
+}
+
+
+
+/* ****************************************************************************
+*
+* EntityId::equal - return TRUE if EXACT match
+*/
+bool EntityId::equal(EntityId* eP)
+{
+  if (eP->id != id)
+  {
+    return false;
+  }
+
+  if (eP->type != type)
+  {
+    return false;
+  }
+
+  if (eP->isPatternIsTrue() == isPatternIsTrue())
+  {
+    return true;
+  }
+
+  return false;
+}
+
+
+
+/* ****************************************************************************
+*
+* isPatternIsTrue - 
+*/
+bool EntityId::isPatternIsTrue(void)
+{
+  return isTrue(isPattern);
 }

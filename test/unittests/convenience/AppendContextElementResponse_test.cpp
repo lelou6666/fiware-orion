@@ -37,37 +37,6 @@
 
 /* ****************************************************************************
 *
-* render_xml - 
-*/
-TEST(AppendContextElementResponse, render_xml)
-{
-  AppendContextElementResponse  acer;
-  ContextAttributeResponse      car;
-  std::string                   out;
-  const char*                   outfile1 = "ngsi10.appendContextElementResponse.empty.postponed.xml";
-  const char*                   outfile2 = "ngsi10.appendContextElementResponse.badRequest.postponed.xml";
-  ConnectionInfo                ci;
-
-  utInit();
-
-  // 1. empty acer
-  out = acer.render(&ci, AppendContextElement, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  // 2. errorCode 'active'
-  acer.errorCode.fill(SccBadRequest, "very bad request");
-  out = acer.render(&ci, AppendContextElement, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  utExit();
-}   
-
-
-
-/* ****************************************************************************
-*
 * render_json - 
 */
 TEST(AppendContextElementResponse, render_json)
@@ -100,44 +69,6 @@ TEST(AppendContextElementResponse, render_json)
 
 /* ****************************************************************************
 *
-* check_xml - 
-*/
-TEST(AppendContextElementResponse, check_xml)
-{
-  AppendContextElementResponse  acer;
-  ContextAttributeResponse      car;
-  ContextAttribute              ca("", "TYPE", "VALUE"); // empty name, thus provoking error
-  std::string                   out;
-  const char*                   outfile1 = "ngsi10.appendContextElementRequest.check1.postponed.xml";
-  const char*                   outfile2 = "ngsi10.appendContextElementRequest.check2.postponed.xml";
-  ConnectionInfo                ci;
-
-  utInit();
-
-  // 1. predetected error
-  out = acer.check(&ci, IndividualContextEntity, "", "PRE ERR", 0);
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  // 2. bad contextResponseVector
-  car.contextAttributeVector.push_back(&ca);
-  acer.contextResponseVector.push_back(&car);
-  out = acer.check(&ci, IndividualContextEntity, "", "", 0);
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  // 3. OK
-  ca.name = "NAME";
-  out = acer.check(&ci, IndividualContextEntity, "", "", 0);
-  EXPECT_EQ("OK", out);
-
-  utExit();
-}
-
-
-
-/* ****************************************************************************
-*
 * check_json - 
 */
 TEST(AppendContextElementResponse, check_json)
@@ -158,9 +89,9 @@ TEST(AppendContextElementResponse, check_json)
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
-  // 2. bad contextResponseVector
+  // 2. bad contextAttributeResponseVector
   car.contextAttributeVector.push_back(&ca);
-  acer.contextResponseVector.push_back(&car);
+  acer.contextAttributeResponseVector.push_back(&car);
   out = acer.check(&ci, IndividualContextEntity, "", "", 0);
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
@@ -188,12 +119,12 @@ TEST(AppendContextElementResponse, release)
   utInit();
 
   carP->contextAttributeVector.push_back(caP);
-  acer.contextResponseVector.push_back(carP);
+  acer.contextAttributeResponseVector.push_back(carP);
 
   EXPECT_EQ(1, carP->contextAttributeVector.size());
-  EXPECT_EQ(1, acer.contextResponseVector.size());
+  EXPECT_EQ(1, acer.contextAttributeResponseVector.size());
   acer.release();
-  EXPECT_EQ(0, acer.contextResponseVector.size());
+  EXPECT_EQ(0, acer.contextAttributeResponseVector.size());
 
   utExit();
 }

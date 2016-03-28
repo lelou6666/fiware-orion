@@ -1,5 +1,6 @@
 *.o
 *~
+*.bak
 .*
 BUILD_*
 ToDo
@@ -22,6 +23,7 @@ test/functionalTest/cases/*.stderr
 test/functionalTest/cases/*/*.stderr
 test/functionalTest/cases/*.teardown
 test/functionalTest/cases/*/*.teardown
+test/functionalTest/cases/*/*.sorted
 test/functionalTest/cases/*.contextBroker.log
 test/functionalTest/cases/*/*.contextBroker.log
 
@@ -33,6 +35,7 @@ src/lib/common/compileInfo.h
 fiware-orion.config
 fiware-orion.creator
 fiware-orion.creator.user
+fiware-orion.creator.user.*
 fiware-orion.files
 fiware-orion.includes
 
@@ -42,3 +45,5 @@ rpm/SOURCES/
 rpm/BUILDROOT/
 rpm/src/
 
+*.pyc
+test/acceptance/properties.json

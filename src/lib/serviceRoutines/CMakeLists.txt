@@ -48,11 +48,7 @@ postContextEntityTypeAttribute.cpp
 getIndividualContextEntity.cpp
 putIndividualContextEntity.cpp
 postIndividualContextEntity.cpp
-getIndividualContextEntityAttributes.cpp
-putIndividualContextEntityAttributes.cpp
 putIndividualContextEntityAttribute.cpp
-postIndividualContextEntityAttributes.cpp
-deleteIndividualContextEntityAttributes.cpp
 getIndividualContextEntityAttribute.cpp
 postIndividualContextEntityAttribute.cpp
 deleteIndividualContextEntityAttribute.cpp
@@ -65,12 +61,14 @@ putAvailabilitySubscriptionConvOp.cpp
 deleteAvailabilitySubscriptionConvOp.cpp
 badVerbPostOnly.cpp
 badVerbAllFour.cpp
+badVerbAllFive.cpp
 badVerbGetPostOnly.cpp
 badVerbGetPostDeleteOnly.cpp
 badVerbGetOnly.cpp
 badVerbGetDeleteOnly.cpp
 badVerbPutDeleteOnly.cpp
-badVerbGetPutDeleteOnly
+badVerbGetPutDeleteOnly.cpp
+badVerbPutOnly.cpp
 badNgsi9Request.cpp
 badNgsi10Request.cpp
 badRequest.cpp
@@ -99,6 +97,8 @@ getContextEntitiesByEntityIdAndType.cpp
 postContextEntitiesByEntityIdAndType.cpp
 getEntityByIdAttributeByNameWithTypeAndId.cpp
 postEntityByIdAttributeByNameWithTypeAndId.cpp
+postSubscribeContextConvOp.cpp
+postSubscribeContextAvailabilityConvOp.cpp
 )
 
 SET (HEADERS
@@ -128,11 +128,7 @@ postContextEntityTypeAttribute.h
 getIndividualContextEntity.h
 putIndividualContextEntity.h
 postIndividualContextEntity.h
-getIndividualContextEntityAttributes.h
-putIndividualContextEntityAttributes.h
 putIndividualContextEntityAttribute.h
-postIndividualContextEntityAttributes.h
-deleteIndividualContextEntityAttributes.h
 getIndividualContextEntityAttribute.h
 postIndividualContextEntityAttribute.h
 deleteIndividualContextEntityAttribute.h
@@ -140,11 +136,14 @@ deleteIndividualContextEntity.h
 getNgsi10ContextEntityTypes.h
 badVerbPostOnly.h
 badVerbAllFour.h
+badVerbAllFive.h
 badVerbGetPostOnly.h
 badVerbGetPostDeleteOnly.h
 badVerbGetOnly.h
 badVerbGetDeleteOnly.h
 badVerbPutDeleteOnly.h
+badVerbGetPutDeleteOnly.h
+badVerbPutOnly.h
 badNgsi9Request.h
 badNgsi10Request.h
 badRequest.h
@@ -166,6 +165,7 @@ getContextEntitiesByEntityIdAndType.h
 postContextEntitiesByEntityIdAndType.h
 getEntityByIdAttributeByNameWithTypeAndId.h
 postEntityByIdAttributeByNameWithTypeAndId.h
+postSubscribeContextConvOp.h
 )
 
 
