@@ -32,6 +32,7 @@
 #include "common/clockFunctions.h"
 #include "common/string.h"
 #include "common/defaultValues.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "mongoBackend/mongoNotifyContextAvailability.h"
 #include "ngsi/ParseData.h"
@@ -65,9 +66,9 @@ std::string postNotifyContextAvailability
   if (ciP->servicePathV.size() > 1)
   {
     ncar.responseCode.fill(SccBadRequest, "more than one service path for notification");
-    LM_W(("Bad Input (more than one service path for a notification)"));
+    alarmMgr.badInput(clientIp, "more than one service path for a notification");
 
-    TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ciP->outFormat, ""));
+    TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ""));
 
     return answer;
   }
@@ -81,13 +82,13 @@ std::string postNotifyContextAvailability
   {
     ncar.responseCode.fill(SccBadRequest, res);
 
-    TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ciP->outFormat, ""));
+    TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ""));
 
     return answer;
   }
 
   TIMED_MONGO(ciP->httpStatusCode = mongoNotifyContextAvailability(&parseDataP->ncar.res, &ncar, ciP->uriParam, ciP->tenant, ciP->servicePathV[0]));
-  TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ciP->outFormat, ""));
+  TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ""));
 
   return answer;
 }

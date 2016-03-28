@@ -46,6 +46,7 @@
 
 #include "common/statistics.h"
 #include "common/clockFunctions.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "ngsi/Request.h"
 #include "ngsi/ParseData.h"
@@ -164,7 +165,9 @@ static bool treat
     {
       if (forbiddenChars(value.c_str()) == true)
       {
-        LM_W(("Bad Input (found a forbidden value in '%s')", value.c_str()));
+        std::string details = std::string("found a forbidden value in '") + value + "'";
+          
+        alarmMgr.badInput(clientIp, details);
         ciP->httpStatusCode = SccBadRequest;
         ciP->answer = std::string("Illegal value for JSON field");
         return false;
@@ -274,7 +277,9 @@ void eatCompound
     {
       if (forbiddenChars(nodeValue.c_str()) == true)
       {
-        LM_W(("Bad Input (found a forbidden value in compound '%s')", nodeValue.c_str()));
+        std::string details = std::string("found a forbidden value in compound '") + nodeValue + "'";
+        alarmMgr.badInput(clientIp, details);
+
         ciP->httpStatusCode = SccBadRequest;
         ciP->answer = std::string("Illegal value for JSON field");
         return;
@@ -290,6 +295,11 @@ void eatCompound
     {
       LM_T(LmtCompoundValue, ("'Bad' input - looks like a container but it is an EMPTY STRING - no name, no value"));
       containerP->add(orion::ValueTypeString, "item", "");
+    }
+    else if ((nodeName != "") && (nodeValue == "") && (noOfChildren == 0))  // Named Empty string
+    {
+      LM_T(LmtCompoundValue, ("Adding container '%s' under '%s'", nodeName.c_str(), containerP->cpath()));
+      containerP = containerP->add(ValueTypeString, nodeName, "");
     }
     else if ((nodeName != "") && (nodeValue == ""))  // Named Container
     {
@@ -388,9 +398,10 @@ static std::string jsonParse
     if (ciP->answer == "")
     {
       ciP->answer = std::string("JSON Parse Error: unknown field: ") + path.c_str();
+      alarmMgr.badInput(clientIp, ciP->answer);
     }
 
-    LM_W(("Bad Input (%s)", ciP->answer.c_str()));
+    alarmMgr.badInput(clientIp, ciP->answer);
     return ciP->answer;
   }
 
@@ -405,13 +416,76 @@ static std::string jsonParse
     std::string out = jsonParse(ciP, v2, path, parseVector, parseDataP);
     if (out != "OK")
     {
-      LM_W(("Bad Input (JSON parse error: '%s')", out.c_str()));
+      std::string details = std::string("JSON parse error: '") + out + "'";
+      alarmMgr.badInput(clientIp, details);
       return out;
     }
   }
 
   return "OK";
 }
+
+
+
+/* ****************************************************************************
+*
+* backslashFix - 
+*/
+static void backslashFix(char* content)
+{
+  char* newContent = strdup(content);
+  int   nIx        = 0;
+
+  for (unsigned int ix = 0; ix < strlen(content); ++ix)
+  {
+    if (content[ix] != '\\')
+    {
+      newContent[nIx] = content[ix];
+      ++nIx;
+    }
+    else  // Found a backslash!
+    {
+      //
+      // Valid chars after backslash, according to http://www.json.org/:
+      //   - "   Error in json v1 parse
+      //   - \   OK
+      //   - /   Error in json v1 parse
+      //   - b   OK
+      //   - f   OK
+      //   - n   OK
+      //   - r   OK
+      //   - t   OK
+      //   - u + four-hex-digits  OK
+      //
+      // What we will do here is to replace backslash+slash with 'just slash' as
+      // otherwise this JSON parser gives a parse error.
+      //
+      // Nothing can be done with with backslash+citation-mark, that would have to be 
+      // taken care of inside the parser, and that we will not do.
+      // We will just let it pass and provoke a JSON Parse Error.
+      //
+      char next =  content[ix + 1];
+
+      if (next == '/')
+      {
+        // Eat the backslash
+      }
+      else
+      {
+        // Keep the backslash
+        newContent[nIx] = content[ix];
+        ++nIx;
+      }
+    }
+  }
+
+  newContent[nIx] = 0;
+  strcpy(content, newContent);
+
+  free(newContent);
+}
+
+
 
 /* ****************************************************************************
 *
@@ -438,6 +512,15 @@ std::string jsonParse
     clock_gettime(CLOCK_REALTIME, &start);
   }
 
+  //
+  // Does 'content' contain any '\/' (escaped slashes) ?
+  // If so, change all '\/' to '/'
+  //
+  if ((strstr(content, "\\/") != NULL))
+  {
+    backslashFix((char*) content);
+  }
+
   ss << content;
   read_json(ss, subtree);
 
@@ -449,7 +532,8 @@ std::string jsonParse
     std::string res = jsonParse(ciP, v, path, parseVector, parseDataP);
     if (res != "OK")
     {
-      LM_W(("Bad Input (JSON Parse error: '%s')", res.c_str()));
+      std::string details = std::string("JSON parse error: '") + res + "'";
+      alarmMgr.badInput(clientIp, details);
       return res;
     }
   }

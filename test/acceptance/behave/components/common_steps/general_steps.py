@@ -46,7 +46,7 @@ status_codes = {'OK': 200,
                 'Bad Request': 400,
                 'unauthorized': 401,
                 'Not Found': 404,
-                'Bad Method': 405,
+                'Method not allowed': 405,
                 'Not Acceptable': 406,
                 'Conflict': 409,
                 'Length Required': 411,
@@ -100,6 +100,18 @@ def send_a_statistics_request(context):
     __logger__.info("..Sent a statistics request correctly")
 
 
+@step(u'send a cache statistics request')
+def send_a_cache_statistics_request(context):
+    """
+    send a cache statistics request
+    :param context: It’s a clever place where you and behave can store information to share around. It runs at three levels, automatically managed by behave.
+    """
+    __logger__.debug("Sending a statistics request...")
+    context.props_cb_env = properties_class.read_properties()[CONTEXT_BROKER_ENV]
+    context.cb = CB(protocol=context.props_cb_env["CB_PROTOCOL"], host=context.props_cb_env["CB_HOST"], port=context.props_cb_env["CB_PORT"])
+    context.resp = context.cb.get_cache_statistics_request()
+    __logger__.info("..Sent a statistics request correctly")
+
 @step(u'delete database in mongo')
 def delete_database_in_mongo(context):
     """
@@ -108,24 +120,25 @@ def delete_database_in_mongo(context):
     """
     fiware_service_header = u'Fiware-Service'
     orion_prefix = u'orion'
-    database_name = EMPTY
+    database_name = orion_prefix
     props_mongo = properties_class.read_properties()[MONGO_ENV]  # mongo properties dict
     mongo = Mongo(host=props_mongo["MONGO_HOST"], port=props_mongo["MONGO_PORT"], user=props_mongo["MONGO_USER"],
               password=props_mongo["MONGO_PASS"])
     headers = context.cb.get_headers()
-    __logger__.debug("Deleting database in mongo...")
+
     if fiware_service_header in headers:
-        if headers[fiware_service_header] == EMPTY:
-            database_name = orion_prefix
-        elif headers[fiware_service_header].find(".") < 0:
-            database_name = "%s-%s" % (orion_prefix, headers[fiware_service_header])
-    else:
-        database_name = orion_prefix
-    if database_name != EMPTY:
-        mongo.connect(database_name.lower())
-        mongo.drop_database()
-        mongo.disconnect()
-        __logger__.info("...Database \"%s\" is deleted" % database_name.lower())
+        if headers[fiware_service_header] != EMPTY:
+           if headers[fiware_service_header].find(".") < 0:
+               database_name = "%s-%s" % (database_name, headers[fiware_service_header].lower())
+           else:
+               postfix = headers[fiware_service_header].lower()[0:headers[fiware_service_header].find(".")]
+               database_name = "%s-%s" % (database_name, postfix)
+
+    __logger__.debug("Deleting database \"%s\" in mongo..." % database_name)
+    mongo.connect(database_name)
+    mongo.drop_database()
+    mongo.disconnect()
+    __logger__.info("...Database \"%s\" is deleted" % database_name)
 
 # ------------------------------------- validations ----------------------------------------------
 
@@ -170,19 +183,21 @@ def verify_entry_point(context, url, value):
 @step(u'verify statistics "([^"]*)" field does exists')
 def verify_stat_fields(context, field_to_test):
     """
-    verify statistics fields in response.
-    Ex:
-             {
-                    "versionRequests" : "1",
-                    "statisticsRequests" : "1",
-                    "uptime_in_secs" : "1",
-                    "measuring_interval_in_secs" : "1",
-                    "subCacheRefreshs" : "1",
-                    "subCacheInserts" : "0",
-                    "subCacheRemoves" : "0",
-                    "subCacheUpdates" : "0",
-                    "subCacheItems" : "0"
-             }
+    verify statistics and cache statistics fields in response.
+    Ex: /statistics
+     {
+        "uptime_in_secs":2,
+        "measuring_interval_in_secs":2
+     }
+       /cache/statistics
+     {
+        "ids":"",
+        "refresh":1,
+        "inserts":0,
+        "removes":0,
+        "updates":0,
+        "items":0
+     }
     :param context: It’s a clever place where you and behave can store information to share around. It runs at three levels, automatically managed by behave.
     :param field_to_test: field to verify if it does exists
     """
@@ -274,3 +289,18 @@ def verify_error_message(context):
     for i in range(int(entities_context["entities_number"])):
         ngsi.verify_error_response(context, context.resp_list[i])
     __logger__.info("...Verified that error message is the expected in all entities ")
+
+
+@step(u'verify headers in response')
+def verify_headers_in_response(context):
+    """
+    verify headers in response
+    Ex:
+      | parameter      | value      |
+      | x-total-counts | <entities> |
+    :param context: It’s a clever place where you and behave can store information to share around. It runs at three levels, automatically managed by behave.
+    """
+    __logger__.debug("Verifying headers in response...")
+    ngsi = NGSI()
+    ngsi.verify_headers_response(context)
+    __logger__.info("...Verified headers in response")

@@ -33,6 +33,7 @@
 #include "common/sem.h"
 #include "common/string.h"
 #include "common/statistics.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "cache/subCache.h"
 #include "mongoBackend/MongoGlobal.h"
@@ -65,14 +66,15 @@ int mongoSubCacheItemInsert(const char* tenant, const BSONObj& sub)
   //
   // 01. Check validity of subP parameter 
   //
-  BSONElement  idField = sub.getField("_id");
+  BSONElement  idField = getFieldF(sub, "_id");
 
   if (idField.eoo() == true)
   {
-    LM_E(("Database Error (error retrieving _id field in doc: '%s')", sub.toString().c_str()));
+    std::string details = std::string("error retrieving _id field in doc: '") + sub.toString() + "'";
+    alarmMgr.dbError(details);
     return -1;
   }
-
+  alarmMgr.dbErrorReset();
 
   //
   // 03. Create CachedSubscription
@@ -91,20 +93,20 @@ int mongoSubCacheItemInsert(const char* tenant, const BSONObj& sub)
   //
   // 04. Extract data from subP
   //
-  std::string               formatString  = sub.hasField(CSUB_FORMAT)? sub.getField(CSUB_FORMAT).String() : "XML";
-  std::vector<BSONElement>  eVec          = sub.getField(CSUB_ENTITIES).Array();
-  std::vector<BSONElement>  attrVec       = sub.getField(CSUB_ATTRS).Array();
-  std::vector<BSONElement>  condVec       = sub.getField(CSUB_CONDITIONS).Array();
+  std::string               formatString  = sub.hasField(CSUB_FORMAT)? getFieldF(sub, CSUB_FORMAT).String() : "JSON";
+  std::vector<BSONElement>  eVec          = getFieldF(sub, CSUB_ENTITIES).Array();
+  std::vector<BSONElement>  attrVec       = getFieldF(sub, CSUB_ATTRS).Array();
+  std::vector<BSONElement>  condVec       = getFieldF(sub, CSUB_CONDITIONS).Array();
 
 
   cSubP->tenant                = (tenant[0] == 0)? strdup("") : strdup(tenant);
   cSubP->subscriptionId        = strdup(idField.OID().toString().c_str());
-  cSubP->servicePath           = strdup(sub.hasField(CSUB_SERVICE_PATH)? sub.getField(CSUB_SERVICE_PATH).String().c_str() : "/");
-  cSubP->reference             = strdup(sub.hasField(CSUB_REFERENCE)?    sub.getField(CSUB_REFERENCE).String().c_str() : "NO REF");  // Mandatory
+  cSubP->servicePath           = strdup(sub.hasField(CSUB_SERVICE_PATH)? getFieldF(sub, CSUB_SERVICE_PATH).String().c_str() : "/");
+  cSubP->reference             = strdup(sub.hasField(CSUB_REFERENCE)?    getFieldF(sub, CSUB_REFERENCE).String().c_str() : "NO REF");  // Mandatory
   cSubP->notifyFormat          = stringToFormat(formatString);
-  cSubP->throttling            = sub.hasField(CSUB_THROTTLING)?       getIntOrLongFieldAsLong(sub, CSUB_THROTTLING)       : -1;
-  cSubP->expirationTime        = sub.hasField(CSUB_EXPIRATION)?       getIntOrLongFieldAsLong(sub, CSUB_EXPIRATION)       : 0;
-  cSubP->lastNotificationTime  = sub.hasField(CSUB_LASTNOTIFICATION)? getIntOrLongFieldAsLong(sub, CSUB_LASTNOTIFICATION) : -1;
+  cSubP->throttling            = sub.hasField(CSUB_THROTTLING)?       getIntOrLongFieldAsLongF(sub, CSUB_THROTTLING)       : -1;
+  cSubP->expirationTime        = sub.hasField(CSUB_EXPIRATION)?       getIntOrLongFieldAsLongF(sub, CSUB_EXPIRATION)       : 0;
+  cSubP->lastNotificationTime  = sub.hasField(CSUB_LASTNOTIFICATION)? getIntOrLongFieldAsLongF(sub, CSUB_LASTNOTIFICATION) : -1;
   cSubP->count                 = 0;
   cSubP->next                  = NULL;
 
@@ -123,9 +125,9 @@ int mongoSubCacheItemInsert(const char* tenant, const BSONObj& sub)
       continue;
     }
 
-    std::string id        = entity.getStringField(ENT_ENTITY_ID);
-    std::string isPattern = entity.hasField(CSUB_ENTITY_ISPATTERN)? entity.getStringField(CSUB_ENTITY_ISPATTERN) : "false";
-    std::string type      = entity.hasField(CSUB_ENTITY_TYPE)?      entity.getStringField(CSUB_ENTITY_TYPE)      : "";
+    std::string id        = getStringFieldF(entity, ENT_ENTITY_ID);
+    std::string isPattern = entity.hasField(CSUB_ENTITY_ISPATTERN)? getStringFieldF(entity, CSUB_ENTITY_ISPATTERN) : "false";
+    std::string type      = entity.hasField(CSUB_ENTITY_TYPE)?      getStringFieldF(entity, CSUB_ENTITY_TYPE)      : "";
     EntityInfo* eiP       = new EntityInfo(id, type, isPattern);
 
     cSubP->entityIdInfos.push_back(eiP);
@@ -160,8 +162,8 @@ int mongoSubCacheItemInsert(const char* tenant, const BSONObj& sub)
     std::string               condType;
     std::vector<BSONElement>  valueVec;
 
-    condType = condition.getStringField(CSUB_CONDITIONS_TYPE);
-    if (condType != "ONCHANGE")
+    condType = getStringFieldF(condition, CSUB_CONDITIONS_TYPE);
+    if (condType != ON_CHANGE_CONDITION)
     {
       continue;
     }
@@ -169,7 +171,7 @@ int mongoSubCacheItemInsert(const char* tenant, const BSONObj& sub)
     NotifyCondition* ncP = new NotifyCondition();
     ncP->type = condType;
 
-    valueVec = condition.getField(CSUB_CONDITIONS_VALUE).Array();
+    valueVec = getFieldF(condition, CSUB_CONDITIONS_VALUE).Array();
     for (unsigned int vIx = 0; vIx < valueVec.size(); ++vIx)
     {
       std::string condValue;
@@ -213,12 +215,16 @@ int mongoSubCacheItemInsert(const char* tenant, const BSONObj& sub)
 */
 int mongoSubCacheItemInsert
 (
-  const char*     tenant,
-  const BSONObj&  sub,
-  const char*     subscriptionId,
-  const char*     servicePath,
-  int             lastNotificationTime,
-  long long       expirationTime
+  const char*         tenant,
+  const BSONObj&      sub,
+  const char*         subscriptionId,
+  const char*         servicePath,
+  int                 lastNotificationTime,
+  long long           expirationTime,
+  const std::string&  q,
+  const std::string&  geometry,
+  const std::string&  coords,
+  const std::string&  georel
 )
 {
   //
@@ -255,7 +261,7 @@ int mongoSubCacheItemInsert
   //     NOTE that if there is no patterned entity in the entity-vector,
   //     then the subscription is not valid for the sub-cache and is rejected.
   //
-  std::vector<BSONElement>  eVec = sub.getField(CSUB_ENTITIES).Array();
+  std::vector<BSONElement>  eVec = getFieldF(sub, CSUB_ENTITIES).Array();
 
   for (unsigned int ix = 0; ix < eVec.size(); ++ix)
   {
@@ -267,9 +273,9 @@ int mongoSubCacheItemInsert
       continue;
     }
 
-    std::string id        = entity.getStringField(ENT_ENTITY_ID);
-    std::string isPattern = entity.hasField(CSUB_ENTITY_ISPATTERN)? entity.getStringField(CSUB_ENTITY_ISPATTERN) : "false";
-    std::string type      = entity.hasField(CSUB_ENTITY_TYPE)?      entity.getStringField(CSUB_ENTITY_TYPE)      : "";
+    std::string id        = getStringFieldF(entity, ENT_ENTITY_ID);
+    std::string isPattern = entity.hasField(CSUB_ENTITY_ISPATTERN)? getStringFieldF(entity, CSUB_ENTITY_ISPATTERN) : "false";
+    std::string type      = entity.hasField(CSUB_ENTITY_TYPE)?      getStringFieldF(entity, CSUB_ENTITY_TYPE)      : "";
     EntityInfo* eiP       = new EntityInfo(id, type, isPattern);
 
     cSubP->entityIdInfos.push_back(eiP);
@@ -286,9 +292,9 @@ int mongoSubCacheItemInsert
   //
   // 03. Extract data from mongo sub
   //
-  std::string               formatString  = sub.hasField(CSUB_FORMAT)? sub.getField(CSUB_FORMAT).String() : "XML";
-  std::vector<BSONElement>  attrVec       = sub.getField(CSUB_ATTRS).Array();
-  std::vector<BSONElement>  condVec       = sub.getField(CSUB_CONDITIONS).Array();
+  std::string               formatString  = sub.hasField(CSUB_FORMAT)? getFieldF(sub, CSUB_FORMAT).String() : "JSON";
+  std::vector<BSONElement>  attrVec       = getFieldF(sub, CSUB_ATTRS).Array();
+  std::vector<BSONElement>  condVec       = getFieldF(sub, CSUB_CONDITIONS).Array();
 
   if ((lastNotificationTime == -1) && (sub.hasField(CSUB_LASTNOTIFICATION)))
   {
@@ -297,18 +303,22 @@ int mongoSubCacheItemInsert
     // if the database objuect contains lastNotificationTime,
     // then use the value from the database
     //
-    lastNotificationTime = getIntOrLongFieldAsLong(sub, CSUB_LASTNOTIFICATION);
+    lastNotificationTime = getIntOrLongFieldAsLongF(sub, CSUB_LASTNOTIFICATION);
   }
 
   cSubP->tenant                = (tenant[0] == 0)? NULL : strdup(tenant);
   cSubP->subscriptionId        = strdup(subscriptionId);
   cSubP->servicePath           = strdup(servicePath);
   cSubP->notifyFormat          = stringToFormat(formatString);
-  cSubP->reference             = strdup(sub.hasField(CSUB_REFERENCE)? sub.getField(CSUB_REFERENCE).String().c_str() : "NO REF");  // Mandatory
-  cSubP->throttling            = sub.hasField(CSUB_THROTTLING)?       getIntOrLongFieldAsLong(sub, CSUB_THROTTLING) : -1;
+  cSubP->reference             = strdup(sub.hasField(CSUB_REFERENCE)? getFieldF(sub, CSUB_REFERENCE).String().c_str() : "NO REF");  // Mandatory
+  cSubP->throttling            = sub.hasField(CSUB_THROTTLING)?       getIntOrLongFieldAsLongF(sub, CSUB_THROTTLING) : -1;
   cSubP->expirationTime        = expirationTime;
   cSubP->lastNotificationTime  = lastNotificationTime;
   cSubP->count                 = 0;
+  cSubP->expression.q          = q;
+  cSubP->expression.geometry   = geometry;
+  cSubP->expression.coords     = coords;
+  cSubP->expression.georel     = georel;
   cSubP->next                  = NULL;
 
   LM_T(LmtSubCache, ("set lastNotificationTime to %lu for '%s' (from DB)", cSubP->lastNotificationTime, cSubP->subscriptionId));
@@ -334,8 +344,8 @@ int mongoSubCacheItemInsert
     std::string               condType;
     std::vector<BSONElement>  valueVec;
 
-    condType = condition.getStringField(CSUB_CONDITIONS_TYPE);
-    if (condType != "ONCHANGE")
+    condType = getStringFieldF(condition, CSUB_CONDITIONS_TYPE);
+    if (condType != ON_CHANGE_CONDITION)
     {
       continue;
     }
@@ -343,7 +353,7 @@ int mongoSubCacheItemInsert
     NotifyCondition* ncP = new NotifyCondition();
     ncP->type = condType;
 
-    valueVec = condition.getField(CSUB_CONDITIONS_VALUE).Array();
+    valueVec = getFieldF(condition, CSUB_CONDITIONS_VALUE).Array();
     for (unsigned int vIx = 0; vIx < valueVec.size(); ++vIx)
     {
       std::string condValue;
@@ -388,7 +398,7 @@ void mongoSubCacheRefresh(const std::string& database)
 {
   LM_T(LmtSubCache, ("Refreshing subscription cache for DB '%s'", database.c_str()));
 
-  BSONObj                   query       = BSON("conditions.type" << "ONCHANGE");
+  BSONObj                   query       = BSON("conditions.type" << ON_CHANGE_CONDITION);
   std::string               db          = database;
   std::string               tenant      = tenantFromDb(db);
   std::string               collection  = getSubscribeContextCollectionName(tenant);
@@ -399,8 +409,7 @@ void mongoSubCacheRefresh(const std::string& database)
   DBClientBase* connection = getMongoConnection();
   if (collectionQuery(connection, collection, query, &cursor, &errorString) != true)
   {
-    LM_E(("Database Error (%s)", errorString.c_str()));
-    releaseMongoConnection(connection, &cursor);
+    releaseMongoConnection(connection);
     TIME_STAT_MONGO_READ_WAIT_STOP();
     return;
   }
@@ -412,9 +421,9 @@ void mongoSubCacheRefresh(const std::string& database)
     BSONObj      sub;
     std::string  err;
 
-    if (!nextSafeOrError(cursor, &sub, &err))
+    if (!nextSafeOrErrorF(cursor, &sub, &err))
     {
-      LM_E(("Runtime Error (exception in nextSafe(): %s", err.c_str()));
+      LM_E(("Runtime Error (exception in nextSafe(): %s - query: %s)", err.c_str(), query.toString().c_str()));
       continue;
     }
 
@@ -425,7 +434,7 @@ void mongoSubCacheRefresh(const std::string& database)
       ++subNo;
     }
   }
-  releaseMongoConnection(connection, &cursor);
+  releaseMongoConnection(connection);
 
   LM_T(LmtSubCache, ("Added %d subscriptions for database '%s'", subNo, database.c_str()));
 }

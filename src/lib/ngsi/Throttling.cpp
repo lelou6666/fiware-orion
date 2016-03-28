@@ -33,21 +33,6 @@
 #include "ngsi/Throttling.h"
 
 
-
-/* ****************************************************************************
-*
-* Throttling::Throttling
-*
-* Explicit constructor needed to initialize primitive types so they don't get
-* random values from the stack
-*/
-Throttling::Throttling()
-{
-  seconds = 0;
-}
-
-
-
 /* ****************************************************************************
 *
 * Throttling::parse -
@@ -67,7 +52,6 @@ int64_t Throttling::parse(void)
 std::string Throttling::check
 (
   RequestType         requestType,
-  Format              format,
   const std::string&  indent,
   const std::string&  predetectedError,
   int                 counter
@@ -148,12 +132,12 @@ void Throttling::present(const std::string& indent)
 *
 * Throttling::render -
 */
-std::string Throttling::render(Format format, const std::string& indent, bool comma)
+std::string Throttling::render(const std::string& indent, bool comma)
 {
   if (string == "")
   {
     return "";
   }
 
-  return valueTag(indent, "throttling", string, format, comma);
+  return valueTag1(indent, "throttling", string, comma);
 }

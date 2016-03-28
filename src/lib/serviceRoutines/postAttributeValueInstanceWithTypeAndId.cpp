@@ -29,6 +29,7 @@
 
 #include "common/statistics.h"
 #include "common/clockFunctions.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "ngsi/ParseData.h"
 #include "rest/ConnectionInfo.h"
@@ -90,10 +91,11 @@ std::string postAttributeValueInstanceWithTypeAndId
   // 02. Check validity of URI params VS URI path components
   if ((entityTypeFromUriParam != "") && (entityTypeFromUriParam != entityType))
   {
-    LM_W(("Bad Input non-matching entity::types in URL"));
+    alarmMgr.badInput(clientIp, "non-matching entity::types in URL");
+
     response.fill(SccBadRequest, "non-matching entity::types in URL");
 
-    TIMED_RENDER(answer = response.render(ciP->outFormat, "", false, false));
+    TIMED_RENDER(answer = response.render("", false, false));
 
     parseDataP->upcar.res.release();
     return answer;
@@ -109,7 +111,7 @@ std::string postAttributeValueInstanceWithTypeAndId
     
     response.fill(SccBadRequest, details);
 
-    TIMED_RENDER(answer = response.render(ciP->outFormat, "", false, false));
+    TIMED_RENDER(answer = response.render("", false, false));
 
     parseDataP->upcar.res.release();
 
@@ -130,7 +132,7 @@ std::string postAttributeValueInstanceWithTypeAndId
 
 
   // 07. Render result
-  TIMED_RENDER(answer = response.render(ciP->outFormat, "", false, false));
+  TIMED_RENDER(answer = response.render("", false, false));
 
 
   // 08. Cleanup and return result

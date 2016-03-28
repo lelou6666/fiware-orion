@@ -37,7 +37,7 @@ brokerStart CB
 echo "01. POST /v2/entities to create E1/A1=0"
 echo "======================================="
 payload='{ "id": "E1", "type": "T1", "A1": 0 }'
-orionCurl --url /v2/entities --payload "$payload" --json
+orionCurl --url '/v2/entities?options=keyValues' --payload "$payload" --json
 echo
 echo
 
@@ -55,7 +55,7 @@ echo
 =======================================
 HTTP/1.1 201 Created
 Content-Length: 0
-Location: /v2/entities/E1
+Location: /v2/entities/E1?type=T1
 Date: REGEX(.*)
 
 

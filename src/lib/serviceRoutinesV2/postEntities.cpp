@@ -64,7 +64,7 @@ static bool legalEntityLength(Entity* eP, const std::string& servicePath)
 * Payload Out: None
 *
 * URI parameters:
-*   - 
+*   options=keyValues
 *
 * 01. Fill in UpdateContextRequest
 * 02. Call standard op postUpdateContext
@@ -98,28 +98,47 @@ std::string postEntities
   
 
   // 02. Call standard op postUpdateContext
-  postUpdateContext(ciP, components, compV, parseDataP, true);
+  postUpdateContext(ciP, components, compV, parseDataP, NGSIV2_FLAVOUR_ONCREATE);
 
-  HttpStatusCode rcode = parseDataP->upcrs.res.contextElementResponseVector[0]->statusCode.code;
-
-  std::string answer;
+  StatusCode     rstatuscode = parseDataP->upcrs.res.contextElementResponseVector[0]->statusCode;
+  HttpStatusCode rhttpcode  = rstatuscode.code;
+  std::string    answer;
 
   // 03. Prepare HTTP headers
-  if (rcode == SccOk || rcode == SccNone)
+  if (rhttpcode == SccOk || rhttpcode == SccNone)
   {
     std::string location = "/v2/entities/" + eP->id;
+    if (eP->type != "" )
+    {
+      location += "?type=" + eP->type;
+    }
+    else
+    {
+      location += "?type=none";
+    }
 
     ciP->httpHeader.push_back("Location");
     ciP->httpHeaderValue.push_back(location);
     ciP->httpStatusCode = SccCreated;
   }
-  else if (rcode == SccInvalidModification)
+  else if (rhttpcode == SccInvalidModification)
   {
-    OrionError oe(SccInvalidModification, "Entity already exists");
+    OrionError oe(rstatuscode);
     ciP->httpStatusCode = SccInvalidModification;
 
     TIMED_RENDER(answer = oe.render(ciP, ""));
   }
+  else if (rhttpcode == SccInvalidParameter)
+  {
+    // This v1 -> v2 error conversion is a little crazy (for example, the same
+    // SccInvalidParameter at v1 level could match two different error conditions
+    // at v2 level, making harder de logic). However, I'm afraid that we need
+    // to live with this while NGSIv1 and NGSIv2 coexists :(
+    OrionError oe(SccRequestEntityTooLarge, "NoResourcesAvailable", "No more than one geo-location attribute allowed");
+    ciP->httpStatusCode = SccRequestEntityTooLarge;
+    TIMED_RENDER(answer = oe.render(ciP, ""));
+  }
+
 
 
   // 04. Cleanup and return result

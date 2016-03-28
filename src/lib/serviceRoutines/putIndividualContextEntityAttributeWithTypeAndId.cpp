@@ -30,6 +30,7 @@
 
 #include "common/statistics.h"
 #include "common/clockFunctions.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "ngsi/ParseData.h"
 #include "ngsi/StatusCode.h"
@@ -93,12 +94,12 @@ std::string putIndividualContextEntityAttributeWithTypeAndId
   if (typeInfo == EntityTypeEmpty)
   {
     response.fill(SccBadRequest, "entity::type cannot be empty for this request");
-    LM_W(("Bad Input (entity::type cannot be empty for this request)"));
+    alarmMgr.badInput(clientIp, "entity::type cannot be empty for this request");
   }
   else if ((entityTypeFromUriParam != entityType) && (entityTypeFromUriParam != ""))
   {
     response.fill(SccBadRequest, "non-matching entity::types in URL");
-    LM_W(("Bad Input non-matching entity::types in URL"));
+    alarmMgr.badInput(clientIp, "non-matching entity::types in URL");
   }
   else
   {
@@ -114,7 +115,7 @@ std::string putIndividualContextEntityAttributeWithTypeAndId
 
 
   // 06. Cleanup and return result
-  TIMED_RENDER(answer = response.render(ciP->outFormat, "", false, false));
+  TIMED_RENDER(answer = response.render("", false, false));
 
   parseDataP->upcar.res.release();
   parseDataP->upcrs.res.release();

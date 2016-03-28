@@ -256,6 +256,19 @@ function brokerStopAwait
 #
 # brokerStartAwait
 #
+# For some really strange reason, all functests fail under valgrind when executed by Jenkins
+# without the line:
+#
+#   echo "Broker started after $loopNo checks" >> /tmp/brokerStartCounter
+#
+# It also works with echo to /dev/null, but using a file we get some more information.
+#
+# As we only append (>>) to /tmp/brokerStartCounter in this file, /tmp/brokerStartCounter
+# is reset in testHarness.sh, using the command "date > tmp/brokerStartCounter".
+#
+# The reason we send information to a file is that in case the 100 loop is not enough in the future,
+# we will have that information in the file /tmp/brokerStartCounter 
+#
 function brokerStartAwait
 {
   if [ "$BROKER_AWAIT_SLEEP_TIME" != "" ]
@@ -270,7 +283,7 @@ function brokerStartAwait
   typeset -i loopNo
   typeset -i loops
   loopNo=0
-  loops=50
+  loops=100
 
   while [ $loopNo -lt $loops ]
   do
@@ -278,6 +291,7 @@ function brokerStartAwait
     if [ "$?" == "0" ]
     then
       vMsg The orion context broker has started, listening on port $port
+      echo "Broker started after $loopNo checks" >> /tmp/brokerStartCounter
       sleep 1
       break;
     fi
@@ -289,9 +303,10 @@ function brokerStartAwait
 
   sleep .5
 
-  # Check that CB started fine
-  curl -s localhost:${port}/version | grep version > /dev/null
+  # Check that CB started
+  curl -s localhost:${port}/version | grep version >> /tmp/brokerStartCounter
   result=$?
+  echo "result: $result" >> /tmp/brokerStartCounter
 }
 
 
@@ -880,6 +895,7 @@ function dbInsertEntity()
 #   --xauthToken  <token>          (X-Auth token value)
 #   --origin      <origin>         (Origin in HTTP header)
 #   --noPayloadCheck               (don't check the payload)
+#   --payloadCheck <format>        (force specific treatment of payload)
 #   --header      <HTTP header>    (more headers)
 #   -H            <HTTP header>    (more headers)
 #   --verbose                      (verbose output)
@@ -914,6 +930,7 @@ function orionCurl()
   _json=''
   _urlParams=''
   _xauthToken=''
+  _payloadCheck=''
 
   #
   # Parsing parameters
@@ -927,6 +944,7 @@ function orionCurl()
     elif [ "$1" == "-X" ]; then                _method="-X $2"; shift;
     elif [ "$1" == "--payload" ]; then         _payload=$2; shift;
     elif [ "$1" == "--noPayloadCheck" ]; then  _noPayloadCheck='on';
+    elif [ "$1" == "--payloadCheck" ]; then    _payloadCheck=$2; _noPayloadCheck='off'; shift;
     elif [ "$1" == "--servicePath" ]; then     _servicePath='--header "Fiware-ServicePath: '${2}'"'; shift;
     elif [ "$1" == "--tenant" ]; then          _tenant='--header "Fiware-Service: '${2}'"'; shift;
     elif [ "$1" == "--origin" ]; then          _origin='--header "Origin: '${2}'"'; shift;
@@ -974,6 +992,7 @@ function orionCurl()
   if   [ "$_in"   == "application/json" ]; then _in='json';  fi
   if   [ "$_out"  == "application/xml" ];  then _out='xml';  fi
   if   [ "$_out"  == "application/json" ]; then _out='json'; fi
+  if   [ "$_out"  == "text/plain" ];       then _out='text'; fi
 
   if   [ "$_in"  == "xml" ];   then _inFormat='--header "Content-Type: application/xml"'
   elif [ "$_in"  == "json" ];  then _inFormat='--header "Content-Type: application/json"'
@@ -988,6 +1007,11 @@ function orionCurl()
   elif [ "$_out" != "" ];      then _outFormat='--header "Accept: '${_out}'"'; _noPayloadCheck='off'
   fi
 
+  if [ "$_payloadCheck" != "" ]
+  then
+    payloadCheckFormat=$_payloadCheck
+    _noPayloadCheck='off'
+  fi
 
   dMsg $_in: $_in
   dMsg _out: $_out
@@ -1029,6 +1053,7 @@ function orionCurl()
   then
     echo "Broker seems to have died ..."
   else
+    _responseHeaders=$(cat /tmp/httpHeaders.out)
     #
     # Remove "Connection: Keep-Alive" and "Connection: close" headers
     #
@@ -1055,15 +1080,19 @@ function orionCurl()
 
       if [ "$payloadCheckFormat" == xml ] || [ "$payloadCheckFormat" == "" ]
       then
-        vMsg Running xmllint tool for $_response
-        echo $_response | xmllint --format -
+        # FIXME P10: XML removal
+        #vMsg Running xmllint tool for $_response
+        #echo $_response | xmllint --format -
+        echo $_response | python -mjson.tool
       elif [ "$payloadCheckFormat" == json ]
       then
         vMsg Running python tool for $_response
         echo $_response | python -mjson.tool
       else
-        vMsg Running xmllint tool for $_response
-        echo $_response | xmllint --format -
+        # FIXME P10: XML removal
+        #vMsg Running xmllint tool for $_response
+        #echo $_response | xmllint --format -
+        echo $_response | python -mjson.tool
       fi
     fi
   fi
@@ -1232,13 +1261,17 @@ function coapCurl()
     then
       if [ "$_outFormat" == application/xml ] || [ "$_outFormat" == "" ]
       then
-        echo $_response | xmllint --format -
+        # FIXME P10: XML removal
+        #echo $_response | xmllint --format -
+        echo $_response | python -mjson.tool
       elif [ "$_outFormat" == application/json ]
       then
         vMsg "JSON check for:" $_response
         echo $_response | python -mjson.tool
       else
-        echo $_response | xmllint --format -
+        # FIXME P10: XML removal
+        #echo $_response | xmllint --format -
+        echo $_response | python -mjson.tool
       fi
     fi
   fi

@@ -28,9 +28,13 @@
 
 #include "logMsg/traceLevels.h"
 #include "logMsg/logMsg.h"
+
 #include "common/Format.h"
 #include "common/globals.h"
 #include "common/tag.h"
+#include "common/limits.h"
+#include "alarmMgr/alarmMgr.h"
+
 #include "ngsi/Request.h"
 #include "rest/uriParamNames.h"
 #include "orionTypes/EntityTypeResponse.h"
@@ -46,12 +50,12 @@ std::string EntityTypeResponse::render(ConnectionInfo* ciP, const std::string& i
   std::string out                 = "";
   std::string tag                 = "entityTypeAttributesResponse";
 
-  out += startTag(indent, tag, ciP->outFormat, false);
+  out += startTag1(indent, tag, false);
 
   out += entityType.render(ciP, indent + "  ", true, true);
-  out += statusCode.render(ciP->outFormat, indent + "  ");
+  out += statusCode.render(indent + "  ");
 
-  out += endTag(indent, tag, ciP->outFormat);
+  out += endTag(indent);
 
   return out;
 }
@@ -77,7 +81,7 @@ std::string EntityTypeResponse::check
   }
   else if ((res = entityType.check(ciP, indent, predetectedError)) != "OK")
   {
-    LM_W(("Bad Input (%s)", res.c_str()));
+    alarmMgr.badInput(clientIp, res);
     statusCode.fill(SccBadRequest, res);
   }
   else
@@ -94,7 +98,7 @@ std::string EntityTypeResponse::check
 */
 void EntityTypeResponse::present(const std::string& indent)
 {
-  LM_T(LmtPresent,("%EntityTypeResponse:\n", indent.c_str()));
+  LM_T(LmtPresent,("%sEntityTypeResponse:\n", indent.c_str()));
   entityType.present(indent + "  ");
   statusCode.present(indent + "  ");
 }
@@ -120,14 +124,14 @@ void EntityTypeResponse::release(void)
 std::string EntityTypeResponse::toJson(ConnectionInfo* ciP)
 {
   std::string  out = "{";
-  char         countV[16];
+  char         countV[STRING_SIZE_FOR_INT];
 
   snprintf(countV, sizeof(countV), "%lld", entityType.count);
 
   out += JSON_STR("attrs") + ":";
 
   out += "{";
-  out += entityType.contextAttributeVector.toJson(false, true);
+  out += entityType.contextAttributeVector.toJson(false, true, "normalized");
   out += "}";  
 
   out += "," + JSON_STR("count") + ":" + countV;

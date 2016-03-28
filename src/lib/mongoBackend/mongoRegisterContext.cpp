@@ -24,12 +24,16 @@
 */
 #include <string>
 
+#include "mongo/client/dbclient.h"
+
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 #include "common/globals.h"
 #include "common/statistics.h"
 #include "common/sem.h"
 #include "common/defaultValues.h"
+#include "alarmMgr/alarmMgr.h"
+
 #include "mongoBackend/mongoRegisterContext.h"
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/connectionOperations.h"
@@ -40,9 +44,9 @@
 #include "ngsi9/RegisterContextRequest.h"
 #include "ngsi9/RegisterContextResponse.h"
 
-#include "mongo/client/dbclient.h"
-
 using namespace mongo;
+
+
 
 /* ****************************************************************************
 *
@@ -57,11 +61,8 @@ HttpStatusCode mongoRegisterContext
   const std::string&                   servicePath
 )
 {
-    std::string        sPath         = servicePath;
-    const std::string  notifyFormat  = uriParam[URI_PARAM_NOTIFY_FORMAT];
-    bool               reqSemTaken;
-
-    LM_T(LmtMongo, ("Register Context Request: '%s' format", notifyFormat.c_str()));
+    std::string        sPath         = servicePath;    
+    bool               reqSemTaken;    
 
     reqSemTake(__FUNCTION__, "ngsi9 register request", SemWriteOp, &reqSemTaken);
 
@@ -74,7 +75,7 @@ HttpStatusCode mongoRegisterContext
     /* Check if new registration */
     if (requestP->registrationId.isEmpty())
     {
-      HttpStatusCode result = processRegisterContext(requestP, responseP, NULL, tenant, sPath, notifyFormat);
+      HttpStatusCode result = processRegisterContext(requestP, responseP, NULL, tenant, sPath, "JSON");
       reqSemGive(__FUNCTION__, "ngsi9 register request", reqSemTaken);
       return result;
     }
@@ -91,7 +92,9 @@ HttpStatusCode mongoRegisterContext
       ++noOfRegistrationUpdateErrors;
       if (responseP->errorCode.code == SccContextElementNotFound)
       {
-        LM_W(("Bad Input (invalid OID format: %s)", requestP->registrationId.get().c_str()));
+        // FIXME: doubt: invalid OID format?
+        std::string details = std::string("invalid OID format: '") + requestP->registrationId.get() + "'";
+        alarmMgr.badInput(clientIp, details);
       }
       else // SccReceiverInternalError
       {
@@ -117,7 +120,7 @@ HttpStatusCode mongoRegisterContext
        return SccOk;
     }
 
-    HttpStatusCode result = processRegisterContext(requestP, responseP, &id, tenant, sPath, notifyFormat);
+    HttpStatusCode result = processRegisterContext(requestP, responseP, &id, tenant, sPath, "JSON");
     reqSemGive(__FUNCTION__, "ngsi9 register request", reqSemTaken);
     return result;
 }

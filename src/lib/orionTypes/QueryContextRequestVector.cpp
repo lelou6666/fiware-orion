@@ -43,28 +43,7 @@
 */
 QueryContextRequestVector::QueryContextRequestVector()
 {
-  xmls  = 0;
-  jsons = 0;
-}
 
-
-
-/* ****************************************************************************
-*
-* QueryContextRequestVector::format - 
-*/
-Format QueryContextRequestVector::format(void)
-{
-  if (xmls > jsons)
-  {
-    return XML;
-  }
-  else if (jsons > xmls)
-  {
-    return JSON;
-  }
-
-  return DEFAULT_FORMAT;
 }
 
 
@@ -78,6 +57,19 @@ unsigned int QueryContextRequestVector::size(void)
   return vec.size();
 }
 
+
+/* ****************************************************************************
+*
+* QueryContextRequestVector::operator[] -
+*/
+QueryContextRequest*  QueryContextRequestVector::operator[](unsigned int ix) const
+{
+   if (ix < vec.size())
+   {
+      return vec[ix];
+   }
+   return NULL;
+}
 
 
 /* ****************************************************************************

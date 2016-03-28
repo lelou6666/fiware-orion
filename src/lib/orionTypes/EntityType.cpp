@@ -28,7 +28,9 @@
 
 #include "logMsg/traceLevels.h"
 #include "logMsg/logMsg.h"
+
 #include "common/tag.h"
+#include "common/limits.h"
 #include "ngsi/Request.h"
 #include "rest/uriParamNames.h"
 #include "orionTypes/EntityType.h"
@@ -74,30 +76,29 @@ std::string EntityType::render
   bool                typeNameBefore
 )
 {
-  std::string  out            = "";
-  std::string  xmlTag         = "entityType";
-  std::string  jsonTag        = "type";
+  std::string  out = "";
+  std::string  key = "type";
 
   if ((typeNameBefore == true) && (ciP->outFormat == JSON))
   {
-    out += valueTag(indent  + "  ", "name", type, ciP->outFormat, true);
+    out += valueTag1(indent  + "  ", "name", type, true);
     out += contextAttributeVector.render(ciP, EntityTypes, indent + "  ", true, true, true);
   }
   else
   {
-    out += startTag(indent, xmlTag, jsonTag, ciP->outFormat, false, false);
+    out += startTag2(indent, key, false, false);
 
     if (ciP->uriParam[URI_PARAM_COLLAPSE] == "true" || contextAttributeVector.size() == 0)
-    {
-      out += valueTag(indent  + "  ", "name", type, ciP->outFormat, false);
+    {     
+      out += valueTag1(indent  + "  ", "name", type, false);
     }
     else
     {
-      out += valueTag(indent  + "  ", "name", type, ciP->outFormat, true);
+      out += valueTag1(indent  + "  ", "name", type, true);
       out += contextAttributeVector.render(ciP, EntityTypes, indent + "  ", false, true, true);
     }
 
-    out += endTag(indent, xmlTag, ciP->outFormat, comma, false);
+    out += endTag(indent, comma, false);
   }
 
   return out;
@@ -125,7 +126,8 @@ std::string EntityType::check
     return "Empty Type";
   }
 
-  return contextAttributeVector.check(EntityTypes, ciP->outFormat, indent, "", 0);
+  return contextAttributeVector.check(ciP, EntityTypes, indent, "", 0);
+
 }
 
 
@@ -160,14 +162,14 @@ void EntityType::release(void)
 std::string EntityType::toJson(ConnectionInfo* ciP)
 {
   std::string  out = "{";
-  char         countV[16];
+  char         countV[STRING_SIZE_FOR_INT];
 
   snprintf(countV, sizeof(countV), "%lld", count);
 
   out += JSON_STR("attrs") + ":";
 
   out += "{";
-  out += contextAttributeVector.toJson(false, true);
+  out += contextAttributeVector.toJson(false, true, "normalized");
   out += "}";
 
   out += "," + JSON_STR("count") + ":" + countV;

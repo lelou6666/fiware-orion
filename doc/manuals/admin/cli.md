@@ -85,12 +85,13 @@ The list of available options is the following:
 -   **-logDir <dir\>**. Specifies the directory to use for the contextBroker log file.
 -   **-logAppend**. If used, the log lines are appended to the existing
     contextBroker log file, instead of starting with an empty log file.
--   **-logLevel**. Select logging level, supported levels:
+-   **-logLevel**. Select initial logging level, supported levels:
     - NONE    (suppress ALL log output, including errors),
     - ERROR   (show only error messages),
-    - WARNING (show error and warning messages),
+    - WARNING (show error and warning messages - this is the default setting),
     - INFO    (show error, warning and informational messages),
-    - DEBUG   (show ALL messages - this is the default setting).
+    - DEBUG   (show ALL messages).
+    Note that the log level can be modified in run-time, using the [admin API](management_api.md).
 -   **-t <trace level>**. Specifies the initial trace levels
     for logging. You can use a single value (e.g. "-t 70"), a
     range (e.g. "-t 20-80"), a comma-separated list (e.g. "-t 70,90") or
@@ -109,6 +110,8 @@ The list of available options is the following:
     broker process.
 -   **-httpTimeout <interval>**. Specifies the timeout in milliseconds
     for forwarding messages and for notifications.
+-   **-cprForwardLimit**. Maximum number of forwarded requests to Context Providers for a single client request
+    (default is no limit). Use 0 to disable Context Providers forwarding completely.
 -   **-corsOrigin <domain>**. Configures CORS for GET requests,
     specifing the allowed origin (use `__ALL` for `*`).
 -   **-reqMutexPolicy <all|none|write|read>**. Specifies the internal
@@ -138,3 +141,9 @@ The list of available options is the following:
 -   **-reqPoolSize**. Size of thread pool for incoming connections. Default value is 0, meaning *no thread pool*.
 -   **-statCounters**, **-statSemWait**, **-statTiming** and **-statNotifQueue**. Enable statistics
     generation. See [statistics documentation](statistics.md).
+-   **-logSummary**. Log summary period in seconds. Defaults to 0, meaning *Log Summary is off*. Min value: 0. Max value: one month (3600 * 24 * 31 == 2678400 seconds).
+    See [logs documentation](logs.md#summary-traces) for more detail.
+-   **-relogAlarms**. To see *every* possible alarm-provoking failure in the log-file, even when an alarm is already active, use this option. See [logs documentation](logs.md#alarms)
+    for more detail.
+-   **-strictNgsiv1Ids**. To apply to the NGSIv1 API the same restrictions that apply to NGSIv2 for id fields regarding
+    forbidden characters and length limit. See also [this section of the documentation](../user/v1_v2_coexistence.md#checking-id-fields).
