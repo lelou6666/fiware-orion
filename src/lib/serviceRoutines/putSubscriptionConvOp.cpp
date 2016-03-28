@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -32,11 +32,29 @@
 #include "serviceRoutines/putSubscriptionConvOp.h"
 
 
+
 /* ****************************************************************************
 *
 * putSubscriptionConvOp - 
+*
+* PUT /v1/contextSubscriptions/{subscriptionId}
+*
+* Payload In:  UpdateContextSubscriptionRequest
+* Payload Out: UpdateContextSubscriptionResponse
+*
+* URI parameters
+*   - notifyFormat=XXX     (handled by std-op postUpdateContextSubscription)
+*   x entity::type=TYPE    (NOT TREATED)
+*   x !exist=entity::type  (NOT TREATED)
+*   x exist=entity::type   (NOT TREATED)
 */
-std::string putSubscriptionConvOp(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string putSubscriptionConvOp
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   std::string                        subscriptionId = compV[2];
   UpdateContextSubscriptionRequest*  ucsrP          = &parseDataP->ucsr.res;
@@ -45,8 +63,13 @@ std::string putSubscriptionConvOp(ConnectionInfo* ciP, int components, std::vect
   {
     std::string out;
 
-    out = restErrorReplyGet(ciP, ciP->outFormat, "", "updateContextSubscription", SccBadRequest,
-                            std::string("unmatching subscriptionId URI/payload: '") + subscriptionId + "' vs '" + ucsrP->subscriptionId.get() + "'");
+    out = restErrorReplyGet(ciP,
+                            "",
+                            "updateContextSubscription",
+                            SccBadRequest,
+                            std::string("unmatching subscriptionId URI/payload: /") +
+                            subscriptionId + "/ vs /" + ucsrP->subscriptionId.get() + "/");
+
     return out;
   }
 

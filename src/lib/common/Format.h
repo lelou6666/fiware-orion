@@ -1,5 +1,5 @@
-#ifndef FORMAT_H
-#define FORMAT_H
+#ifndef SRC_LIB_COMMON_FORMAT_H_
+#define SRC_LIB_COMMON_FORMAT_H_
 
 /*
 *
@@ -21,12 +21,21 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
-
 #include <string>
+
+
+
+/* ****************************************************************************
+*
+* DEFAULT_FORMAT - 
+*/
+#define DEFAULT_FORMAT              JSON
+#define DEFAULT_FORMAT_AS_STRING    "JSON"
+
 
 
 /* ****************************************************************************
@@ -35,11 +44,10 @@
 */
 typedef enum Format
 {
-  XML      = 1,
-  JSON     = 2,
-  TEXT     = 3,
-  HTML     = 4,
-  NOFORMAT = 5
+  JSON     = 1,
+  TEXT     = 2,
+  HTML     = 3,
+  NOFORMAT = 4
 } Format;
 
 
@@ -50,17 +58,20 @@ typedef enum Format
 */
 extern const char* formatToString(Format format);
 
+
+
 /* ****************************************************************************
 *
 * stringToFormat
 */
-extern Format stringToFormat(std::string s);
+extern Format stringToFormat(const std::string& s);
+
 
 
 /* ****************************************************************************
 *
 * formatParse - 
 */
-extern Format formatParse(std::string format, std::string* charsetP);
+extern Format formatParse(const std::string& format, std::string* charsetP);
 
-#endif
+#endif  // SRC_LIB_COMMON_FORMAT_H_

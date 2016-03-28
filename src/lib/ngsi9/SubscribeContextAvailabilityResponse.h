@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -45,10 +45,10 @@ typedef struct SubscribeContextAvailabilityResponse
 
   SubscribeContextAvailabilityResponse();
   ~SubscribeContextAvailabilityResponse();
-  SubscribeContextAvailabilityResponse(std::string _subscriptionId, std::string _duration);
-  SubscribeContextAvailabilityResponse(std::string _subscriptionId, StatusCode& _errorCode);
+  SubscribeContextAvailabilityResponse(const std::string& _subscriptionId, const std::string& _duration);
+  SubscribeContextAvailabilityResponse(const std::string& _subscriptionId, StatusCode& _errorCode);
 
-   std::string render(RequestType requestType, Format format, std::string indent);
+   std::string render(RequestType requestType, const std::string& indent);
 } SubscribeContextAvailabilityResponse;
 
 #endif

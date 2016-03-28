@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -46,16 +46,20 @@ static RestService rs[] =
 /* ****************************************************************************
 *
 * ok - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(deleteIndividualContextEntityAttribute, ok)
+TEST(deleteIndividualContextEntityAttribute, DISABLED_ok)
 {
   ConnectionInfo  ci("/ngsi10/contextEntities/entity901/attributes/aa",  "DELETE", "1.1");
   const char*     outfile = "ngsi10.deleteIndividualContextEntityAttribute.valid.xml";
+  std::string     out;
 
   utInit();
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
-  std::string out = restService(&ci, rs);
+
+  out = restService(&ci, rs);
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();

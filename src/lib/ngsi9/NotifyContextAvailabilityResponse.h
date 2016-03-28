@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermín Galán & Ken Zangelin
 */
@@ -43,8 +43,8 @@ typedef struct NotifyContextAvailabilityResponse
   NotifyContextAvailabilityResponse();
   NotifyContextAvailabilityResponse(StatusCode& sc);
 
-  std::string   render(RequestType requestType, Format format, std::string indent);
-  void          present(std::string indent);
+  std::string   render(RequestType requestType, const std::string& indent);
+  void          present(const std::string& indent);
   void          release(void);
 } NotifyContextAvailabilityResponse;
 

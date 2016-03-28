@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -53,15 +53,16 @@ static char versionString[30] = { 'a', 'l', 'p', 'h', 'a', 0 };
 */
 void versionSet(const char* version)
 {
-   strncpy(versionString, version, sizeof(versionString));
+  strncpy(versionString, version, sizeof(versionString));
 }
 
 /* ****************************************************************************
 *
 * versionGet -
 */
-char* versionGet() {
-    return versionString;
+char* versionGet()
+{
+  return versionString;
 }
 
 
@@ -69,7 +70,13 @@ char* versionGet() {
 *
 * versionTreat - 
 */
-std::string versionTreat(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string versionTreat
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   std::string out     = "";
   std::string tag     = "orion";
@@ -81,14 +88,14 @@ std::string versionTreat(ConnectionInfo* ciP, int components, std::vector<std::s
   std::string uptime = parsedUptime(getTimer()->getCurrentTime() - startTime);
 #endif
 
-  out += startTag(indent, tag, ciP->outFormat);
-  out += valueTag(indent + "  ", "version",       versionString,   ciP->outFormat, true);
-  out += valueTag(indent + "  ", "uptime",        uptime,          ciP->outFormat, true);
-  out += valueTag(indent + "  ", "git_hash",      GIT_HASH,        ciP->outFormat, true);
-  out += valueTag(indent + "  ", "compile_time",  COMPILE_TIME,    ciP->outFormat, true);
-  out += valueTag(indent + "  ", "compiled_by",   COMPILED_BY,     ciP->outFormat, true);
-  out += valueTag(indent + "  ", "compiled_in",   COMPILED_IN,     ciP->outFormat, false);
-  out += endTag(indent, tag, ciP->outFormat);
+  out += startTag1(indent, tag, true, true);
+  out += valueTag1(indent + "  ", "version",       versionString,   true);
+  out += valueTag1(indent + "  ", "uptime",        uptime,          true);
+  out += valueTag1(indent + "  ", "git_hash",      GIT_HASH,        true);
+  out += valueTag1(indent + "  ", "compile_time",  COMPILE_TIME,    true);
+  out += valueTag1(indent + "  ", "compiled_by",   COMPILED_BY,     true);
+  out += valueTag1(indent + "  ", "compiled_in",   COMPILED_IN,     false);
+  out += endTag(indent, false, false, true, true);
 
   ciP->httpStatusCode = SccOk;
   return out;

@@ -1,5 +1,5 @@
-#ifndef POST_CONTEXT_ENTITIES_BY_ENTITY_ID_H
-#define POST_CONTEXT_ENTITIES_BY_ENTITY_ID_H
+#ifndef SRC_LIB_SERVICEROUTINES_POSTCONTEXTENTITIESBYENTITYID_H_
+#define SRC_LIB_SERVICEROUTINES_POSTCONTEXTENTITIESBYENTITYID_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,6 +37,12 @@
 *
 * postContextEntitiesByEntityId - 
 */
-extern std::string postContextEntitiesByEntityId(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP);
+extern std::string postContextEntitiesByEntityId
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+);
 
-#endif
+#endif  // SRC_LIB_SERVICEROUTINES_POSTCONTEXTENTITIESBYENTITYID_H_

@@ -18,16 +18,21 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
-#include <string>
 #include <string.h>
+#include <map>
+#include <string>
 
-#include "common/globals.h"
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
+
+#include "common/globals.h"
+#include "common/sem.h"
+#include "common/limits.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/MongoCommonUpdate.h"
@@ -35,36 +40,62 @@
 #include "ngsi10/UpdateContextRequest.h"
 #include "ngsi10/UpdateContextResponse.h"
 #include "ngsi/NotifyCondition.h"
+#include "rest/HttpStatusCode.h"
 
-#include "common/sem.h"
+
 
 /* ****************************************************************************
 *
 * mongoUpdateContext - 
 */
-HttpStatusCode mongoUpdateContext(UpdateContextRequest* requestP, UpdateContextResponse* responseP)
+HttpStatusCode mongoUpdateContext
+(
+  UpdateContextRequest*                 requestP,
+  UpdateContextResponse*                responseP,
+  const std::string&                    tenant,
+  const std::vector<std::string>&       servicePathV,
+  std::map<std::string, std::string>&   uriParams,    // FIXME P7: we need this to implement "restriction-based" filters
+  const std::string&                    xauthToken,
+  const std::string&                    apiVersion,
+  Ngsiv2Flavour                         ngsiv2Flavour
+)
 {
+    bool reqSemTaken;
 
-   /* Take semaphore. The LM_S* family of macros combines semaphore release with return */
-   semTake();
+    reqSemTake(__FUNCTION__, "ngsi10 update request", SemWriteOp, &reqSemTaken);
 
-   /* FIXME: This check is done already, should be removed. */
-    if (strcasecmp(requestP->updateActionType.c_str(), "update") != 0 &&
-        strcasecmp(requestP->updateActionType.c_str(), "append") != 0 &&
-        strcasecmp(requestP->updateActionType.c_str(), "delete") != 0) {
+    /* Check that the service path vector has only one element, returning error otherwise */
+    if (servicePathV.size() > 1)
+    {
+      char lenV[STRING_SIZE_FOR_INT];
+      snprintf(lenV, sizeof(lenV), "%lu", servicePathV.size());
 
-        responseP->errorCode.fill(SccReceiverInternalError, std::string("offending action: ") + requestP->updateActionType.get());
-        LM_SRE(SccOk, ("Unknown updateContext action '%s'", requestP->updateActionType.get().c_str()));
+      std::string details = std::string("service path length ") + lenV + " is greater than the one in update";
+      alarmMgr.badInput(clientIp, details);
+      responseP->errorCode.fill(SccBadRequest, "service path length greater than one in update");
     }
+    else
+    {
+        /* Process each ContextElement */
+        for (unsigned int ix = 0; ix < requestP->contextElementVector.size(); ++ix)
+        {
+          processContextElement(requestP->contextElementVector[ix],
+                                responseP,
+                                requestP->updateActionType.get(),
+                                tenant,
+                                servicePathV,
+                                uriParams,
+                                xauthToken,
+                                apiVersion,
+                                ngsiv2Flavour);
+        }
 
-    /* Process each ContextElement */
-    for (unsigned int ix= 0; ix < requestP->contextElementVector.size(); ++ix) {        
-        processContextElement(requestP->contextElementVector.get(ix), responseP, requestP->updateActionType.get());
-    }
-
-    /* Note that although individual processContextElements() invokations returns MsConnectionError, this
-       error get "encapsulated" in the StatusCode of the corresponding ContextElementResponse and we
-       consider the overall mongoUpdateContext() as MsOk. */
-
-    LM_SR(SccOk);
+        /* Note that although individual processContextElements() invocations return ConnectionError, this
+           error gets "encapsulated" in the StatusCode of the corresponding ContextElementResponse and we
+           consider the overall mongoUpdateContext() as OK. */
+        responseP->errorCode.fill(SccOk);
+    }    
+    reqSemGive(__FUNCTION__, "ngsi10 update request", reqSemTaken);
+    
+    return SccOk;
 }

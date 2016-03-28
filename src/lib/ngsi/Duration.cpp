@@ -18,21 +18,25 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
-#include <string>
 #include <string.h>   // strdup
 #include <stdlib.h>   // free
+#include <stdint.h>   // int64_t et al
+#include <string>
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
 #include "common/tag.h"
+#include "alarmMgr/alarmMgr.h"
 #include "ngsi/Request.h"
 #include "ngsi/Duration.h"
+
+
 
 /* ****************************************************************************
 *
@@ -48,23 +52,35 @@ Duration::Duration()
   used    = false;
 }
 
+
+
 /* ****************************************************************************
 *
-* Duration::check - 
+* Duration::check -
 */
-std::string Duration::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string Duration::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   if (string == "")
+  {
     return "OK";
+  }
 
   if (parse() == -1)
   {
     valid = false;
-    LM_E(("syntax error in duration string"));
+    alarmMgr.badInput(clientIp, "syntax error in duration string");
+
     return "syntax error in duration string";
   }
 
   valid = true;
+
   return "OK";
 }
 
@@ -72,24 +88,26 @@ std::string Duration::check(RequestType requestType, Format format, std::string 
 
 /* ****************************************************************************
 *
-* Duration::set - 
+* Duration::set -
 */
-void Duration::set(std::string value)
+void Duration::set(const std::string& value)
 {
   string = value;
-  parse(); // just to flag valid/invalid
+  parse();  // just to flag valid/invalid
 }
 
 
 
 /* ****************************************************************************
 *
-* Duration::get - 
+* Duration::get -
 */
 std::string Duration::get(void)
 {
   return string;
 }
+
+
 
 /* ****************************************************************************
 *
@@ -97,18 +115,21 @@ std::string Duration::get(void)
 */
 bool Duration::isEmpty(void)
 {
-  if ((string == "") || (string == "not in use"))
+  if (string == "")
+  {
     return true;
+  }
 
   return false;
 }
 
 
+
 /* ****************************************************************************
 *
-* Duration::parse - 
+* Duration::parse -
 */
-long long Duration::parse(void)
+int64_t Duration::parse(void)
 {
   seconds = parse8601(string);
 
@@ -117,42 +138,52 @@ long long Duration::parse(void)
   return seconds;
 }
 
+
+
 /* ****************************************************************************
 *
-* Duration::present - 
+* Duration::present
 */
-void Duration::present(std::string indent)
+void Duration::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sDuration: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sDuration: %s\n", indent.c_str(), string.c_str()));
+  }
   else
-    PRINTF("%sNo Duration\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo Duration\n", indent.c_str()));
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* Duration::render - 
+* Duration::render -
 */
-std::string Duration::render(Format format, std::string indent, bool comma)
+std::string Duration::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
+  }
 
   if (valid == false)
+  {
     return "";
+  }
 
-  return valueTag(indent, "duration", string, format, comma);
+  return valueTag1(indent, "duration", string, comma);
 }
 
 
 
 /* ****************************************************************************
 *
-* release - 
+* release -
 */
 void Duration::release(void)
 {
-   /* This method is included for the sake of homogeneity */
+  /* This method is included for the sake of homogeneity */
 }

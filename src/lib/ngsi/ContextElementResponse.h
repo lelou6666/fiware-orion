@@ -1,5 +1,5 @@
-#ifndef CONTEXT_ELEMENT_RESPONSE_H
-#define CONTEXT_ELEMENT_RESPONSE_H
+#ifndef SRC_LIB_NGSI_CONTEXTELEMENTRESPONSE_H_
+#define SRC_LIB_NGSI_CONTEXTELEMENTRESPONSE_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,22 +29,62 @@
 
 #include "ngsi/ContextElement.h"
 #include "ngsi/StatusCode.h"
+#include "ngsi/AttributeList.h"
+#include "rest/ConnectionInfo.h"
+
+#include "mongo/client/dbclient.h"
+
+
+/* ****************************************************************************
+*
+* Forward declarations
+*/
+struct QueryContextResponse;
 
 
 
 /* ****************************************************************************
 *
-* ContextElementResponse - 
+* ContextElementResponse -
 */
 typedef struct ContextElementResponse
 {
   ContextElement   contextElement;             // Mandatory
   StatusCode       statusCode;                 // Mandatory
 
-  std::string  render(RequestType requestType, Format format, std::string indent, bool comma = false);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void         present(std::string indent, int ix);
+  bool             prune;                      // operational attribute used internally by the queryContext logic for not deleting entities that were
+                                               // without attributes in the Orion DB
+
+  ContextElementResponse();
+  ContextElementResponse(EntityId* eP, ContextAttribute* aP);
+  ContextElementResponse(ContextElementResponse* cerP);
+  ContextElementResponse(const mongo::BSONObj&  entityDoc,
+                         const AttributeList&   attrL,
+                         bool                   includeEmpty = true,
+                         bool                   includeCreDate = false,
+                         bool                   includeModDate = false,
+                         const std::string&     apiVersion   = "v1");
+  ContextElementResponse(ContextElement* ceP, bool useDefaultType = false);
+
+  std::string  render(ConnectionInfo*     ciP,
+                      RequestType         requestType,
+                      const std::string&  indent,
+                      bool                comma               = false,
+                      bool                omitAttributeValues = false);
+  void         present(const std::string& indent, int ix);
   void         release(void);
+
+  std::string  check(ConnectionInfo*     ciP,
+                     RequestType         requestType,
+                     const std::string&  indent,
+                     const std::string&  predetectedError,
+                     int                 counter);
+
+  void                     fill(struct QueryContextResponse*  qcrP,
+                                const std::string&            entityId = "",
+                                const std::string&            entityType = "");
+  void                     fill(ContextElementResponse* cerP);
+  ContextElementResponse*  clone(void);
 } ContextElementResponse;
 
-#endif
+#endif  // SRC_LIB_NGSI_CONTEXTELEMENTRESPONSE_H_

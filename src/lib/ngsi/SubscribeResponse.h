@@ -1,5 +1,5 @@
-#ifndef SUBSCRIBE_RESPONSE_H
-#define SUBSCRIBE_RESPONSE_H
+#ifndef SRC_LIB_NGSI_SUBSCRIBERESPONSE_H_
+#define SRC_LIB_NGSI_SUBSCRIBERESPONSE_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -46,7 +46,7 @@ typedef struct SubscribeResponse
 
   SubscribeResponse();
 
-  std::string render(Format format, std::string indent, bool comma = false);
+  std::string render(const std::string& indent, bool comma = false);
 } SubscribeResponse;
 
-#endif
+#endif  // SRC_LIB_NGSI_SUBSCRIBERESPONSE_H_

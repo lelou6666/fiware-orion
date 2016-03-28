@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -40,6 +40,8 @@ static RestService rs[] =
 {
   { "GET",    StatisticsRequest, 1, { "statistics" }, "", statisticsTreat      },
   { "DELETE", StatisticsRequest, 1, { "statistics" }, "", statisticsTreat      },
+  { "GET",    StatisticsRequest, 2, { "cache", "statistics" }, "", statisticsCacheTreat      },
+  { "DELETE", StatisticsRequest, 2, { "cache", "statistics" }, "", statisticsCacheTreat      },
   { "*",      StatisticsRequest, 1, { "statistics" }, "", badVerbGetDeleteOnly },
 
   { "",       InvalidRequest,    0, {              }, "", NULL                 }
@@ -50,18 +52,24 @@ static RestService rs[] =
 /* ****************************************************************************
 *
 * delete - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(statisticsTreat, delete)
+TEST(statisticsTreat, DISABLED_delete)
 {
   ConnectionInfo ci("/statistics",  "DELETE", "1.1");
-  const char*    outfile   = "orion.statistics.ok.valid.xml";
+  const char*    outfile1   = "orion.statistics.ok.valid.xml";
   std::string    out;
 
   utInit();
 
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
+  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
   out       = restService(&ci, rs);
   EXPECT_STREQ(expectedBuf, out.c_str());
+
+  ci.outFormat = JSON;
+  out       = restService(&ci, rs);
+  EXPECT_STREQ("{\"message\":\"All statistics counter reset\"}", out.c_str());
 
   utExit();
 }
@@ -71,30 +79,79 @@ TEST(statisticsTreat, delete)
 /* ****************************************************************************
 *
 * get - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(statisticsTreat, get)
+TEST(statisticsTreat, DISABLED_get)
 {
   ConnectionInfo ci("/statistics",  "GET", "1.1");
-  const char*    outfile   = "orion.statistics2.ok.valid.xml";
+  const char*    outfile1  = "orion.statistics.ok.valid.xml";
   std::string    out;
 
   utInit();
 
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
+  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
   out = restService(&ci, rs);
-  
-  char* outStart = (char*) out.c_str();
-
-  // Remove last char in expectedBuf
-  expectedBuf[strlen(expectedBuf) - 1] = 0;
-
-  // Shorten'out' to be of same length as expectedBuf
-  outStart[strlen(expectedBuf)]    = 0;
   EXPECT_STREQ(expectedBuf, out.c_str());
+
+  ci.outFormat = JSON;  
+  out = restService(&ci, rs);
+  EXPECT_STREQ("{\"uptime_in_secs\":0,\"measuring_interval_in_secs\":0}", out.c_str());
 
   utExit();
 }
 
+/* ****************************************************************************
+*
+* delete (cache) -
+*
+* FIXME P5 #1862: _json countepart?
+*/
+TEST(statisticsTreat, DISABLED_deleteCache)
+{
+  ConnectionInfo ci("/cache/statistics",  "DELETE", "1.1");
+  const char*    outfile1   = "orion.statistics.ok.valid.xml";
+  std::string    out;
+
+  utInit();
+
+  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
+  out       = restService(&ci, rs);
+  EXPECT_STREQ(expectedBuf, out.c_str());
+
+  ci.outFormat = JSON;
+  out       = restService(&ci, rs);
+  EXPECT_STREQ("{\"message\":\"All statistics counter reset\"}", out.c_str());
+
+  utExit();
+}
+
+
+
+/* ****************************************************************************
+*
+* get (cache) -
+*
+* FIXME P5 #1862: _json countepart?
+*/
+TEST(statisticsTreat, DISABLED_getCache)
+{
+  ConnectionInfo ci("/cache/statistics",  "GET", "1.1");
+  const char*    outfile1  = "orion.statistics.ok.valid.xml";
+  std::string    out;
+
+  utInit();
+
+  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
+  out = restService(&ci, rs);
+  EXPECT_STREQ(expectedBuf, out.c_str());
+
+  ci.outFormat = JSON;
+  out = restService(&ci, rs);
+  EXPECT_STREQ("{\"ids\":\"\",\"refresh\":0,\"inserts\":0,\"removes\":0,\"updates\":0,\"items\":0}", out.c_str());
+
+  utExit();
+}
 
 
 /* ****************************************************************************

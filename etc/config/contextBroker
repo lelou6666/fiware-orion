@@ -16,7 +16,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 #####
 #
@@ -35,11 +35,18 @@ BROKER_PORT=1026
 BROKER_LOG_DIR=/var/log/contextBroker
 
 # BROKER_PID_FILE - Where to store the pid for orion-broker
-BROKER_PID_FILE=/var/log/contextBroker/contextBroker.pid
+BROKER_PID_FILE=/var/run/contextBroker/contextBroker.pid
 
 ## Database configuration for orion-broker
 BROKER_DATABASE_HOST=localhost
 BROKER_DATABASE_NAME=orion
+
+## Replica set configuration. Note that if you set this parameter, the BROKER_DATABASE_HOST
+## is interpreted as the list of host (or host:port) separated by commas to use as
+## replica set seed list (single element lists are also allowed). If BROKER_DATABASE_RPL_SET
+## parameter is unset, Orion CB assumes that the BROKER_DATABASE_HOST is an stand-alone
+## mongod instance
+#BROKER_DATABASE_RPLSET=orion_rs
 
 # Database authentication (not needed if MongoDB doesn't use --auth)
 #BROKER_DATABASE_USER=orion
@@ -47,3 +54,4 @@ BROKER_DATABASE_NAME=orion
 
 # Use the following variable if you need extra ops
 #BROKER_EXTRA_OPS="-t 0-255"
+BROKER_EXTRA_OPS="-multiservice"

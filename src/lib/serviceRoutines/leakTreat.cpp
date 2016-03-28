@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -27,6 +27,9 @@
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
+
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
 
 #include "common/globals.h"
 #include "mongoBackend/MongoGlobal.h"
@@ -42,44 +45,53 @@
 *
 * leakTreat - 
 */
-std::string leakTreat(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string leakTreat
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-   std::string password = "XXX";
-   std::string out;
+  std::string password = "XXX";
+  std::string out;
 
-   if (harakiri == false)
-   {
-     OrionError orionError(SccBadRequest, "no such service");
+  if (harakiri == false)
+  {
+    OrionError orionError(SccBadRequest, "no such service");
 
-     ciP->httpStatusCode = SccOk;
-     out = orionError.render(ciP->outFormat, "");
-     return out;
-   }
+    ciP->httpStatusCode = SccOk;
+    TIMED_RENDER(out = orionError.render(ciP, ""));
+    return out;
+  }
 
-   if (components > 1)
+  if (components > 1)
+  {
     password = compV[1];
+  }
 
-   if (components == 1)
-   {
-      OrionError orionError(SccBadRequest, "Password requested");
-      ciP->httpStatusCode = SccOk;
-      out = orionError.render(ciP->outFormat, "");
-   }
-   else if (password != "harakiri")
-   {
-      OrionError orionError(SccBadRequest, "Request denied - password erroneous");
-      ciP->httpStatusCode = SccOk;
-      out = orionError.render(ciP->outFormat, "");
-   }
-   else
-   {
-      // No Cleanup for valgrind, and just in case another malloc
-      mongoDisconnect();
-      std::string pwd = strdup("Leak test done");
-      LM_F(("strdupped 15 bytes"));
-      OrionError orionError(SccOk, "Leak test; " + pwd);
-      return orionError.render(ciP->outFormat, "");
-   }
+  if (components == 1)
+  {
+    OrionError orionError(SccBadRequest, "Password requested");
+    ciP->httpStatusCode = SccOk;
 
-   return out;
+    TIMED_RENDER(out = orionError.render(ciP, ""));
+  }
+  else if (password != "harakiri")
+  {
+    OrionError orionError(SccBadRequest, "Request denied - password erroneous");
+    ciP->httpStatusCode = SccOk;
+
+    TIMED_RENDER(out = orionError.render(ciP, ""));
+  }
+  else
+  {
+    // No Cleanup for valgrind, and just in case another malloc
+    std::string pwd = strdup("Leak test done");
+    OrionError orionError(SccOk, "Leak test: " + pwd);
+
+    TIMED_RENDER(out = orionError.render(ciP, ""));
+  }
+
+  return out;
 }

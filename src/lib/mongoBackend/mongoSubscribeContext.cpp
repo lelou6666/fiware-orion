@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
@@ -27,64 +27,114 @@
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 #include "common/globals.h"
-#include "common/sem.h"
 #include "common/Format.h"
+#include "common/sem.h"
+#include "alarmMgr/alarmMgr.h"
 #include "mongoBackend/MongoGlobal.h"
+#include "mongoBackend/dbConstants.h"
 #include "mongoBackend/mongoSubscribeContext.h"
+#include "mongoBackend/connectionOperations.h"
+#include "cache/subCache.h"
 #include "ngsi10/SubscribeContextRequest.h"
 #include "ngsi10/SubscribeContextResponse.h"
 #include "ngsi/StatusCode.h"
+#include "rest/uriParamNames.h"
+
+
 
 /* ****************************************************************************
 *
 * mongoSubscribeContext - 
 */
-HttpStatusCode mongoSubscribeContext(SubscribeContextRequest* requestP, SubscribeContextResponse* responseP, Format inFormat)
+HttpStatusCode mongoSubscribeContext
+(
+  SubscribeContextRequest*             requestP,
+  SubscribeContextResponse*            responseP,
+  const std::string&                   tenant,
+  std::map<std::string, std::string>&  uriParam,
+  const std::string&                   xauthToken,
+  const std::vector<std::string>&      servicePathV
+)
 {
+    std::string        servicePath           = (servicePathV.size() == 0)? "" : servicePathV[0];    
+    bool               reqSemTaken           = false;    
 
-    /* Take semaphore. The LM_S* family of macros combines semaphore release with return */
-    semTake();
+    reqSemTake(__FUNCTION__, "ngsi10 subscribe request", SemWriteOp, &reqSemTaken);
 
-    LM_T(LmtMongo, ("Subscribe Context Request"));
-
-    DBClientConnection* connection = getMongoConnection();
-
-    /* If expiration is not present, then use a default one */
-    if (requestP->duration.isEmpty()) {
-        requestP->duration.set(DEFAULT_DURATION);
+    //
+    // Calculate expiration (using the current time and the duration field in the request).
+    // If expiration is not present, use a default value
+    //
+    long long expiration = -1;
+    if (requestP->expires > 0)
+    {
+      expiration = requestP->expires;
     }
+    else
+    {
+      if (requestP->duration.isEmpty())
+      {
+        requestP->duration.set(DEFAULT_DURATION);
+      }
 
-    /* Calculate expiration (using the current time and the duration field in the request) */
-    long long expiration = getCurrentTime() + requestP->duration.parse();
+      expiration = getCurrentTime() + requestP->duration.parse();
+    }
     LM_T(LmtMongo, ("Subscription expiration: %lu", expiration));
 
     /* Create the mongoDB subscription document */
-    BSONObjBuilder sub;
-    OID oid;
+    BSONObjBuilder  sub;
+    OID             oid;
+
     oid.init();
+
     sub.append("_id", oid);
     sub.append(CSUB_EXPIRATION, expiration);
-    sub.append(CSUB_REFERENCE, requestP->reference.get());
+    sub.append(CSUB_REFERENCE,  requestP->reference.get());
+
 
     /* Throttling */
-    if (!requestP->throttling.isEmpty()) {
-        sub.append(CSUB_THROTTLING, requestP->throttling.parse());
+    long long throttling = 0;
+    if (requestP->throttling.seconds != -1)
+    {
+      throttling = (long long) requestP->throttling.seconds;
+      sub.append(CSUB_THROTTLING, throttling);
+    }
+    else if (!requestP->throttling.isEmpty())
+    {
+      throttling = (long long) requestP->throttling.parse();
+      sub.append(CSUB_THROTTLING, throttling);
     }
 
+    if (servicePath != "")
+    {
+      sub.append(CSUB_SERVICE_PATH, servicePath);
+    }
+
+    
     /* Build entities array */
     BSONArrayBuilder entities;
-    for (unsigned int ix = 0; ix < requestP->entityIdVector.size(); ++ix) {
-        EntityId* en = requestP->entityIdVector.get(ix);
-        entities.append(BSON(CSUB_ENTITY_ID << en->id <<
-                             CSUB_ENTITY_TYPE << en->type <<
-                             CSUB_ENTITY_ISPATTERN << en->isPattern));
+    for (unsigned int ix = 0; ix < requestP->entityIdVector.size(); ++ix)
+    {
+        EntityId* en = requestP->entityIdVector[ix];
+
+        if (en->type == "")
+        {
+          entities.append(BSON(CSUB_ENTITY_ID << en->id <<
+                               CSUB_ENTITY_ISPATTERN << en->isPattern));
+        }
+        else
+        {
+          entities.append(BSON(CSUB_ENTITY_ID << en->id <<
+                               CSUB_ENTITY_TYPE << en->type <<
+                               CSUB_ENTITY_ISPATTERN << en->isPattern));
+        }
     }
     sub.append(CSUB_ENTITIES, entities.arr());
 
     /* Build attributes array */
     BSONArrayBuilder attrs;
     for (unsigned int ix = 0; ix < requestP->attributeList.size(); ++ix) {
-        attrs.append(requestP->attributeList.get(ix));
+        attrs.append(requestP->attributeList[ix]);
     }
     sub.append(CSUB_ATTRS, attrs.arr());
 
@@ -92,39 +142,77 @@ HttpStatusCode mongoSubscribeContext(SubscribeContextRequest* requestP, Subscrib
     bool notificationDone = false;
     BSONArray conds = processConditionVector(&requestP->notifyConditionVector,
                                              requestP->entityIdVector,
-                                             requestP->attributeList, oid.str(),
+                                             requestP->attributeList, oid.toString(),
                                              requestP->reference.get(),
                                              &notificationDone,
-                                             inFormat);
+                                             JSON,
+                                             tenant,
+                                             xauthToken,
+                                             servicePathV,
+                                             requestP->expression.q);
     sub.append(CSUB_CONDITIONS, conds);
-    if (notificationDone) {
-        sub.append(CSUB_LASTNOTIFICATION, getCurrentTime());
-        sub.append(CSUB_COUNT, 1);
+
+    /* Build expression */
+    BSONObjBuilder expression;
+
+    expression << CSUB_EXPR_Q << requestP->expression.q
+               << CSUB_EXPR_GEOM << requestP->expression.geometry
+               << CSUB_EXPR_COORDS << requestP->expression.coords
+               << CSUB_EXPR_GEOREL << requestP->expression.georel;
+    sub.append(CSUB_EXPR, expression.obj());
+
+    /* Last notification */
+    long long lastNotificationTime = 0;
+    if (notificationDone)
+    {
+      lastNotificationTime = (long long) getCurrentTime();
+
+      sub.append(CSUB_LASTNOTIFICATION, lastNotificationTime);
+      sub.append(CSUB_COUNT, (long long) 1);
     }
 
     /* Adding format to use in notifications */
-    sub.append(CSUB_FORMAT, std::string(formatToString(inFormat)));
+    sub.append(CSUB_FORMAT, "JSON");
 
     /* Insert document in database */
-    BSONObj subDoc = sub.obj();
-    try {
-        LM_T(LmtMongo, ("insert() in '%s' collection: '%s'", getSubscribeContextCollectionName(), subDoc.toString().c_str()));
-        connection->insert(getSubscribeContextCollectionName(), subDoc);
+    std::string err;
+    if (!collectionInsert(getSubscribeContextCollectionName(tenant), sub.obj(), &err))
+    {
+      reqSemGive(__FUNCTION__, "ngsi10 subscribe request (mongo db exception)", reqSemTaken);
+      responseP->subscribeError.errorCode.fill(SccReceiverInternalError, err);
+      return SccOk;
     }
-    catch( const DBException &e ) {
-        responseP->subscribeError.errorCode.fill(SccReceiverInternalError,
-                                                 std::string("collection: ") + getSubscribeContextCollectionName() +
-                                                 " - insert(): " + subDoc.toString() +
-                                                 " - exception: " + e.what());
 
-        LM_SRE(SccOk,("Database error '%s'", responseP->subscribeError.errorCode.reasonPhrase.c_str()));
-    }    
+    //
+    // 3. Create Subscription for the cache
+    //
+    std::string oidString = oid.toString();
 
-    /* Fill the response element */
+    LM_T(LmtSubCache, ("inserting a new sub in cache (%s)", oidString.c_str()));
+
+    cacheSemTake(__FUNCTION__, "Inserting subscription in cache");
+    subCacheItemInsert(tenant.c_str(),
+                       servicePath.c_str(),
+                       requestP,
+                       oidString.c_str(),
+                       expiration,
+                       throttling,
+                       JSON,
+                       notificationDone,
+                       lastNotificationTime,
+                       requestP->expression.q,
+                       requestP->expression.geometry,
+                       requestP->expression.coords,
+                       requestP->expression.georel);
+
+    cacheSemGive(__FUNCTION__, "Inserting subscription in cache");
+
+    reqSemGive(__FUNCTION__, "ngsi10 subscribe request", reqSemTaken);
+
+    /* Fill int the response element */
     responseP->subscribeResponse.duration = requestP->duration;
-    responseP->subscribeResponse.subscriptionId.set(oid.str());
+    responseP->subscribeResponse.subscriptionId.set(oid.toString());
     responseP->subscribeResponse.throttling = requestP->throttling;
 
-    LM_SR(SccOk);
-
+    return SccOk;
 }

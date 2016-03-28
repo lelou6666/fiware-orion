@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
@@ -43,6 +43,8 @@ using ::testing::_;
 using ::testing::Throw;
 using ::testing::Return;
 
+extern void setMongoConnectionForUnitTest(DBClientBase*);
+
 /* ****************************************************************************
 *
 * First set of test is related with updating thinks
@@ -57,9 +59,6 @@ using ::testing::Return;
 *
 */
 
-#define NO_CODE 0
-
-
 /* ****************************************************************************
 *
 * prepareDatabase -
@@ -69,7 +68,7 @@ static void prepareDatabase(void) {
     /* Set database */
     setupDatabase();
 
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
 
     BSONObj sub1 = BSON("_id" << OID("51307b66f481db11bf860001") <<
                         "expiration" << 10000000 <<
@@ -100,7 +99,7 @@ TEST(mongoUnsubscribeContextAvailability, subscriptionNotFound)
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,_,_,_))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -121,11 +120,8 @@ TEST(mongoUnsubscribeContextAvailability, subscriptionNotFound)
     EXPECT_EQ(0, res.statusCode.details.size());
 
     /* Check database (untouched) */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     ASSERT_EQ(2, connection->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj()));
-
-    /* Release connection */
-    mongoDisconnect();
 
     /* Release mock */
     delete notifierMock;
@@ -143,7 +139,7 @@ TEST(mongoUnsubscribeContextAvailability, unsubscribe)
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,_,_,_))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -164,13 +160,10 @@ TEST(mongoUnsubscribeContextAvailability, unsubscribe)
     EXPECT_EQ(0, res.statusCode.details.size());
 
     /* Check database (one document, but not the deleted one) */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     ASSERT_EQ(1, connection->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj()));
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXTAVAIL_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ("51307b66f481db11bf860002", sub.getField("_id").OID().str());
-
-    /* Release connection */
-    mongoDisconnect();
+    EXPECT_EQ("51307b66f481db11bf860002", sub.getField("_id").OID().toString());
 
     /* Release mock */
     delete notifierMock;
@@ -191,20 +184,22 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbFindOneFail)
     /* Prepare mocks */
     const DBException e = DBException("boom!!", 33);
     DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-    ON_CALL(*connectionMock, findOne("unittest.casubs",_,_,_))
+    ON_CALL(*connectionMock, findOne("utest.casubs",_,_,_))
             .WillByDefault(Throw(e));
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,_,_,_))
             .Times(0);
     setNotifier(notifierMock);
 
     /* Forge the request (from "inside" to "outside") */
     req.subscriptionId.set("51307b66f481db11bf860001");
 
-    /* Prepare database */
+    /* Set MongoDB connection (prepare database first with the "actual" connection object).
+     * The "actual" conneciton is preserved for later use */
     prepareDatabase();
-    mongoConnect(connectionMock);
+    DBClientBase* connectionDb = getMongoConnection();
+    setMongoConnectionForUnitTest(connectionMock);
 
     /* Invoke the function in mongoBackend library */
     ms = mongoUnsubscribeContextAvailability(&req, &res);
@@ -214,25 +209,24 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbFindOneFail)
     EXPECT_EQ("51307b66f481db11bf860001", res.subscriptionId.get());
     EXPECT_EQ(SccReceiverInternalError, res.statusCode.code);
     EXPECT_EQ("Internal Server Error", res.statusCode.reasonPhrase);
-    EXPECT_EQ("collection: unittest.casubs "
-              "- findOne() _id: 51307b66f481db11bf860001 "
-              "- exception: boom!!", res.statusCode.details);
-
-    /* Check database (untouched) */
-    mongoDisconnect();
+    EXPECT_EQ("Database Error (collection: utest.casubs "
+              "- findOne(): { _id: ObjectId('51307b66f481db11bf860001') } "
+              "- exception: boom!!)", res.statusCode.details);
     
     // Sleeping a little to "give mongod time to process its input".
     // Without this sleep, this tests fails around 50% of the times (in Ubuntu 13.04)
     usleep(1000);
-    mongoConnect("localhost");
-    DBClientConnection* connection = getMongoConnection();
-    int                 count      = connection->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj());
+
+    int count = connectionDb->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj());
 
     ASSERT_EQ(2, count);
 
+    /* Restore real DB connection */
+    setMongoConnectionForUnitTest(connectionDb);
+
     /* Release mocks */
     delete notifierMock;
-
+    delete connectionMock;
 }
 
 /* ****************************************************************************
@@ -254,22 +248,24 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbRemoveFail)
                                        "entities" << BSON_ARRAY(BSON("id" << "E1" << "type" << "T1" << "isPattern" << "false")) <<
                                        "attrs" << BSONArray());
     DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-    ON_CALL(*connectionMock, findOne("unittest.casubs",_,_,_))
+    ON_CALL(*connectionMock, findOne("utest.casubs",_,_,_))
             .WillByDefault(Return(fakeSub));
-    ON_CALL(*connectionMock, remove("unittest.casubs",_,_))
+    ON_CALL(*connectionMock, remove("utest.casubs",_,_,_))
             .WillByDefault(Throw(e));
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextAvailabilityRequest(_,_,_,_))
             .Times(0);
     setNotifier(notifierMock);
 
     /* Forge the request (from "inside" to "outside") */
     req.subscriptionId.set("51307b66f481db11bf860001");
 
-    /* Prepare database */
+    /* Set MongoDB connection (prepare database first with the "actual" connection object).
+     * The "actual" conneciton is preserved for later use */
     prepareDatabase();
-    mongoConnect(connectionMock);
+    DBClientBase* connectionDb = getMongoConnection();
+    setMongoConnectionForUnitTest(connectionMock);
 
     /* Invoke the function in mongoBackend library */
     ms = mongoUnsubscribeContextAvailability(&req, &res);
@@ -279,22 +275,21 @@ TEST(mongoUnsubscribeContextAvailability, MongoDbRemoveFail)
     EXPECT_EQ("51307b66f481db11bf860001", res.subscriptionId.get());
     EXPECT_EQ(SccReceiverInternalError, res.statusCode.code);
     EXPECT_EQ("Internal Server Error", res.statusCode.reasonPhrase);
-    EXPECT_EQ("collection: unittest.casubs "
-              "- remove() _id: 51307b66f481db11bf860001 "
-              "- exception: boom!!", res.statusCode.details);
-
-    /* Check database (untouched) */
-    mongoDisconnect();
+    EXPECT_EQ("Database Error (collection: utest.casubs - "
+              "remove(): { _id: ObjectId('51307b66f481db11bf860001') } "
+              "- exception: boom!!)", res.statusCode.details);
 
     // Sleeping a little to "give mongod time to process its input".
     // Without this sleep, this tests fails around 50% of the times (in Ubuntu 13.04)
     usleep(1000);
-    mongoConnect("localhost");
-    DBClientConnection* connection = getMongoConnection();
-    ASSERT_EQ(2, connection->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj()));
 
-    /* Release mocks */
+    ASSERT_EQ(2, connectionDb->count(SUBSCRIBECONTEXTAVAIL_COLL, BSONObj()));
+
+    /* Restore real DB connection */
+    setMongoConnectionForUnitTest(connectionDb);
+
+    /* Release mocks */    
     delete notifierMock;
-
+    delete connectionMock;
 }
 

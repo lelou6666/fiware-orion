@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -82,7 +82,8 @@ TEST(Request, requestType)
     { Ngsi10ContextEntityTypesAttribute,           "Ngsi10ContextEntityTypesAttribute"                      },
     { Ngsi10SubscriptionsConvOp,                   "Ngsi10SubscriptionsConvOp"                              },
 
-    { LogRequest,                                  "Log"                                                    },
+    { LogTraceRequest,                             "LogTrace"                                               },
+    { LogLevelRequest,                             "LogLevel"                                               },
     { VersionRequest,                              "Version"                                                },
     { StatisticsRequest,                           "Statistics"                                             },
     { ExitRequest,                                 "Exit"                                                   },
@@ -91,7 +92,14 @@ TEST(Request, requestType)
 
     { RtSubscribeResponse,                         "SubscribeResponse"                                      },
     { RtSubscribeError,                            "SubscribeError"                                         },
+
+    { EntityTypes,                                 "EntityTypes"                                            },
+    { AttributesForEntityType,                     "AttributesForEntityType"                                },
+    { RtEntityTypesResponse,                       "EntityTypesResponse"                                    },
+    { RtAttributesForEntityTypeResponse,           "AttributesForEntityTypeResponse"                        },
+
     { InvalidRequest,                              "InvalidRequest"                                         },
+
   };
 
   for (unsigned int ix = 0; ix < sizeof(req) / sizeof(req[0]); ++ix)

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -28,6 +28,7 @@
 #include "logMsg/traceLevels.h"
 
 #include "common/idCheck.h"
+#include "alarmMgr/alarmMgr.h"
 
 
 
@@ -35,24 +36,31 @@
 *
 * idCheck - 
 */
-std::string idCheck(std::string s)
+std::string idCheck(const std::string& s)
 {
   if (s.length() != 24)
-    return "bad length (24 chars expected)";
+  {
+    return "bad length - 24 chars expected";
+  }
 
   char* cP = (char*) s.c_str();
 
   while (*cP != 0)
   {
     if ((*cP >= '0') && (*cP <= '9'))
-      ;
+    {
+    }
     else if ((*cP >= 'a') && (*cP <= 'f'))
-      ;
+    {
+    }
     else if ((*cP >= 'A') && (*cP <= 'F'))
-      ;
+    {
+    }
     else
     {
-      LM_E(("invalid char: %c", *cP));
+      std::string details = std::string("invalid char '") + *cP + "' in ID string";
+      alarmMgr.badInput(clientIp, details);
+
       return "invalid char in ID string";
     }
 

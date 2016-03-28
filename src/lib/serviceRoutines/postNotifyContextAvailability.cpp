@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -27,6 +27,12 @@
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
+
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+#include "common/string.h"
+#include "common/defaultValues.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "mongoBackend/mongoNotifyContextAvailability.h"
 #include "ngsi/ParseData.h"
@@ -39,15 +45,50 @@
 
 /* ****************************************************************************
 *
-* postNotifyContextAvailability - 
+* postNotifyContextAvailability -
 */
-std::string postNotifyContextAvailability(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postNotifyContextAvailability
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   NotifyContextAvailabilityResponse  ncar;
+  std::string                        answer;
 
-  ciP->httpStatusCode = mongoNotifyContextAvailability(&parseDataP->ncar.res, &ncar);
+  //
+  // If more than ONE service-path is input, an error is returned as response.
+  // If NO service-path is issued, then the default service-path "/" is used.
+  // After these checks, the service-path is checked to be 'correct'.
+  //
+  if (ciP->servicePathV.size() > 1)
+  {
+    ncar.responseCode.fill(SccBadRequest, "more than one service path for notification");
+    alarmMgr.badInput(clientIp, "more than one service path for a notification");
 
-  std::string answer = ncar.render(NotifyContextAvailability, ciP->outFormat, "");
+    TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ""));
+
+    return answer;
+  }
+  else if (ciP->servicePathV.size() == 0)
+  {
+    ciP->servicePathV.push_back(DEFAULT_SERVICE_PATH);
+  }
+
+  std::string res = servicePathCheck(ciP->servicePathV[0].c_str());
+  if (res != "OK")
+  {
+    ncar.responseCode.fill(SccBadRequest, res);
+
+    TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ""));
+
+    return answer;
+  }
+
+  TIMED_MONGO(ciP->httpStatusCode = mongoNotifyContextAvailability(&parseDataP->ncar.res, &ncar, ciP->uriParam, ciP->tenant, ciP->servicePathV[0]));
+  TIMED_RENDER(answer = ncar.render(NotifyContextAvailability, ""));
 
   return answer;
 }

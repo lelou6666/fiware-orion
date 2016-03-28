@@ -16,14 +16,13 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
 SET (SOURCES
     jsonRequest.cpp
     jsonParse.cpp
-    jsonNullTreat.cpp
 
     jsonRegisterContextRequest.cpp
     jsonDiscoverContextAvailabilityRequest.cpp
@@ -33,7 +32,9 @@ SET (SOURCES
     jsonUpdateContextAvailabilitySubscriptionRequest.cpp
 
     jsonQueryContextRequest.cpp
+    jsonQueryContextResponse.cpp
     jsonUpdateContextRequest.cpp
+    jsonUpdateContextResponse.cpp
     jsonSubscribeContextRequest.cpp
     jsonNotifyContextRequest.cpp
     jsonUnsubscribeContextRequest.cpp
@@ -49,7 +50,6 @@ SET (HEADERS
     jsonRequest.h
     jsonParse.h
     JsonNode.h
-    jsonNullTreat.h
 
     jsonRegisterContextRequest.h
     jsonDiscoverContextAvailabilityRequest.h
@@ -59,7 +59,9 @@ SET (HEADERS
     jsonUpdateContextAvailabilitySubscriptionRequest.h
 
     jsonQueryContextRequest.h
+    jsonQueryContextResponse.h
     jsonUpdateContextRequest.h
+    jsonUpdateContextResponse.h
     jsonSubscribeContextRequest.h
     jsonNotifyContextRequest.h
     jsonUnsubscribeContextRequest.h

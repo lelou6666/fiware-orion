@@ -1,5 +1,5 @@
-#ifndef CONTEXT_ATTRIBUTE_RESPONSE_H
-#define CONTEXT_ATTRIBUTE_RESPONSE_H
+#ifndef SRC_LIB_CONVENIENCE_CONTEXTATTRIBUTERESPONSE_H_
+#define SRC_LIB_CONVENIENCE_CONTEXTATTRIBUTERESPONSE_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,6 +31,15 @@
 #include "common/Format.h"
 #include "ngsi/ContextAttributeVector.h"
 #include "ngsi/StatusCode.h"
+#include "rest/ConnectionInfo.h"
+
+
+
+/* ****************************************************************************
+*
+* Forward declarations
+*/
+struct QueryContextResponse;
 
 
 
@@ -43,10 +52,20 @@ typedef struct ContextAttributeResponse
   ContextAttributeVector     contextAttributeVector;     // Mandatory
   StatusCode                 statusCode;                 // Mandatory
 
-  std::string render(RequestType requestType, Format format, std::string indent);
-  std::string check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
+  std::string render(ConnectionInfo* ciP, RequestType requestType, std::string indent);
   void        present(std::string indent);
   void        release(void);
+  std::string check(ConnectionInfo*  ciP,
+                    RequestType      requestType,
+                    std::string      indent,
+                    std::string      predetectedError,
+                    int              counter);
+  void        fill(ContextAttributeVector* _cavP, const StatusCode& _statusCode);
+  void        fill(QueryContextResponse*  qcrP,
+                   const std::string&     entityId,
+                   const std::string&     entityType,
+                   const std::string&     attributeName,
+                   const std::string&     metaID);
 } ContextAttributeResponse;
 
-#endif
+#endif  // SRC_LIB_CONVENIENCE_CONTEXTATTRIBUTERESPONSE_H_

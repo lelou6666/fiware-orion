@@ -1,5 +1,5 @@
-#ifndef PA_CONFIG_H
-#define PA_CONFIG_H
+#ifndef SRC_LIB_PARSEARGS_PACONFIG_H_
+#define SRC_LIB_PARSEARGS_PACONFIG_H_
 
 /*
 *
@@ -21,24 +21,25 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
-#include "baStd.h"              /* bool, ...                            */
+#include "parseArgs/baStd.h"      /* bool, ...                              */
+#include "parseArgs/parseArgs.h"  /* Where we have the ext decl of paConfig */
 
-#include "parseArgs/parseArgs.h"          /* Where we have the ext decl of paConfig    */
+
 
 #ifndef DEFAULT_VERSION
-    #define DEFAULT_VERSION "alpha"
+#  define DEFAULT_VERSION "alpha"
 #endif
 
 #ifndef DEFAULT_AUTHOR
-    #define DEFAULT_AUTHOR "Telefonica I+D"
+#  define DEFAULT_AUTHOR "Telefonica I+D"
 #endif
 
 #ifndef DEFAULT_COPYRIGHT
-    #define DEFAULT_COPYRIGHT "Copyright 2013 Telefonica Investigacion y Desarrollo, S.A.U\n" \
+    #define DEFAULT_COPYRIGHT "Copyright 2013-2016 Telefonica Investigacion y Desarrollo, S.A.U\n" \
                               "Orion Context Broker is free software: you can redistribute it and/or\n" \
                               "modify it under the terms of the GNU Affero General Public License as\n" \
                               "published by the Free Software Foundation, either version 3 of the\n" \
@@ -49,6 +50,7 @@
                               "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero\n" \
                               "General Public License for more details."
 #endif
+
 
 
 /* ****************************************************************************
@@ -86,6 +88,7 @@ extern bool       paLogToFile;
 extern bool       paLogToScreen;
 extern bool       paLogScreenToStderr;
 extern bool       paLogScreenOnlyErrors;
+extern bool       paBoolWithValueIsUnrecognized;
 
 extern char*      paLogFilePath;
 extern char*      paLogFileLineFormat;
@@ -108,6 +111,8 @@ extern bool       paFix;
 extern bool       paBug;
 extern bool       paBuf;
 extern bool       paDoubt;
+
+extern bool       paSilent;
 
 extern bool       paMsgsToStdout;
 extern bool       paMsgsToStderr;
@@ -139,4 +144,4 @@ extern int paConfigActions(bool preTreat);
 */
 extern void paConfigCleanup(void);
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_PACONFIG_H_

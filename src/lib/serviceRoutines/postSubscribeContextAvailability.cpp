@@ -18,17 +18,21 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 #include <vector>
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "mongoBackend/mongoSubscribeContextAvailability.h"
 #include "ngsi/ParseData.h"
 #include "ngsi9/SubscribeContextAvailabilityResponse.h"
 #include "rest/ConnectionInfo.h"
+#include "rest/uriParamNames.h"
 #include "serviceRoutines/postSubscribeContextAvailability.h"
 
 
@@ -37,17 +41,19 @@
 *
 * postSubscribeContextAvailability - 
 */
-std::string postSubscribeContextAvailability(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postSubscribeContextAvailability
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   SubscribeContextAvailabilityResponse  scar;
-  std::string                           answer;
+  std::string                           answer;  
 
-  // FIXME P6: at the moment, we assume that notifications are sent in the same format that the one
-  // used to do the subscription, so we are passing ciP->inFormat. This is just an heuristic, the client could want
-  // for example to use XML in the subscription message but wants notifications in JSON. We need a more
-  // flexible approach, to be implemented
-  ciP->httpStatusCode = mongoSubscribeContextAvailability(&parseDataP->scar.res, &scar, ciP->inFormat);
-  answer = scar.render(SubscribeContextAvailability, ciP->outFormat, "");
+  TIMED_MONGO(ciP->httpStatusCode = mongoSubscribeContextAvailability(&parseDataP->scar.res, &scar, ciP->uriParam, ciP->tenant));
+  TIMED_RENDER(answer = scar.render(SubscribeContextAvailability, ""));
 
   return answer;
 }

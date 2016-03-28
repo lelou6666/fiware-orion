@@ -18,12 +18,15 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 #include <vector>
+
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
 
 #include "mongoBackend/mongoUnsubscribeContext.h"
 #include "ngsi/ParseData.h"
@@ -37,13 +40,19 @@
 *
 * postUnsubscribeContext - 
 */
-std::string postUnsubscribeContext(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postUnsubscribeContext
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   UnsubscribeContextResponse  uncr;
   std::string                 answer;
 
-  ciP->httpStatusCode = mongoUnsubscribeContext(&parseDataP->uncr.res, &uncr);
-  answer = uncr.render(UnsubscribeContext, ciP->outFormat, "");
+  TIMED_MONGO(ciP->httpStatusCode = mongoUnsubscribeContext(&parseDataP->uncr.res, &uncr, ciP->tenant));
+  TIMED_RENDER(answer = uncr.render(UnsubscribeContext, ""));
 
   return answer;
 }

@@ -16,7 +16,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
@@ -34,13 +34,20 @@ SET (SOURCES
     mongoSubscribeContext.cpp
     mongoUnsubscribeContext.cpp
     mongoUpdateContextSubscription.cpp
-    mongoOntimeintervalOperations.cpp
-    mongoConfManOperations.cpp
     mongoNotifyContext.cpp
     mongoNotifyContextAvailability.cpp
+    mongoQueryTypes.cpp
+    TriggeredSubscription.cpp
+    mongoConnectionPool.cpp
+    mongoGetSubscriptions.cpp
+    connectionOperations.cpp
+    mongoSubCache.cpp
+    safeMongo.cpp    
+    compoundResponses.cpp
 )
 
 SET (HEADERS
+    dbConstants.h
     MongoGlobal.h
     MongoCommonUpdate.h
     MongoCommonRegister.h
@@ -54,10 +61,17 @@ SET (HEADERS
     mongoSubscribeContext.h
     mongoUnsubscribeContext.h
     mongoUpdateContextSubscription.h
-    mongoOntimeintervalOperations.h
-    mongoConfManOperations.h
     mongoNotifyContext.h
     mongoNotifyContextAvailability.h
+    mongoQueryTypes.h
+    TriggeredSubscription.h
+    mongoConnectionPool.h
+    mongoGetSubscriptions.h
+    connectionOperations.h
+    mongoSubCache.h
+    safeMongo.h
+    dbFieldEncoding.h
+    compoundResponses.h
 )
 
 

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -27,6 +27,9 @@
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
+
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
 
 #include "mongoBackend/mongoNotifyContext.h"
 #include "ngsi/ParseData.h"
@@ -39,15 +42,21 @@
 
 /* ****************************************************************************
 *
-* postNotifyContext - 
+* postNotifyContext -
 */
-std::string postNotifyContext(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postNotifyContext
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   NotifyContextResponse  ncr;
+  std::string            answer;
 
-  ciP->httpStatusCode = mongoNotifyContext(&parseDataP->ncr.res, &ncr);
-
-  std::string answer = ncr.render(NotifyContext, ciP->outFormat, "");
+  TIMED_MONGO(ciP->httpStatusCode = mongoNotifyContext(&parseDataP->ncr.res, &ncr, ciP->tenant, ciP->httpHeaders.xauthToken, ciP->servicePathV));
+  TIMED_RENDER(answer = ncr.render(NotifyContext, ""));
 
   return answer;
 }

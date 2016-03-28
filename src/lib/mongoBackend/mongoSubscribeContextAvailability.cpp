@@ -18,11 +18,12 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
 #include <string>
+#include <map>
 
 #include "common/globals.h"
 
@@ -31,8 +32,11 @@
 
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/mongoSubscribeContextAvailability.h"
+#include "mongoBackend/connectionOperations.h"
+#include "mongoBackend/dbConstants.h"
 #include "ngsi9/SubscribeContextAvailabilityRequest.h"
 #include "ngsi9/SubscribeContextAvailabilityResponse.h"
+#include "rest/uriParamNames.h"
 
 #include "common/Format.h"
 #include "common/sem.h"
@@ -41,14 +45,17 @@
 *
 * mongoSubscribeContextAvailability - 
 */
-HttpStatusCode mongoSubscribeContextAvailability(SubscribeContextAvailabilityRequest* requestP, SubscribeContextAvailabilityResponse* responseP, Format inFormat)
+HttpStatusCode mongoSubscribeContextAvailability
+(
+  SubscribeContextAvailabilityRequest*   requestP,
+  SubscribeContextAvailabilityResponse*  responseP,
+  std::map<std::string, std::string>&    uriParam,
+  const std::string&                     tenant
+)
 {
-    /* Take semaphore. The LM_S* family of macros combines semaphore release with return */
-    semTake();
+    bool           reqSemTaken;    
 
-    LM_T(LmtMongo, ("Subscribe Context Availability Request"));
-
-    DBClientConnection* connection = getMongoConnection();
+    reqSemTake(__FUNCTION__, "ngsi9 subscribe request", SemWriteOp, &reqSemTaken);
 
     /* If expiration is not present, then use a default one */
     if (requestP->duration.isEmpty()) {
@@ -70,7 +77,7 @@ HttpStatusCode mongoSubscribeContextAvailability(SubscribeContextAvailabilityReq
     /* Build entities array */
     BSONArrayBuilder entities;
     for (unsigned int ix = 0; ix < requestP->entityIdVector.size(); ++ix) {
-        EntityId* en = requestP->entityIdVector.get(ix);
+        EntityId* en = requestP->entityIdVector[ix];
         if (en->type == "") {
             entities.append(BSON(CASUB_ENTITY_ID << en->id <<
                                  CASUB_ENTITY_ISPATTERN << en->isPattern));
@@ -87,34 +94,29 @@ HttpStatusCode mongoSubscribeContextAvailability(SubscribeContextAvailabilityReq
     /* Build attributes array */
     BSONArrayBuilder attrs;
     for (unsigned int ix = 0; ix < requestP->attributeList.size(); ++ix) {
-        attrs.append(requestP->attributeList.get(ix));
+        attrs.append(requestP->attributeList[ix]);
     }
     sub.append(CASUB_ATTRS, attrs.arr());
 
     /* Adding format to use in notifications */
-    sub.append(CASUB_FORMAT, std::string(formatToString(inFormat)));
+    sub.append(CASUB_FORMAT, "JSON");
 
     /* Insert document in database */
-    BSONObj subDoc = sub.obj();
-    try {
-        LM_T(LmtMongo, ("insert() in '%s' collection: '%s'", getSubscribeContextAvailabilityCollectionName(), subDoc.toString().c_str()));
-        connection->insert(getSubscribeContextAvailabilityCollectionName(), subDoc);
-    }
-    catch( const DBException &e ) {
-        responseP->errorCode.fill(SccReceiverInternalError,
-                                  std::string("collection: ") + getSubscribeContextAvailabilityCollectionName() +
-                                  " - insert(): " + subDoc.toString() +
-                                  " - exception: " + e.what());
-
-        LM_SRE(SccOk,("Database error '%s'", responseP->errorCode.reasonPhrase.c_str()));
+    std::string err;
+    if (!collectionInsert(getSubscribeContextAvailabilityCollectionName(tenant), sub.obj(), &err))
+    {
+      reqSemGive(__FUNCTION__, "ngsi9 subscribe request (mongo db exception)", reqSemTaken);
+      responseP->errorCode.fill(SccReceiverInternalError, err);
+      return SccOk;
     }
 
     /* Send notifications for matching context registrations */
-    processAvailabilitySubscription(requestP->entityIdVector, requestP->attributeList, oid.str(), requestP->reference.get(), inFormat);
+    processAvailabilitySubscription(requestP->entityIdVector, requestP->attributeList, oid.toString(), requestP->reference.get(), JSON, tenant);
 
     /* Fill the response element */
     responseP->duration = requestP->duration;
-    responseP->subscriptionId.set(oid.str());
+    responseP->subscriptionId.set(oid.toString());
 
-    LM_SR(SccOk);
+    reqSemGive(__FUNCTION__, "ngsi9 subscribe request", reqSemTaken);
+    return SccOk;
 }

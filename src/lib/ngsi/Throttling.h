@@ -1,5 +1,5 @@
-#ifndef THROTTLING_H
-#define THROTTLING_H
+#ifndef SRC_LIB_NGSI_THROTTLING_H_
+#define SRC_LIB_NGSI_THROTTLING_H_
 
 /*
 *
@@ -21,10 +21,11 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
+#include <stdint.h>
 #include <string>
 
 #include "common/Format.h"
@@ -39,16 +40,22 @@
 typedef struct Throttling
 {
   std::string   string;
-  long long     seconds;
+  int64_t       seconds;
 
-  Throttling();
-  void         set(std::string value);
-  std::string  get(void);
-  bool         isEmpty(void);
-  std::string  render(Format format, std::string indent, bool comma);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  long long    parse(void);
-  void         present(std::string indent);
+  Throttling(): seconds(-1) {}
+
+  void               set(const std::string& value);
+  const std::string  get(void);
+  bool               isEmpty(void);
+  std::string        render(const std::string& indent, bool comma);
+
+  std::string        check(RequestType requestType,
+                           const std::string& indent,
+                           const std::string& predetectedError,
+                           int counter);
+
+  int64_t            parse(void);
+  void               present(const std::string& indent);
 } Throttling;
 
-#endif
+#endif  // SRC_LIB_NGSI_THROTTLING_H_

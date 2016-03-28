@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,6 +31,16 @@
 #include "ngsi/AttributeList.h"
 #include "ngsi/EntityIdVector.h"
 #include "ngsi/Restriction.h"
+#include "rest/ConnectionInfo.h"
+#include "rest/EntityTypeInfo.h"
+
+
+
+/* ****************************************************************************
+*
+* Forward types - instead of including in header file ...
+*/
+class BatchQuery;
 
 
 
@@ -45,13 +55,24 @@ typedef struct QueryContextRequest
   Restriction       restriction;    // Optional
 
   int               restrictions;
+  std::string       contextProvider;  // Not part of the payload - used internally only
 
   QueryContextRequest();
-  std::string   render(RequestType requestType, Format format, std::string indent);
-  std::string   check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void          present(std::string indent);
+  QueryContextRequest(const std::string& _contextProvider, EntityId* eP, const std::string& attributeName);
+  QueryContextRequest(const std::string& _contextProvider, EntityId* eP, const AttributeList& attributeList);
+
+  std::string   render(RequestType requestType, const std::string& indent);
+  std::string   check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter);
+  void          present(const std::string& indent);
   void          release(void);
-  void          fill(std::string entityId, std::string entityType, std::string attributeName);
+  void          fill(const std::string& entityId, const std::string& entityType, const std::string& attributeName);
+  void          fill(const std::string&  entityId,
+                     const std::string&  entityType,
+                     const std::string&  isPattern,
+                     EntityTypeInfo      typeInfo,
+                     const std::string&  attributeName);
+  void          fill(BatchQuery* bqP);
+
 } QueryContextRequest;
 
 #endif

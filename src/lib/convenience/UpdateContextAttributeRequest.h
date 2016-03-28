@@ -1,5 +1,5 @@
-#ifndef UPDATE_CONTEXT_ATTRIBUTE_REQUEST_H
-#define UPDATE_CONTEXT_ATTRIBUTE_REQUEST_H
+#ifndef SRC_LIB_CONVENIENCE_UPDATECONTEXTATTRIBUTEREQUEST_H_
+#define SRC_LIB_CONVENIENCE_UPDATECONTEXTATTRIBUTEREQUEST_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -30,6 +30,9 @@
 
 #include "common/Format.h"
 #include "ngsi/MetadataVector.h"
+#include "parse/CompoundValueNode.h"
+
+struct ConnectionInfo;
 
 
 
@@ -40,14 +43,17 @@
 typedef struct UpdateContextAttributeRequest
 {
   std::string                type;                // Optional
-  std::string                contextValue;        // Mandatory
+  std::string                contextValue;        // Mandatory  
   MetadataVector             metadataVector;      // Optional
-  
+
+  orion::ValueType           valueType;           // Type of value: either string or none  
+  orion::CompoundValueNode*  compoundValueP;
+
   UpdateContextAttributeRequest();
-  std::string  render(Format format, std::string indent);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
+  std::string  render(ConnectionInfo* ciP, std::string indent);
+  std::string  check(ConnectionInfo* ciP, RequestType requestType, std::string indent, std::string preError, int counter);
   void         present(std::string indent);
   void         release();
 } UpdateContextAttributeRequest;
 
-#endif
+#endif  // SRC_LIB_CONVENIENCE_UPDATECONTEXTATTRIBUTEREQUEST_H_

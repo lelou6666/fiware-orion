@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -30,8 +30,7 @@
 
 #include "rest/ConnectionInfo.h"
 #include "ngsi/ParseData.h"
-#include "ngsi9/RegisterContextRequest.h"
-#include "serviceRoutines/postRegisterContext.h"  // instead of convenienceMap function, postRegisterContext is used
+#include "serviceRoutines/postRegisterContext.h"
 #include "serviceRoutines/postEntityByIdAttributeByName.h"
 
 
@@ -40,18 +39,30 @@
 *
 * postEntityByIdAttributeByName - 
 *
+* POST /v1/registry/contextEntities/{entityId}/attributes/{attributeName}
 * POST /ngsi9/contextEntities/{entityId}/attributes/{attributeName}
+*
+* Payload In:  RegisterProviderRequest
+* Payload Out: RegisterContextResponse
+*
+* 1. Transform RegisterProviderRequest+entityId+attributeName into a RegisterContextRequest
+* 2. Call the Standard operation for RegisterContextRequest
 */
-std::string postEntityByIdAttributeByName(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postEntityByIdAttributeByName
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  std::string               entityId      = compV[2];
-  std::string               attributeName = compV[4];
+  std::string  entityId      = (compV[0] == "v1")? compV[3] : compV[2];
+  std::string  attributeName = (compV[0] == "v1")? compV[5] : compV[4];
+  std::string  answer;
 
-  // Transform RegisterProviderRequest into RegisterContextRequest
   parseDataP->rcr.res.fill(parseDataP->rpr.res, entityId, "", attributeName);
+  answer = postRegisterContext(ciP, components, compV, parseDataP);
 
-  // Now call postRegisterContext (postRegisterContext doesn't use the parameters 'components' and 'compV')
-  std::string answer = postRegisterContext(ciP, components, compV, parseDataP);
   parseDataP->rpr.res.release();
   parseDataP->rcr.res.release();
 

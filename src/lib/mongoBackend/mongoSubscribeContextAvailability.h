@@ -21,11 +21,12 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
 #include <string>
+#include <map>
 
 #include "common/Format.h"
 #include "ngsi9/SubscribeContextAvailabilityRequest.h"
@@ -37,6 +38,12 @@
 *
 * mongoSubscribeContextAvailability - 
 */
-extern HttpStatusCode mongoSubscribeContextAvailability(SubscribeContextAvailabilityRequest* requestP, SubscribeContextAvailabilityResponse* responseP, Format inFormat = XML);
+extern HttpStatusCode mongoSubscribeContextAvailability
+(
+  SubscribeContextAvailabilityRequest*   requestP,
+  SubscribeContextAvailabilityResponse*  responseP,
+  std::map<std::string, std::string>&    uriParam,  
+  const std::string&                     tenant       = ""
+);
 
 #endif

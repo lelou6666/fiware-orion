@@ -18,31 +18,39 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
+#include <stdint.h>
 
-#include "Timer.h"
+#include "common/Timer.h"
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
+
+
 
 /* ****************************************************************************
 *
 * Timer::~Timer -
 */
-Timer::~Timer (void) {
-    // FIXME: This destructor is needed to avoid warning message.
-    // Compilation fails when a warning occurs, and it is enabled
-    // compilation option -Werror "warnings being treated as errors"
-    LM_W(("not implemented Timer destructor"));
+Timer::~Timer(void)
+{
+  //
+  // FIXME: This destructor is needed to avoid warning message.
+  // Compilation fails when a warning occurs, and it is enabled
+  // compilation option -Werror "warnings being treated as errors"
+  //
+  LM_T(LmtNotImplemented, ("Timer destructor not implemented"));
 }
+
+
 
 /* ****************************************************************************
 *
 * Timer::getCurrentTime -
 */
-int Timer::getCurrentTime(void) {
-    return (int) time(NULL);
+int Timer::getCurrentTime(void)
+{
+  return (int) time(NULL);
 }
-

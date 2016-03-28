@@ -1,5 +1,5 @@
-#ifndef ID_CHECK_H
-#define ID_CHECK_H
+#ifndef SRC_LIB_COMMON_IDCHECK_H_
+#define SRC_LIB_COMMON_IDCHECK_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -33,6 +33,6 @@
 *
 * idCheck - 
 */
-extern std::string idCheck(std::string s);
+extern std::string idCheck(const std::string& s);
 
-#endif
+#endif  // SRC_LIB_COMMON_IDCHECK_H_

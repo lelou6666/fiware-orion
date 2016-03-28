@@ -18,12 +18,15 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <stdio.h>
 #include <string>
+
+#include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
 #include "common/tag.h"
@@ -46,9 +49,9 @@ ContextRegistration::ContextRegistration()
 
 /* ****************************************************************************
 *
-* ContextRegistration::render - 
+* ContextRegistration::render -
 */
-std::string ContextRegistration::render(Format format, std::string indent, bool comma, bool isInVector)
+std::string ContextRegistration::render(const std::string& indent, bool comma, bool isInVector)
 {
   std::string out = "";
   std::string tag = "contextRegistration";
@@ -59,12 +62,12 @@ std::string ContextRegistration::render(Format format, std::string indent, bool 
   // the problem with the JSON commas disappear. All fields will have 'comma set to true'.
   // All, except providingApplication of course :-)
   //
-  out += startTag(indent, tag, format, isInVector == false);
-  out += entityIdVector.render(format, indent + "  ", true);
-  out += contextRegistrationAttributeVector.render(format, indent + "  ", true);
-  out += registrationMetadataVector.render(format, indent + "  ", true);
-  out += providingApplication.render(format, indent + "  ", false);
-  out += endTag(indent, tag, format, comma);
+  out += startTag1(indent, tag, isInVector == false);
+  out += entityIdVector.render(indent + "  ", true);
+  out += contextRegistrationAttributeVector.render(indent + "  ", true);
+  out += registrationMetadataVector.render(indent + "  ", true);
+  out += providingApplication.render(indent + "  ", false);
+  out += endTag(indent, comma);
 
   return out;
 }
@@ -73,19 +76,43 @@ std::string ContextRegistration::render(Format format, std::string indent, bool 
 
 /* ****************************************************************************
 *
-* ContextRegistration::check - 
+* ContextRegistration::check -
 */
-std::string ContextRegistration::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ContextRegistration::check
+(
+  ConnectionInfo*     ciP,
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   std::string res;
 
-  if ((res = entityIdVector.check(requestType, format, indent, predetectedError, counter)) != "OK")                      return res;
-  if ((res = contextRegistrationAttributeVector.check(requestType, format, indent, predetectedError, counter)) != "OK")  return res;
-  if ((res = registrationMetadataVector.check(requestType, format, indent, predetectedError, counter)) != "OK")          return res;
-  if ((res = providingApplication.check(requestType, format, indent, predetectedError, counter)) != "OK")                return res;
+  if ((res = entityIdVector.check(ciP, requestType, indent, predetectedError, counter)) != "OK")
+  {
+    return res;
+  }
+
+  if ((res = contextRegistrationAttributeVector.check(ciP, requestType, indent, predetectedError, counter)) != "OK")
+  {
+    return res;
+  }
+
+  if ((res = registrationMetadataVector.check(ciP, requestType, indent, predetectedError, counter)) != "OK")
+  {
+    return res;
+  }
+
+  if ((res = providingApplication.check(requestType, indent, predetectedError, counter)) != "OK")
+  {
+    return res;
+  }
 
   if ((entityIdVectorPresent == true) && (entityIdVector.size() == 0))
+  {
     return "Empty entityIdVector";
+  }
 
   return "OK";
 }
@@ -94,15 +121,21 @@ std::string ContextRegistration::check(RequestType requestType, Format format, s
 
 /* ****************************************************************************
 *
-* ContextRegistration::present - 
+* ContextRegistration::present -
 */
-void ContextRegistration::present(std::string indent, int ix)
+void ContextRegistration::present(const std::string& indent, int ix)
 {
   if (ix != -1)
-    PRINTF("%sContext Registration %d:\n", indent.c_str(), ix);
+  {
+    LM_T(LmtPresent, ("%sContext Registration %d:\n", 
+		      indent.c_str(), 
+		      ix));
+  }
   else
-    PRINTF("%scontext registration:\n", indent.c_str());
-      
+  {
+    LM_T(LmtPresent, ("%scontext registration:\n", indent.c_str()));
+  }
+
   entityIdVector.present(indent + "  ");
   contextRegistrationAttributeVector.present(indent + "  ");
   registrationMetadataVector.present("Registration", indent + "  ");
@@ -113,7 +146,7 @@ void ContextRegistration::present(std::string indent, int ix)
 
 /* ****************************************************************************
 *
-* ContextRegistration::release - 
+* ContextRegistration::release -
 */
 void ContextRegistration::release(void)
 {

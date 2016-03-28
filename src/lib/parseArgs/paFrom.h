@@ -1,5 +1,5 @@
-#ifndef PA_FROM_H
-#define PA_FROM_H
+#ifndef SRC_LIB_PARSEARGS_PAFROM_H_
+#define SRC_LIB_PARSEARGS_PAFROM_H_
 
 /*
 *
@@ -21,13 +21,12 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
-#include "baStd.h"              /* BA standard header file                   */
-
-#include "parseArgs/parseArgs.h"          /* PaArgument                                */
+#include "parseArgs/baStd.h"         /* BA standard header file              */
+#include "parseArgs/parseArgs.h"     /* PaArgument                           */
 
 
 
@@ -35,7 +34,7 @@
 *
 * paFromName - 
 */
-extern char* paFromName(PaiArgument* aP, char* out);
+extern char* paFromName(PaiArgument* aP, char* out, int outLen);
 
 
 
@@ -45,4 +44,4 @@ extern char* paFromName(PaiArgument* aP, char* out);
 */
 extern char* paFrom(PaiArgument* paList, const char* option);
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_PAFROM_H_

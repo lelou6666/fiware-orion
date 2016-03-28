@@ -18,20 +18,25 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <stdio.h>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
 #include "common/tag.h"
+#include "common/string.h"
 #include "ngsi/ContextAttributeVector.h"
 #include "ngsi/Request.h"
+#include "rest/ConnectionInfo.h"
+#include "rest/uriParamNames.h"
 
 
 
@@ -48,26 +53,234 @@ ContextAttributeVector::ContextAttributeVector()
 
 /* ****************************************************************************
 *
-* ContextAttributeVector::render - 
+* addedLookup - 
 */
-std::string ContextAttributeVector::render(RequestType request, Format format, std::string indent, bool comma)
+static std::string addedLookup(const std::vector<std::string>& added, std::string value)
 {
-  std::string out      = "";
-  std::string xmlTag   = "contextAttributeList";
-  std::string jsonTag  = "attributes";
+  for (unsigned int ix = 0; ix < added.size(); ++ix)
+  {
+    if (added[ix] == value)
+    {
+      return value;
+    }
+  }
 
+  return "";
+}
+
+
+
+/* ****************************************************************************
+*
+* ContextAttributeVector::toJson - 
+*
+* Attributes named 'id' or 'type' are not rendered in API version 2, due to the 
+* compact way in which API v2 is rendered. Attributes named 'id' or 'type' would simply
+* collide with the 'id' and 'type' of the entity itself (holder of the attribute).
+*
+* If anybody needs an attribute named 'id' or 'type', then API v1
+* will have to be used to retrieve that information.
+*/
+std::string ContextAttributeVector::toJson(bool isLastElement, bool types, const std::string& renderMode, const std::string& attrsFilter)
+{
   if (vec.size() == 0)
   {
-     if ((request == IndividualContextEntityAttribute) || (request == AttributeValueInstance) || (request == IndividualContextEntityAttributes))
-      return indent + "<contextAttributeList></contextAttributeList>\n";
-
     return "";
   }
 
-  out += startTag(indent, xmlTag, jsonTag, format, true, true);
-  for (unsigned int ix = 0; ix < vec.size(); ++ix)
-    out += vec[ix]->render(format, indent + "  ", ix != vec.size() - 1);
-  out += endTag(indent, xmlTag, format, comma, true);
+
+  //
+  // Pass 1 - count the total number of attributes valid for rendering.
+  //
+  // Attributes named 'id' or 'type' are not rendered.
+  // This gives us a small problem in the logic here, about knowing whether the
+  // comma should be rendered or not.
+  //
+  // To fix this problem we need to do two passes over the vector, the first pass to
+  // count the number of valid attributes and the second to do the work.
+  // In the second pass, if the number of rendered attributes "so far" is less than the total
+  // number of valid attributes, then the comma must be rendered.
+  //
+  int validAttributes = 0;
+  std::map<std::string, bool>  uniqueMap;
+  if (attrsFilter == "")
+  {
+    for (unsigned int ix = 0; ix < vec.size(); ++ix)
+    {
+      if ((vec[ix]->name == "id") || (vec[ix]->name == "type"))
+      {
+        continue;
+      }
+
+      if ((renderMode == RENDER_MODE_UNIQUE_VALUES) && (vec[ix]->valueType == orion::ValueTypeString))
+      {
+        if (uniqueMap[vec[ix]->stringValue] == true)
+        {
+          continue;
+        }
+      }
+
+      ++validAttributes;
+
+      if ((renderMode == RENDER_MODE_UNIQUE_VALUES) && (vec[ix]->valueType == orion::ValueTypeString))
+      {
+        uniqueMap[vec[ix]->stringValue] = true;
+      }
+    }
+  }
+  else
+  {
+    std::vector<std::string> attrsV;
+    stringSplit(attrsFilter, ',', attrsV);
+    for (std::vector<std::string>::const_iterator it = attrsV.begin(); it != attrsV.end(); ++it)
+    {
+      if (lookup(*it) != NULL)
+      {
+        ++validAttributes;
+      }
+    }
+  }
+
+  //
+  // Pass 2 - do the work, helped by the value of 'validAttributes'.
+  //
+  std::string  out;
+  int          renderedAttributes = 0;
+
+  uniqueMap.clear();
+
+  if (attrsFilter == "")
+  {
+    for (unsigned int ix = 0; ix < vec.size(); ++ix)
+    {
+      if ((vec[ix]->name == "id") || (vec[ix]->name == "type"))
+      {
+        continue;
+      }
+
+      ++renderedAttributes;
+
+      if ((renderMode == RENDER_MODE_UNIQUE_VALUES) && (vec[ix]->valueType == orion::ValueTypeString))
+      {
+        if (uniqueMap[vec[ix]->stringValue] == true)
+        {
+          continue;
+        }
+      }
+
+      out += vec[ix]->toJson(renderedAttributes == validAttributes, types, renderMode);
+
+      if ((renderMode == RENDER_MODE_UNIQUE_VALUES) && (vec[ix]->valueType == orion::ValueTypeString))
+      {
+        uniqueMap[vec[ix]->stringValue] = true;
+      }
+    }
+  }
+  else
+  {
+    std::vector<std::string> attrsV;
+
+    stringSplit(attrsFilter, ',', attrsV);
+    for (std::vector<std::string>::const_iterator it = attrsV.begin(); it != attrsV.end(); ++it)
+    {
+      ContextAttribute* caP = lookup(*it);
+      if (caP != NULL)
+      {
+        ++renderedAttributes;
+        out += caP->toJson(renderedAttributes == validAttributes, types, renderMode);
+      }
+    }
+  }
+
+  return out;
+}
+
+
+
+/* ****************************************************************************
+*
+* ContextAttributeVector::render - 
+*/
+std::string ContextAttributeVector::render
+(
+  ConnectionInfo*     ciP,
+  RequestType         request,
+  const std::string&  indent,
+  bool                comma,
+  bool                omitValue,
+  bool                attrsAsName
+)
+{
+  std::string out = "";
+  std::string key = "attributes";
+
+  if (vec.size() == 0)
+  {
+    return "";
+  }
+
+  //
+  // NOTE:
+  // If the URI parameter 'attributeFormat' is set to 'object', then the attribute vector
+  // is to be rendered as objects for JSON, and not as a vector.
+  // Also, if we have more than one attribute with the same name (possible if different metaID),
+  // only one of them should be included in the vector. Any one of them.
+  // So, step 1 is to purge the context attribute vector from 'copies'.
+  //
+  if ((ciP->uriParam[URI_PARAM_ATTRIBUTE_FORMAT] == "object") && (ciP->outFormat == JSON))
+  {
+    std::vector<std::string> added;
+
+    // 1. Remove attributes with attribute names already used.
+    for (unsigned int ix = 0; ix < vec.size(); ++ix)
+    {
+      if (addedLookup(added, vec[ix]->name) == "")
+      {
+        added.push_back(vec[ix]->name);
+        LM_T(LmtJsonAttributes, ("Keeping attribute '%s'", vec[ix]->name.c_str()));
+      }
+      else
+      {
+        LM_T(LmtJsonAttributes, ("Removing attribute '%s'", vec[ix]->name.c_str()));
+        vec[ix]->release();
+        delete vec[ix];
+        vec.erase(vec.begin() + ix);
+      }
+    }
+
+    // 2. Now it's time to render
+    // Note that in the case of attribute as name, we have to use a vector, thus using
+    // attrsAsName variable as value for isVector parameter
+    out += startTag2(indent, key, attrsAsName, true);
+    for (unsigned int ix = 0; ix < vec.size(); ++ix)
+    {
+      if (attrsAsName)
+      {
+        out += vec[ix]->renderAsNameString(ciP, request, indent + "  ", ix != vec.size() - 1);
+      }
+      else
+      {
+        out += vec[ix]->render(ciP, request, indent + "  ", ix != vec.size() - 1, omitValue);
+      }
+    }
+    out += endTag(indent, comma, attrsAsName);
+  }
+  else
+  {
+    out += startTag2(indent, key, true, true);
+    for (unsigned int ix = 0; ix < vec.size(); ++ix)
+    {
+      if (attrsAsName)
+      {
+        out += vec[ix]->renderAsNameString(ciP, request, indent + "  ", ix != vec.size() - 1);
+      }
+      else
+      {
+        out += vec[ix]->render(ciP, request, indent + "  ", ix != vec.size() - 1, omitValue);
+      }
+    }
+    out += endTag(indent, comma, true);
+  }
 
   return out;
 }
@@ -78,13 +291,20 @@ std::string ContextAttributeVector::render(RequestType request, Format format, s
 *
 * ContextAttributeVector::check - 
 */
-std::string ContextAttributeVector::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ContextAttributeVector::check
+(
+  ConnectionInfo*     ciP,
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
     std::string res;
 
-    if ((res = vec[ix]->check(requestType, format, indent, predetectedError, 0)) != "OK")
+    if ((res = vec[ix]->check(ciP, requestType, indent, predetectedError, 0)) != "OK")
       return res;
   }
 
@@ -97,12 +317,16 @@ std::string ContextAttributeVector::check(RequestType requestType, Format format
 *
 * ContextAttributeVector::present - 
 */
-void ContextAttributeVector::present(std::string indent)
+void ContextAttributeVector::present(const std::string& indent)
 {
-   PRINTF("%lu ContextAttributes", (unsigned long) vec.size());
+  LM_T(LmtPresent, ("%s%lu ContextAttributes", 
+		    indent.c_str(), 
+		    (uint64_t) vec.size()));
 
-   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-      vec[ix]->present(indent, ix);
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    vec[ix]->present(indent + "  ", ix);
+  }
 }
 
 
@@ -120,39 +344,54 @@ void ContextAttributeVector::push_back(ContextAttribute* item)
 
 /* ****************************************************************************
 *
-* ContextAttributeVector::get - 
+* ContextAttributeVector::push_back - 
 */
-ContextAttribute* ContextAttributeVector::get(int ix)
+void ContextAttributeVector::push_back(ContextAttributeVector* aVec)
 {
-  return vec[ix];
+  for (unsigned int ix = 0; ix < aVec->size(); ++ix)
+  {
+    vec.push_back(new ContextAttribute((*aVec)[ix]));
+  }
 }
-
-
 
 /* ****************************************************************************
 *
 * ContextAttributeVector::size - 
 */
-unsigned int ContextAttributeVector::size(void)
+unsigned int ContextAttributeVector::size(void) const
 {
   return vec.size();
+}
+
+
+/* ****************************************************************************
+*
+* ContextAttributeVector::operator[] -
+*/
+ContextAttribute*  ContextAttributeVector::operator[](unsigned int ix) const
+{
+  if (ix < vec.size())
+  {
+    return vec[ix];
+  }
+  return NULL;
 }
 
 
 
 /* ****************************************************************************
 *
-* ContextAttributeVector::release - 
+* ContextAttributeVector::release -
 */
 void ContextAttributeVector::release(void)
-{ 
+{
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
     vec[ix]->release();
     delete vec[ix];
   }
 
- vec.clear();
+  vec.clear();
 }
 
 
@@ -161,12 +400,37 @@ void ContextAttributeVector::release(void)
 *
 * ContextAttributeVector::fill - 
 */
-void ContextAttributeVector::fill(ContextAttributeVector& caV)
+void ContextAttributeVector::fill(ContextAttributeVector* cavP, bool useDefaultType)
 {
-  for (unsigned int ix = 0; ix < caV.size(); ++ix)
+  if (cavP == NULL)
   {
-    ContextAttribute* caP = new ContextAttribute(caV.get(ix));
+    return;
+  }
+
+  for (unsigned int ix = 0; ix < cavP->size(); ++ix)
+  {
+    ContextAttribute* from = (*cavP)[ix];
+    ContextAttribute* caP = new ContextAttribute(from, useDefaultType);
 
     push_back(caP);
   }
+}
+
+
+
+/* ****************************************************************************
+*
+* lookup -
+*/
+ContextAttribute* ContextAttributeVector::lookup(const std::string& attributeName)
+{
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    if (vec[ix]->name == attributeName)
+    {
+      return vec[ix];
+    }
+  }
+
+  return NULL;
 }

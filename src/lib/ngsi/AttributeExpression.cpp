@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,7 +37,13 @@
 *
 * AttributeExpression::check - 
 */
-std::string AttributeExpression::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string AttributeExpression::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   return "OK";
 }
@@ -50,8 +56,10 @@ std::string AttributeExpression::check(RequestType requestType, Format format, s
 */
 bool AttributeExpression::isEmpty(void)
 {
-  if ((string == "") || (string == "not in use"))
+  if (string == "")
+  {
     return true;
+  }
 
   return false;
 }
@@ -62,7 +70,7 @@ bool AttributeExpression::isEmpty(void)
 *
 * AttributeExpression::set - 
 */
-void AttributeExpression::set(std::string value)
+void AttributeExpression::set(const std::string& value)
 {
   string = value;
 }
@@ -84,12 +92,16 @@ std::string AttributeExpression::get(void)
 *
 * AttributeExpression::present - 
 */
-void AttributeExpression::present(std::string indent)
+void AttributeExpression::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sAttributeExpression: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sAttributeExpression: %s", indent.c_str(), string.c_str()));
+  }
   else
-    PRINTF("%sNo AttributeExpression\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo AttributeExpression", indent.c_str()));
+  }
 }
 
 
@@ -98,12 +110,14 @@ void AttributeExpression::present(std::string indent)
 *
 * AttributeExpression::render - 
 */
-std::string AttributeExpression::render(Format format, std::string indent, bool comma)
+std::string AttributeExpression::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
-  else
-    return valueTag(indent, "attributeExpression", string, format, comma);
+  }
+
+  return valueTag1(indent, "attributeExpression", string, comma);
 }
 
 
@@ -114,7 +128,7 @@ std::string AttributeExpression::render(Format format, std::string indent, bool 
 */
 const char* AttributeExpression::c_str(void)
 {
-   return string.c_str();
+  return string.c_str();
 }
 
 
@@ -125,5 +139,5 @@ const char* AttributeExpression::c_str(void)
 */
 void AttributeExpression::release(void)
 {
-   /* This method is included for the sake of homogeneity */
+  /* This method is included for the sake of homogeneity */
 }

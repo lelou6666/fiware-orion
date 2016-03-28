@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -38,19 +38,29 @@
 *
 * UpdateActionType::check - 
 */
-std::string UpdateActionType::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string UpdateActionType::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
-  if ((string == "update") || (string == "UPDATE") || (string == "Update") ||
-      (string == "append") || (string == "APPEND") || (string == "Append") ||
-      (string == "delete") || (string == "DELETE") || (string == "Delete"))
+  if ((string == "update")        || (string == "UPDATE")        || (string == "Update")        ||
+      (string == "append")        || (string == "APPEND")        || (string == "Append")        ||
+      (string == "append_strict") || (string == "APPEND_STRICT") || (string == "Append_Strict") ||
+      (string == "delete")        || (string == "DELETE")        || (string == "Delete")        ||
+      (string == "replace")       || (string == "REPLACE")       || (string == "Replace"))
   {
     return "OK";
   }
 
   if (string == "")
+  {
     return "empty update action type";
+  }
 
-  return std::string("invalid update action type: '") + string + "'";
+  return std::string("invalid update action type: /") + string + "/";
 }
 
 
@@ -61,7 +71,7 @@ std::string UpdateActionType::check(RequestType requestType, Format format, std:
 */
 bool UpdateActionType::isEmpty(void)
 {
-   return (string == "")? true : false;
+  return (string == "")? true : false;
 }
 
 
@@ -70,7 +80,7 @@ bool UpdateActionType::isEmpty(void)
 *
 * UpdateActionType::set - 
 */
-void UpdateActionType::set(std::string value)
+void UpdateActionType::set(const std::string& value)
 {
   string = value;
 }
@@ -92,12 +102,18 @@ std::string UpdateActionType::get(void)
 *
 * UpdateActionType::present - 
 */
-void UpdateActionType::present(std::string indent)
+void UpdateActionType::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sUpdateActionType: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sUpdateActionType: %s\n", 
+		      indent.c_str(), 
+		      string.c_str()));
+  }
   else
-    PRINTF("%sNo UpdateActionType\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo UpdateActionType\n", indent.c_str()));
+  }
 }
 
 
@@ -106,12 +122,14 @@ void UpdateActionType::present(std::string indent)
 *
 * UpdateActionType::render - 
 */
-std::string UpdateActionType::render(Format format, std::string indent, bool comma)
+std::string UpdateActionType::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
+  }
 
-  return valueTag(indent, "updateAction", string, format, comma);
+  return valueTag1(indent, "updateAction", string, comma);
 }
 
 

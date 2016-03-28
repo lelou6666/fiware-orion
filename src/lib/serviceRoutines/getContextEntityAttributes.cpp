@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -28,27 +28,50 @@
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
-#include "convenienceMap/mapGetContextEntityAttributes.h"
-#include "rest/ConnectionInfo.h"
 #include "ngsi/ParseData.h"
-#include "ngsi9/DiscoverContextAvailabilityResponse.h"
+#include "rest/ConnectionInfo.h"
+#include "serviceRoutines/postDiscoverContextAvailability.h"
+#include "serviceRoutines/getContextEntityAttributes.h"
 
 
 
 /* ****************************************************************************
 *
 * getContextEntityAttributes - 
+*
+* GET /v1/registry/contextEntities/{entityId::id}/attributes
+* GET /ngsi9/contextEntities/{entityId::id}/attributes
+*
+* Payload In:  None
+* Payload Out: DiscoverContextAvailabilityResponse
+*
+* 1. Fill in DiscoverContextAvailabilityRequest
+* 2. Call postDiscoverContextAvailability
 */
-std::string getContextEntityAttributes(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string getContextEntityAttributes
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  std::string                          entityId = compV[2];
-  std::string                          answer;
-  DiscoverContextAvailabilityResponse  response;
+  std::string   entityId = (compV[0] == "v1")? compV[3] : compV[2];
+  std::string   answer;
 
-  LM_T(LmtConvenience, ("CONVENIENCE: got a 'GET' request for entityId '%s'", entityId.c_str()));
-  ciP->httpStatusCode = mapGetContextEntityAttributes(entityId, &response);
-  answer = response.render(DiscoverContextAvailability, ciP->outFormat, "");
-  response.release();
+  //
+  // 1. Fill in parseDataP->dcar.res to pass to postDiscoverContextAvailability
+  //
+  EntityId                             eId(entityId, "", "");
+  std::vector<std::string>             attributeV;
+  Restriction                          restriction;
+
+  parseDataP->dcar.res.fill(eId, attributeV, restriction);
+
+  //
+  // 2. Call the standard operation 
+  //
+  answer = postDiscoverContextAvailability(ciP, components, compV, parseDataP);
 
   return answer;
 }

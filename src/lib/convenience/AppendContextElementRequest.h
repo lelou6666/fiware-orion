@@ -1,5 +1,5 @@
-#ifndef APPEND_CONTEXT_ELEMENT_REQUEST_H
-#define APPEND_CONTEXT_ELEMENT_REQUEST_H
+#ifndef SRC_LIB_CONVENIENCE_APPENDCONTEXTELEMENTREQUEST_H_
+#define SRC_LIB_CONVENIENCE_APPENDCONTEXTELEMENTREQUEST_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,28 +29,42 @@
 #include <vector>
 
 #include "common/Format.h"
+#include "ngsi/EntityId.h"
 #include "ngsi/AttributeDomainName.h"
 #include "ngsi/ContextAttributeVector.h"
 #include "ngsi/MetadataVector.h"
+#include "rest/ConnectionInfo.h"
 
 
 
 /* ****************************************************************************
 *
 * AppendContextElementRequest - 
+*
+* NOTE
+* The field 'entity' is MANDATORY for "POST /v1/contextEntities".
+* For other requests, data in the URL (path and parameters) must coincide
+* with the data in the payload.
+* If not, an error is raised.
+*
 */
 typedef struct AppendContextElementRequest
 {
+  EntityId                   entity;                     // See NOTE in type header above
   AttributeDomainName        attributeDomainName;        // Optional
   ContextAttributeVector     contextAttributeVector;     // Optional
-  MetadataVector             domainMetadataVector;       // Optional  
+  MetadataVector             domainMetadataVector;       // Optional
 
   AppendContextElementRequest();
 
-  std::string render(RequestType requestType, Format format, std::string indent);
-  std::string check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void        present(std::string indent);
-  void        release();
+  std::string  render(ConnectionInfo* ciP, RequestType requestType, std::string indent);
+  void         present(std::string indent);
+  void         release();
+  std::string  check(ConnectionInfo*  ciP,
+                     RequestType      requestType,
+                     std::string      indent,
+                     std::string      predetectedError,
+                     int              counter);
 } AppendContextElementRequest;
 
-#endif
+#endif  // SRC_LIB_CONVENIENCE_APPENDCONTEXTELEMENTREQUEST_H_

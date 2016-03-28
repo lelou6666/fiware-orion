@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -53,7 +53,7 @@ SubscribeContextAvailabilityRequest::SubscribeContextAvailabilityRequest()
 *
 * SubscribeContextAvailabilityRequest::render - 
 */
-std::string SubscribeContextAvailabilityRequest::render(RequestType requestType, Format format, std::string indent)
+std::string SubscribeContextAvailabilityRequest::render(RequestType requestType, const std::string& indent)
 {
   std::string out                      = "";
   std::string tag                      = "subscribeContextAvailabilityRequest";
@@ -63,13 +63,13 @@ std::string SubscribeContextAvailabilityRequest::render(RequestType requestType,
   bool        commaAfterReference      = (restrictions > 0) || !duration.isEmpty();
   bool        commaAfterDuration       = restrictions > 0;
 
-  out += startTag(indent, tag, format, false);
-  out += entityIdVector.render(format, indent2, commaAfterEntityIdVector);
-  out += attributeList.render(format, indent2, commaAfterAttributeList);
-  out += reference.render(format, indent2, commaAfterReference);
-  out += duration.render(format, indent2, commaAfterDuration);
-  out += restriction.render(format, indent2);
-  out += endTag(indent, tag, format);
+  out += startTag1(indent, tag, false);
+  out += entityIdVector.render(indent2, commaAfterEntityIdVector);
+  out += attributeList.render(indent2, commaAfterAttributeList);
+  out += reference.render(indent2, commaAfterReference);
+  out += duration.render(indent2, commaAfterDuration);
+  out += restriction.render(indent2);
+  out += endTag(indent);
 
   return out;
 }
@@ -80,29 +80,27 @@ std::string SubscribeContextAvailabilityRequest::render(RequestType requestType,
 *
 * SubscribeContextAvailabilityRequest::check - 
 */
-std::string SubscribeContextAvailabilityRequest::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string SubscribeContextAvailabilityRequest::check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
   SubscribeContextAvailabilityResponse response;
   std::string                          res;
 
   if (predetectedError != "")
   {
-    response.errorCode.code         = SccBadRequest;
-    response.errorCode.reasonPhrase = predetectedError;
+    response.errorCode.fill(SccBadRequest, predetectedError);
   }
-  else if (((res = entityIdVector.check(SubscribeContextAvailability, format, indent, predetectedError, counter))   != "OK") ||
-           ((res = attributeList.check(SubscribeContextAvailability, format, indent, predetectedError, counter))    != "OK") ||
-           ((res = reference.check(SubscribeContextAvailability, format, indent, predetectedError, counter))        != "OK") ||
-           ((res = duration.check(SubscribeContextAvailability, format, indent, predetectedError, counter))         != "OK") ||
-           ((res = restriction.check(SubscribeContextAvailability, format, indent, predetectedError, restrictions)) != "OK"))
+  else if (((res = entityIdVector.check(ciP, SubscribeContextAvailability, indent, predetectedError, counter))   != "OK") ||
+           ((res = attributeList.check(SubscribeContextAvailability, indent, predetectedError, counter))    != "OK") ||
+           ((res = reference.check(SubscribeContextAvailability, indent, predetectedError, counter))        != "OK") ||
+           ((res = duration.check(SubscribeContextAvailability, indent, predetectedError, counter))         != "OK") ||
+           ((res = restriction.check(SubscribeContextAvailability, indent, predetectedError, restrictions)) != "OK"))
   {
-    response.errorCode.code         = SccBadRequest;
-    response.errorCode.reasonPhrase = res;
+    response.errorCode.fill(SccBadRequest, res);
   }
   else
     return "OK";
 
-  return response.render(SubscribeContextAvailability, format, indent);
+  return response.render(SubscribeContextAvailability, indent);
 }
 
 
@@ -124,11 +122,29 @@ void SubscribeContextAvailabilityRequest::release(void)
 *
 * SubscribeContextAvailabilityRequest::present - 
 */
-void SubscribeContextAvailabilityRequest::present(std::string indent)
+void SubscribeContextAvailabilityRequest::present(const std::string& indent)
 {
    entityIdVector.present(indent);
    attributeList.present(indent);
    reference.present(indent);
    duration.present(indent);
    restriction.present(indent);   
+}
+
+
+
+/* ****************************************************************************
+*
+* SubscribeContextAvailabilityRequest::fill - 
+*/
+void SubscribeContextAvailabilityRequest::fill(EntityTypeInfo typeInfo)
+{
+  if ((typeInfo == EntityTypeEmpty) || (typeInfo == EntityTypeNotEmpty))
+  {
+    Scope* scopeP = new Scope(SCOPE_FILTER_EXISTENCE, SCOPE_VALUE_ENTITY_TYPE);
+
+    scopeP->oper  = (typeInfo == EntityTypeEmpty)? SCOPE_OPERATOR_NOT : "";
+      
+    restriction.scopeVector.push_back(scopeP);
+  }
 }

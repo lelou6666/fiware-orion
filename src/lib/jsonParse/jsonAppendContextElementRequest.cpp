@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -30,18 +30,20 @@
 
 #include "common/globals.h"
 #include "convenience/AppendContextElementRequest.h"
-#include "ngsi/Request.h"
 #include "jsonParse/jsonParse.h"
 #include "jsonParse/JsonNode.h"
 #include "jsonParse/jsonAppendContextElementRequest.h"
-#include "jsonParse/jsonNullTreat.h"
+#include "parse/nullTreat.h"
+#include "ngsi/Request.h"
+#include "rest/ConnectionInfo.h"
+
 
 
 /* ****************************************************************************
 *
 * attributeDomainName - 
 */
-static std::string attributeDomainName(std::string path, std::string value, ParseData* reqData)
+static std::string attributeDomainName(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got an attributeDomainName"));
   reqData->acer.res.attributeDomainName.set(value);
@@ -54,10 +56,11 @@ static std::string attributeDomainName(std::string path, std::string value, Pars
 *
 * contextAttribute -
 */
-static std::string contextAttribute(std::string path, std::string value, ParseData* reqData)
+static std::string contextAttribute(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got an attribute"));
   reqData->acer.attributeP = new ContextAttribute();
+  reqData->acer.attributeP->valueType = orion::ValueTypeNone;
   reqData->acer.res.contextAttributeVector.push_back(reqData->acer.attributeP);
   return "OK";
 }
@@ -68,7 +71,7 @@ static std::string contextAttribute(std::string path, std::string value, ParseDa
 *
 * contextAttributeName -
 */
-static std::string contextAttributeName(std::string path, std::string value, ParseData* reqData)
+static std::string contextAttributeName(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got an attribute name: %s", value.c_str()));
   reqData->acer.attributeP->name = value;
@@ -81,7 +84,7 @@ static std::string contextAttributeName(std::string path, std::string value, Par
 *
 * contextAttributeType -
 */
-static std::string contextAttributeType(std::string path, std::string value, ParseData* reqData)
+static std::string contextAttributeType(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got an attribute type: %s", value.c_str()));
   reqData->acer.attributeP->type = value;
@@ -94,10 +97,12 @@ static std::string contextAttributeType(std::string path, std::string value, Par
 *
 * contextAttributeValue -
 */
-static std::string contextAttributeValue(std::string path, std::string value, ParseData* reqData)
+static std::string contextAttributeValue(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an attribute value: %s", value.c_str()));
-  reqData->acer.attributeP->value = value;
+  parseDataP->lastContextAttribute = parseDataP->acer.attributeP;
+  parseDataP->acer.attributeP->stringValue = value;
+  parseDataP->acer.attributeP->valueType = orion::ValueTypeString;
   return "OK";
 }
 
@@ -107,7 +112,7 @@ static std::string contextAttributeValue(std::string path, std::string value, Pa
 *
 * contextMetadata - 
 */
-static std::string contextMetadata(std::string path, std::string value, ParseData* reqData)
+static std::string contextMetadata(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata"));
   reqData->acer.metadataP = new Metadata();
@@ -121,7 +126,7 @@ static std::string contextMetadata(std::string path, std::string value, ParseDat
 *
 * contextMetadataName - 
 */
-static std::string contextMetadataName(std::string path, std::string value, ParseData* reqData)
+static std::string contextMetadataName(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata name '%s'", value.c_str()));
   reqData->acer.metadataP->name = value;
@@ -134,7 +139,7 @@ static std::string contextMetadataName(std::string path, std::string value, Pars
 *
 * contextMetadataType - 
 */
-static std::string contextMetadataType(std::string path, std::string value, ParseData* reqData)
+static std::string contextMetadataType(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata type '%s'", value.c_str()));
   reqData->acer.metadataP->type = value;
@@ -147,10 +152,10 @@ static std::string contextMetadataType(std::string path, std::string value, Pars
 *
 * contextMetadataValue - 
 */
-static std::string contextMetadataValue(std::string path, std::string value, ParseData* reqData)
+static std::string contextMetadataValue(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata value '%s'", value.c_str()));
-  reqData->acer.metadataP->value = value;
+  reqData->acer.metadataP->stringValue = value;
   return "OK";
 }
 
@@ -160,7 +165,7 @@ static std::string contextMetadataValue(std::string path, std::string value, Par
 *
 * domainMetadata - 
 */
-static std::string domainMetadata(std::string path, std::string value, ParseData* reqData)
+static std::string domainMetadata(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata"));
   reqData->acer.domainMetadataP = new Metadata();
@@ -174,7 +179,7 @@ static std::string domainMetadata(std::string path, std::string value, ParseData
 *
 * domainMetadataName - 
 */
-static std::string domainMetadataName(std::string path, std::string value, ParseData* reqData)
+static std::string domainMetadataName(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata name '%s'", value.c_str()));
   reqData->acer.domainMetadataP->name = value;
@@ -187,7 +192,7 @@ static std::string domainMetadataName(std::string path, std::string value, Parse
 *
 * domainMetadataType - 
 */
-static std::string domainMetadataType(std::string path, std::string value, ParseData* reqData)
+static std::string domainMetadataType(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata type '%s'", value.c_str()));
   reqData->acer.domainMetadataP->type = value;
@@ -200,10 +205,58 @@ static std::string domainMetadataType(std::string path, std::string value, Parse
 *
 * domainMetadataValue - 
 */
-static std::string domainMetadataValue(std::string path, std::string value, ParseData* reqData)
+static std::string domainMetadataValue(const std::string& path, const std::string& value, ParseData* reqData)
 {
   LM_T(LmtParse, ("Got a metadata value '%s'", value.c_str()));
-  reqData->acer.domainMetadataP->value = value;
+  reqData->acer.domainMetadataP->stringValue = value;
+  return "OK";
+}
+
+
+
+/* ****************************************************************************
+*
+* entityIdId - 
+*/
+static std::string entityIdId(const std::string& path, const std::string& value, ParseData* reqDataP)
+{
+  reqDataP->acer.res.entity.id = value;
+  LM_T(LmtParse, ("Set 'id' to '%s' for an entity", reqDataP->acer.res.entity.id.c_str()));
+
+  return "OK";
+}
+
+
+
+/* ****************************************************************************
+*
+* entityIdType - 
+*/
+static std::string entityIdType(const std::string& path, const std::string& value, ParseData* reqDataP)
+{
+  reqDataP->acer.res.entity.type = value;
+  LM_T(LmtParse, ("Set 'type' to '%s' for an entity", reqDataP->acer.res.entity.type.c_str()));
+
+  return "OK";
+}
+
+
+
+/* ****************************************************************************
+*
+* entityIdIsPattern - 
+*/
+static std::string entityIdIsPattern(const std::string& path, const std::string& value, ParseData* reqDataP)
+{
+  LM_T(LmtParse, ("Got an entityId:isPattern: '%s'", value.c_str()));
+
+  if (!isTrue(value) && !isFalse(value))
+  {
+    return "invalid isPattern value for entity: /" + value + "/";
+  }
+
+  reqDataP->acer.res.entity.isPattern = value;
+
   return "OK";
 }
 
@@ -217,17 +270,21 @@ JsonNode jsonAcerParseVector[] =
 {
   { "/attributeDomainName",                          attributeDomainName   },
 
+  { "/id",                                           entityIdId            },
+  { "/type",                                         entityIdType          },
+  { "/isPattern",                                    entityIdIsPattern     },
+
   { "/attributes",                                   jsonNullTreat         },
   { "/attributes/attribute",                         contextAttribute      },
   { "/attributes/attribute/name",                    contextAttributeName  },
   { "/attributes/attribute/type",                    contextAttributeType  },
-  { "/attributes/attribute/contextValue",            contextAttributeValue },
+  { "/attributes/attribute/value",                   contextAttributeValue },
 
-  { "/attributes/attribute/metadata",                jsonNullTreat         },
-  { "/attributes/attribute/metadata/metadata",       contextMetadata       },
-  { "/attributes/attribute/metadata/metadata/name",  contextMetadataName   },
-  { "/attributes/attribute/metadata/metadata/type",  contextMetadataType   },
-  { "/attributes/attribute/metadata/metadata/value", contextMetadataValue  },
+  { "/attributes/attribute/metadatas",                jsonNullTreat         },
+  { "/attributes/attribute/metadatas/metadata",       contextMetadata       },
+  { "/attributes/attribute/metadatas/metadata/name",  contextMetadataName   },
+  { "/attributes/attribute/metadatas/metadata/type",  contextMetadataType   },
+  { "/attributes/attribute/metadatas/metadata/value", contextMetadataValue  },
 
   { "/metadatas",                                    jsonNullTreat         },
   { "/metadatas/metadata",                           domainMetadata        },
@@ -272,7 +329,7 @@ void jsonAcerRelease(ParseData* reqData)
 */
 std::string jsonAcerCheck(ParseData* reqData, ConnectionInfo* ciP)
 {
-  return reqData->acer.res.check(AppendContextElement, ciP->outFormat, "", reqData->errorString, 0);
+  return reqData->acer.res.check(ciP, AppendContextElement, "", reqData->errorString, 0);
 }
 
 

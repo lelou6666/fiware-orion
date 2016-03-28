@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -32,6 +32,7 @@
 #include "ngsi/ContextAttributeVector.h"
 #include "convenience/UpdateContextElementRequest.h"
 #include "convenience/UpdateContextElementResponse.h"
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -39,15 +40,15 @@
 *
 * render - 
 */
-std::string UpdateContextElementRequest::render(RequestType requestType, Format format, std::string indent)
+std::string UpdateContextElementRequest::render(ConnectionInfo* ciP, RequestType requestType, std::string indent)
 {
   std::string tag = "updateContextElementRequest";
   std::string out = "";
 
-  out += startTag(indent, tag, format, false);
-  out += attributeDomainName.render(format, indent + "  ", true);
-  out += contextAttributeVector.render(requestType, format, indent + "  ");
-  out += endTag(indent, tag, format);
+  out += startTag1(indent, tag, false);
+  out += attributeDomainName.render(indent + "  ", true);
+  out += contextAttributeVector.render(ciP, requestType, indent + "  ");
+  out += endTag(indent);
 
   return out;
 }
@@ -62,32 +63,38 @@ std::string UpdateContextElementRequest::render(RequestType requestType, Format 
 * FIXME P3: once (if ever) AttributeDomainName::check stops to always return "OK", put back this piece of code 
 *           in its place:
 -
-*   else if ((res = attributeDomainName.check(AppendContextElement, format, indent, predetectedError, counter)) != "OK")
+*   else if ((res = attributeDomainName.check(AppendContextElement, indent, predetectedError, counter)) != "OK")
 *   {
-*     response.errorCode.code         = SccBadRequest;
-*     response.errorCode.reasonPhrase = res;
+*     response.errorCode.fill(SccBadRequest, res);
 *   }
 *
 */
-std::string UpdateContextElementRequest::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string UpdateContextElementRequest::check
+(
+  ConnectionInfo*  ciP,
+  RequestType      requestType,
+  std::string      indent,
+  std::string      predetectedError,     // Predetected Error, normally during parsing
+  int              counter
+)
 {
-   UpdateContextElementResponse  response;
-   std::string                   res;
+  UpdateContextElementResponse  response;
+  std::string                   res;
 
-   if (predetectedError != "")
-   {
-     response.errorCode.code         = SccBadRequest;
-     response.errorCode.reasonPhrase = predetectedError;
-   }
-   else if ((res = contextAttributeVector.check(UpdateContextElement, format, indent, predetectedError, counter)) != "OK")
-   {
-     response.errorCode.code         = SccBadRequest;
-     response.errorCode.reasonPhrase = res;
-   }
-   else
-     return "OK";
-   
-   return response.render(requestType, format, indent);
+  if (predetectedError != "")
+  {
+    response.errorCode.fill(SccBadRequest, predetectedError);
+  }
+  else if ((res = contextAttributeVector.check(ciP, UpdateContextElement, indent, predetectedError, counter)) != "OK")
+  {
+    response.errorCode.fill(SccBadRequest, res);
+  }
+  else
+  {
+    return "OK";
+  }
+
+  return response.render(ciP, requestType, indent);
 }
 
 

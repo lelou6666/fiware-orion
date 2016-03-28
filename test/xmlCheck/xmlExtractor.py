@@ -18,7 +18,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 # This script extract XML fragments of a given file (passed as first arguments),
 # each fragment put in a separate file in a given directory (passed as second argument).
@@ -75,6 +75,9 @@ tokens_map = {
     'contextElementResponse':           ['ngsi10', 'postponed'],
     'contextAttributeResponse':         ['ngsi10', 'postponed'],
     'statusCode':                       ['ngsi', 'valid'],
+    # New operations
+    'entityTypeAttributesResponse':     ['ngsi10', 'postponed'],
+    'entityTypesResponse':              ['ngsi10', 'postponed'],
     # Orion own types
     'orion':      ['orion', 'invalid'],
     'orionError': ['orion', 'invalid']
@@ -100,6 +103,10 @@ buffer = []
 with open (file, 'r') as f:
     for l in f:
         line = l
+
+        if re.search('#SORT_START', line) or re.search('#SORT_END', line):
+            # Just skip these marks (they must not appear in the XML string)
+            continue
 
         if search_mode:
             # Search mode is on: looking for a root element or for an 'invalid'
@@ -140,6 +147,21 @@ with open (file, 'r') as f:
             #
             line = line.rstrip("'\"\n")
             line = line.lstrip(" '\"")
+
+            # We have found that strings like "http://localhost:'$CP1_PORT'/v1" that breaks validation,
+            # as they are not anyURI. In order to fix, we replace the "'$...'" part with a number
+            line = re.sub("'\$.*PORT.*'", "9999", line)           
+
+            # We have found that we cannot use things like '<duration>REGEX((PT5S|PT7S))</duration>', given that
+            # duration uses type xs:duration, which has a predefined sytanx incompatible with REGEX(). Thus, we
+            # change these cases on the fly
+            if re.match('\s*<duration>', line):
+                line = re.sub("REGEX\(.*\)", "PT1M", line)
+
+            # Similar case with providingApplication
+            if re.match('\s*<providingApplication>', line):
+                line = re.sub("REGEX\(.*\)", "9997", line)
+
             buffer.append(line + "\n")
 
             if re.search('<\/'+ root_element + '>', line):              

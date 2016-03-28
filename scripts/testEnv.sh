@@ -16,78 +16,125 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
-#####
-#
-# Configuration file for contextBroker
-#
-#####
 
+
+# -----------------------------------------------------------------------------
+#
+# CONFIGURATION FILE for contextBroker
+#
 export CONTEXTBROKER_TESTENV_SOURCED=YES
 
-# BROKER_PORT - the port/socket where contextBroker will listen for connections
-if [ -z "${BROKER_PORT}" ]; then
-    BROKER_PORT=9999
-fi
-if [ -z "${BROKER_PORT_AUX}" ]; then
-    BROKER_PORT_AUX=9998
-fi
 
-if [ -z "${CM_PORT}" ]; then
-    CM_PORT=9998
-fi
-
-# LISTENER_PORT - the port/socket where listening application for some test cases listens for connections
-if [ -z "${LISTENER_PORT}" ]; then
-    LISTENER_PORT=9997
-fi
-
-# LISTENER_PORT_AUX - the port/socket where listening application for some test cases involving more than one listerner instance
-if [ -z "${LISTENER_PORT_AUX}" ]; then
-    LISTENER_PORT_AUX=9977
-fi
-
-
+# -----------------------------------------------------------------------------
+#
 # MAXIMUM_WAIT - maximum time to wait in some processes during startup
-if [ -z "${MAXIMUM_WAIT}" ]; then
-    MAXIMUM_WAIT=30
-fi
-
-# BROKER_LOG_DIR - Where to log to
-if [ -z "${BROKER_LOG_DIR}" ]; then
-    BROKER_LOG_DIR=/var/log/contextBroker
-fi
-
-# BROKER_PID_FILE - Where to store the pid for contextBroker
-if [ -z "${BROKER_PID_FILE}" ]; then
-    BROKER_PID_FILE=/tmp/orion_${BROKER_PORT}.pid
-fi
-if [ -z "${BROKER_PID_FILE_AUX}" ]; then
-    BROKER_PID_FILE_AUX=/tmp/orion_${BROKER_PORT_AUX}.pid
-fi
-
-## Database configuration for orion-broker
-if [ -z "${BROKER_DATABASE_HOST}" ]; then
-    BROKER_DATABASE_HOST=localhost
-fi
-if [ -z "${BROKER_DATABASE_NAME}" ]; then
-    BROKER_DATABASE_NAME=testharness
-fi
-if [ -z "${BROKER_DATABASE_AUX_NAME}" ]; then
-    BROKER_DATABASE_AUX_NAME=testharness2
-fi
-if [ -z "${BROKER_DATABASE_USER}" ]; then
-    BROKER_DATABASE_USER=orion
-fi
-if [ -z "${BROKER_DATABASE_PASSWORD}" ]; then
-    BROKER_DATABASE_PASSWORD=orion
-fi
-
-export BROKER_USER BROKER_PORT BROKER_PORT_AUX LISTENER_PORT LISTENER_PORT_AUX BROKER_LOG_DIR BROKER_PID_FILE BROKER_PID_FILE_AUX BROKER_DATABASE_HOST BROKER_DATABASE_NAME BROKER_DATABASE_AUX_NAME BROKER_DATABASE_USER BROKER_DATABASE_PASSWORD CM_PORT MAXIMUM_WAIT
-
 #
-# The following two lines are commented because they destroy "git diff" in some cases
+export MAXIMUM_WAIT=${MAXIMUM_WAIT:-30}
+
+
+
+# -----------------------------------------------------------------------------
 #
-# PATH=${HOME}/bin:${PATH}:$(pwd)/script:$(pwd)/BUILD_DEBUG/src
-# export PATH
+# Ports
+#
+# o CB_PORT        - port where the main contextBroker listens for connections
+#
+# o COAP_PORT      - port where proxyCoap listens for connections
+#
+# o CP1_PORT       - port where the first contextProvider listens for connections
+# o CP2_PORT       - port where the second contextProvider listens for connections
+# o CP3_PORT       - port where the third contextProvider listens for connections
+# o CP4_PORT       - port where the fourth contextProvider listens for connections
+# o CP5_PORT       - port where the fifth contextProvider listens for connections
+#
+# o LISTENER_PORT  - port where listening (test) applications listen for connections
+# o LISTENER2_PORT - port where a second listening (test) application listens for connections
+# o LISTENER3_PORT - port where a third listening (test) application listens for connections
+#
+export CB_PORT=${CB_PORT:-9999}
+export COAP_PORT=${COAP_PORT:-5683}
+export CP1_PORT=${CP1_PORT:-9801}
+export CP2_PORT=${CP2_PORT:-9802}
+export CP3_PORT=${CP3_PORT:-9803}
+export CP4_PORT=${CP4_PORT:-9804}
+export CP5_PORT=${CP5_PORT:-9805}
+export LISTENER_PORT=${LISTENER_PORT:-9997}
+export LISTENER2_PORT=${LISTENER2_PORT:-9977}
+export LISTENER3_PORT=${LISTENER3_PORT:-9957}
+
+
+
+# -----------------------------------------------------------------------------
+#
+# Log directories
+#
+# o CB_LOG_DIR        - directory where the 'main' broker keeps its log file
+# o CP1_LOG_DIR       - directory where contextProvider1 keeps its log file
+# o CP2_LOG_DIR       - directory where contextProvider2 keeps its log file
+# o CP3_LOG_DIR       - directory where contextProvider3 keeps its log file
+# o CP4_LOG_DIR       - directory where contextProvider4 keeps its log file
+# o CP5_LOG_DIR       - directory where contextProvider5 keeps its log file
+#
+export CB_LOG_DIR=${CB_LOG_DIR:-/var/log/contextBroker}
+export CP1_LOG_DIR=${CP1_LOG_DIR:-/tmp/orion/logs/contextProvider1}
+export CP2_LOG_DIR=${CP2_LOG_DIR:-/tmp/orion/logs/contextProvider2}
+export CP3_LOG_DIR=${CP3_LOG_DIR:-/tmp/orion/logs/contextProvider3}
+export CP4_LOG_DIR=${CP4_LOG_DIR:-/tmp/orion/logs/contextProvider4}
+export CP5_LOG_DIR=${CP5_LOG_DIR:-/tmp/orion/logs/contextProvider5}
+
+
+
+# -----------------------------------------------------------------------------
+#
+# PID files
+#
+# o CB_PID_FILE       - path to pid file for the main broker
+#
+# o CP1_PID_FILE      - path to pid file for the first context provider
+# o CP2_PID_FILE      - path to pid file for the second context provider
+# o CP3_PID_FILE      - path to pid file for the third context provider
+# o CP4_PID_FILE      - path to pid file for the fourth context provider
+# o CP5_PID_FILE      - path to pid file for the fifth context provider
+#
+export CB_PID_FILE=${CB_PID_FILE:-/tmp/orion_${CB_PORT}.pid}
+export CP1_PID_FILE=${CP1_PID_FILE:-/tmp/orion_${CP1_PORT}.pid}
+export CP2_PID_FILE=${CP2_PID_FILE:-/tmp/orion_${CP2_PORT}.pid}
+export CP3_PID_FILE=${CP3_PID_FILE:-/tmp/orion_${CP3_PORT}.pid}
+export CP4_PID_FILE=${CP4_PID_FILE:-/tmp/orion_${CP4_PORT}.pid}
+export CP5_PID_FILE=${CP5_PID_FILE:-/tmp/orion_${CP5_PORT}.pid}
+
+
+
+# -----------------------------------------------------------------------------
+#
+# Database configuration for all instances of contextBroker
+#
+export ORION_DATABASE_HOST=${ORION_DATABASE_HOST:-localhost}
+export ORION_DATABASE_USER=${ORION_DATABASE_USER:-orion}
+export ORION_DATABASE_PASSWORD=${ORION_DATABASE_PASSWORD:-orion}
+
+
+
+# -----------------------------------------------------------------------------
+#
+# Name of the database for the instances of the broker doing harness tests
+#
+# o CB_DB_NAME       - database for main broker
+#
+# o CP1_DB_NAME      - database for first context provider
+# o CP2_DB_NAME      - database for second context provider
+# o CP3_DB_NAME      - database for third context provider
+# o CP4_DB_NAME      - database for fourth context provider
+# o CP5_DB_NAME      - database for fifth context provider
+#
+
+
+export CB_DB_NAME=${CB_DB_NAME:-ftest}
+export CP1_DB_NAME=${CP1_DB_NAME:-ftest_cp1}
+export CP2_DB_NAME=${CP2_DB_NAME:-ftest_cp2}
+export CP3_DB_NAME=${CP3_DB_NAME:-ftest_cp3}
+export CP4_DB_NAME=${CP4_DB_NAME:-ftest_cp4}
+export CP5_DB_NAME=${CP5_DB_NAME:-ftest_cp5}
+ 

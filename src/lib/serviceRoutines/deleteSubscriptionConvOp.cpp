@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -35,13 +35,28 @@
 /* ****************************************************************************
 *
 * deleteSubscriptionConvOp - 
+*
+* DELETE /v1/contextSubscriptions/{subscriptionId}
+* DELETE /ngsi10/contextSubscriptions/{subscriptionId}
+*
+* Payload In:  None
+* Payload Out: UnsubscribeContextResponse
+*
+* URI parameters:
+*   NONE 
 */
-std::string deleteSubscriptionConvOp(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string deleteSubscriptionConvOp
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  std::string                        subscriptionId = compV[2];
-  UnsubscribeContextRequest*         uncrP          = &parseDataP->uncr.res;
+  std::string  subscriptionId = compV[2];
 
-  uncrP->subscriptionId = subscriptionId; 
+  // 'Fill In' UnsubscribeContextRequest
+  parseDataP->uncr.res.subscriptionId.set(subscriptionId);
 
   return postUnsubscribeContext(ciP, components, compV, parseDataP);
 }

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -27,12 +27,14 @@
 #include <vector>
 
 #include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
 #include "common/Format.h"
 #include "common/tag.h"
 #include "convenience/UpdateContextAttributeRequest.h"
 #include "ngsi/StatusCode.h"
+#include "parse/compoundValue.h"
 
 
 
@@ -42,7 +44,9 @@
 */
 UpdateContextAttributeRequest::UpdateContextAttributeRequest()
 {
-  metadataVector.tagSet("metadata");
+  metadataVector.keyNameSet("metadata");
+  compoundValueP = NULL;
+  valueType = orion::ValueTypeNone;
 }
 
 
@@ -51,17 +55,36 @@ UpdateContextAttributeRequest::UpdateContextAttributeRequest()
 *
 * render - 
 */
-std::string UpdateContextAttributeRequest::render(Format format, std::string indent)
+std::string UpdateContextAttributeRequest::render(ConnectionInfo* ciP, std::string indent)
 {
   std::string tag = "updateContextAttributeRequest";
   std::string out = "";
   std::string indent2 = indent + "  ";
+  bool        commaAfterContextValue = metadataVector.size() != 0;
 
-  out += startTag(indent, tag, format, false);
-  out += valueTag(indent2, "type", type, format, true);
-  out += valueTag(indent2, "contextValue", contextValue, format, true);
-  out += metadataVector.render(format, indent2);
-  out += endTag(indent, tag, format);
+  out += startTag1(indent, tag, false);
+  out += valueTag1(indent2, "type", type, true);
+
+  if (compoundValueP == NULL)
+  {
+    out += valueTag1(indent2, "contextValue", contextValue, true);
+  }
+  else
+  {
+    bool isCompoundVector = false;
+
+    if ((compoundValueP != NULL) && (compoundValueP->valueType == orion::ValueTypeVector))
+    {
+      isCompoundVector = true;
+    }
+
+    out += startTag2(indent + "  ", "value", isCompoundVector, true);
+    out += compoundValueP->render(ciP, indent + "    ");
+    out += endTag(indent + "  ", commaAfterContextValue, isCompoundVector);
+  }
+
+  out += metadataVector.render(indent2);
+  out += endTag(indent);
 
   return out;
 }
@@ -72,33 +95,38 @@ std::string UpdateContextAttributeRequest::render(Format format, std::string ind
 *
 * check - 
 */
-std::string UpdateContextAttributeRequest::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string UpdateContextAttributeRequest::check
+(
+  ConnectionInfo* ciP,
+  RequestType     requestType,
+  std::string     indent,
+  std::string     predetectedError,
+  int             counter
+)
 {
   StatusCode       response;
   std::string      res;
 
-  if (format == (Format) 0)
-     format = XML;
+  indent = "  ";
 
   if (predetectedError != "")
   {
-    response.code         = SccBadRequest;
-    response.reasonPhrase = predetectedError;
+    response.fill(SccBadRequest, predetectedError);
   }
-  else if (contextValue == "")
+  else if ((res = metadataVector.check(ciP, requestType, indent, predetectedError, counter)) != "OK")
   {
-    response.code         = SccBadRequest;
-    response.reasonPhrase = "empty context value";
-  }
-  else if ((res = metadataVector.check(requestType, format, indent, predetectedError, counter)) != "OK")
-  {
-    response.code         = SccBadRequest;
-    response.reasonPhrase = res;
+    response.fill(SccBadRequest, res);
   }
   else
+  {
     return "OK";
-   
-  return response.render(format, indent);
+  }
+
+  std::string out = response.render(indent);
+
+  out = "{\n" + out + "}\n";
+
+  return out;
 }
 
 
@@ -109,8 +137,12 @@ std::string UpdateContextAttributeRequest::check(RequestType requestType, Format
 */
 void UpdateContextAttributeRequest::present(std::string indent)
 {
-  PRINTF("%stype:         %s", indent.c_str(), type.c_str());
-  PRINTF("%scontextValue: %s", indent.c_str(), contextValue.c_str());
+  LM_T(LmtPresent, ("%stype:         %s", 
+		    indent.c_str(), 
+		    type.c_str()));
+  LM_T(LmtPresent, ("%scontextValue: %s", 
+		    indent.c_str(), 
+		    contextValue.c_str()));
   metadataVector.present("ContextMetadata", indent);
 }
 
@@ -122,5 +154,11 @@ void UpdateContextAttributeRequest::present(std::string indent)
 */
 void UpdateContextAttributeRequest::release(void)
 {
-   metadataVector.release();
+  metadataVector.release();
+
+  if (compoundValueP != NULL)
+  {
+    delete compoundValueP;
+    compoundValueP = NULL;
+  }
 }

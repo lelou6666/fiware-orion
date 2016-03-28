@@ -18,27 +18,36 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermín Galán
 */
 
-#include "mongoNotifyContextAvailability.h"
+#include "common/sem.h"
+#include "logMsg/traceLevels.h"
 
+#include "mongoBackend/mongoNotifyContextAvailability.h"
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/MongoCommonRegister.h"
 #include "ngsi9/RegisterContextRequest.h"
 #include "ngsi9/RegisterContextResponse.h"
-#include "common/sem.h"
 
 /* ****************************************************************************
 *
-* mongoNofityContextAvailability -
+* mongoNotifyContextAvailability -
 */
-HttpStatusCode mongoNotifyContextAvailability(NotifyContextAvailabilityRequest* requestP, NotifyContextAvailabilityResponse* responseP) {
+HttpStatusCode mongoNotifyContextAvailability
+(
+  NotifyContextAvailabilityRequest*    requestP,
+  NotifyContextAvailabilityResponse*   responseP,
+  std::map<std::string, std::string>&  uriParam,
+  const std::string&                   tenant,
+  const std::string&                   servicePath
+)
+{    
+    bool              reqSemTaken;
 
-    /* Take semaphore. The LM_S* family of macros combines semaphore release with return */
-    semTake();
+    reqSemTake(__FUNCTION__, "mongo ngsi9 notification", SemWriteOp, &reqSemTaken);
 
     /* We ignore "subscriptionId" and "originator" in the request, as we don't have anything interesting
      * to do with them */
@@ -46,7 +55,7 @@ HttpStatusCode mongoNotifyContextAvailability(NotifyContextAvailabilityRequest* 
     /* Process each ContextRegistrationElement to create a "fake" RegisterContextRequest */
     RegisterContextRequest rcr;
     for (unsigned int ix= 0; ix < requestP->contextRegistrationResponseVector.size(); ++ix) {
-        ContextRegistration* crP = &requestP->contextRegistrationResponseVector.get(ix)->contextRegistration;
+        ContextRegistration* crP = &requestP->contextRegistrationResponseVector[ix]->contextRegistration;
         rcr.contextRegistrationVector.push_back(crP);
     }
 
@@ -58,10 +67,10 @@ HttpStatusCode mongoNotifyContextAvailability(NotifyContextAvailabilityRequest* 
      * point of view, notifyContextAvailability is considered as a new registration (as no registratinId is
      * received in the notification message) */
     RegisterContextResponse rcres;
-    processRegisterContext(&rcr, &rcres, NULL);
+    processRegisterContext(&rcr, &rcres, NULL, tenant, servicePath, "JSON");
 
     responseP->responseCode.fill(SccOk);
 
-    LM_SR(SccOk);
+    reqSemGive(__FUNCTION__, "mongo ngsi9 notification", reqSemTaken);
+    return SccOk;
 }
-

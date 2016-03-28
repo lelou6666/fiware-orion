@@ -21,11 +21,12 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
 #include <string>
+#include <map>
 
 #include "ngsi10/QueryContextRequest.h"
 #include "ngsi10/QueryContextResponse.h"
@@ -36,6 +37,16 @@
 *
 * mongoQueryContext - 
 */
-extern HttpStatusCode mongoQueryContext(QueryContextRequest* requestP, QueryContextResponse* responseP);
+extern HttpStatusCode mongoQueryContext
+(
+  QueryContextRequest*                  requestP,
+  QueryContextResponse*                 responseP,
+  const std::string&                    tenant,
+  const std::vector<std::string>&       servicePathV,
+  std::map<std::string, std::string>&   uriParams,
+  std::map<std::string, bool>&          options,
+  long long*                            countP = NULL,
+  const std::string&                    apiVersion = "v1"
+);
 
 #endif

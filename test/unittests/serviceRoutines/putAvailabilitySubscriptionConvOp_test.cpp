@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -59,8 +59,10 @@ static RestService rs[] =
 /* ****************************************************************************
 *
 * put - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(putAvailabilitySubscriptionConvOp, put)
+TEST(putAvailabilitySubscriptionConvOp, DISABLED_put)
 {
   ConnectionInfo ci1("/ngsi9/contextAvailabilitySubscriptions",  "POST", "1.1");
   ConnectionInfo ci2("/ngsi9/contextAvailabilitySubscriptions",  "GET",  "1.1");
@@ -102,6 +104,7 @@ TEST(putAvailabilitySubscriptionConvOp, put)
 
   EXPECT_EQ("OK", testDataFromFile(testBuf, sizeof(testBuf), infile2)) << "Error getting test data from '" << infile2 << "'";
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile3)) << "Error getting test data from '" << outfile3 << "'";
+
   ci3.payload      = testBuf;
   ci3.payloadSize  = strlen(testBuf);
   out              = restService(&ci3, rs);

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -26,9 +26,11 @@
 #include <string>
 #include <vector>
 
+#include "logMsg/traceLevels.h"
 #include "common/globals.h"
 #include "common/tag.h"
 #include "convenience/ContextAttributeResponseVector.h"
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -36,11 +38,10 @@
 *
 * ContextAttributeResponseVector::render - 
 */
-std::string ContextAttributeResponseVector::render(RequestType request, Format format, std::string indent)
+std::string ContextAttributeResponseVector::render(ConnectionInfo* ciP, RequestType request, std::string indent)
 {
-  std::string out     = "";
-  std::string xmlTag  = "contextResponseList";
-  std::string jsonTag = "contextResponses";
+  std::string out = "";
+  std::string key = "contextResponses";
 
   if (vec.size() == 0)
   {
@@ -50,10 +51,12 @@ std::string ContextAttributeResponseVector::render(RequestType request, Format f
     return "";
   }
 
-  out += startTag(indent, xmlTag, jsonTag, format, true);
+  out += startTag2(indent, key, true);
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-    out += vec[ix]->render(request, format, indent + "  ");
-  out += endTag(indent, xmlTag, format, false, true);
+  {
+    out += vec[ix]->render(ciP, request, indent + "  ");
+  }
+  out += endTag(indent, false, true);
 
   return out;
 }
@@ -64,14 +67,23 @@ std::string ContextAttributeResponseVector::render(RequestType request, Format f
 *
 * ContextAttributeResponseVector::check - 
 */
-std::string ContextAttributeResponseVector::check(RequestType request, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ContextAttributeResponseVector::check
+(
+  ConnectionInfo*  ciP,
+  RequestType      request,
+  std::string      indent,
+  std::string      predetectedError,
+  int              counter
+)
 {
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
-     std::string res;
+    std::string res;
 
-     if ((res = vec[ix]->check(request, format, indent, predetectedError, counter)) != "OK")
-       return res;
+    if ((res = vec[ix]->check(ciP, request, indent, predetectedError, counter)) != "OK")
+    {
+      return res;
+    }
   }
 
   return "OK";
@@ -85,10 +97,12 @@ std::string ContextAttributeResponseVector::check(RequestType request, Format fo
 */
 void ContextAttributeResponseVector::present(std::string indent)
 {
-   PRINTF("%lu ContextAttributeResponses", (unsigned long) vec.size());
+  LM_T(LmtPresent, ("%lu ContextAttributeResponses", (uint64_t) vec.size()));
 
-   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-      vec[ix]->present(indent + "  ");
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    vec[ix]->present(indent + "  ");
+  }
 }
 
 
@@ -106,13 +120,16 @@ void ContextAttributeResponseVector::push_back(ContextAttributeResponse* item)
 
 /* ****************************************************************************
 *
-* ContextAttributeResponseVector::get - 
+* ContextAttributeResponseVector::operator[] -
 */
-ContextAttributeResponse* ContextAttributeResponseVector::get(int ix)
+ContextAttributeResponse* ContextAttributeResponseVector::operator[](unsigned int ix) const
 {
-  return vec[ix];
+  if (ix < vec.size())
+  {
+    return vec[ix];
+  }
+  return NULL;
 }
-
 
 
 /* ****************************************************************************
@@ -139,4 +156,16 @@ void ContextAttributeResponseVector::release(void)
   }
 
   vec.clear();
+}
+
+
+
+/* ****************************************************************************
+*
+* ContextAttributeResponseVector::fill -
+*/
+void ContextAttributeResponseVector::fill(ContextAttributeVector* cavP, const StatusCode& statusCode)
+{
+  vec.push_back(new ContextAttributeResponse());
+  vec[0]->fill(cavP, statusCode);
 }

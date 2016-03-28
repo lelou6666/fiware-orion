@@ -1,5 +1,5 @@
-#ifndef CONTEXT_ELEMENT_RESPONSE_VECTOR_H
-#define CONTEXT_ELEMENT_RESPONSE_VECTOR_H
+#ifndef SRC_LIB_NGSI_CONTEXTELEMENTRESPONSEVECTOR_H_
+#define SRC_LIB_NGSI_CONTEXTELEMENTRESPONSEVECTOR_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,24 +29,38 @@
 #include <vector>
 
 #include "ngsi/ContextElementResponse.h"
+#include "rest/ConnectionInfo.h"
 
 
 
 /* ****************************************************************************
 *
-* ContextElementResponseVector - 
+* ContextElementResponseVector -
 */
 typedef struct ContextElementResponseVector
 {
   std::vector<ContextElementResponse*>  vec;
 
-  std::string              render(RequestType requestType, Format format, std::string indent, bool comma = false);
-  std::string              check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void                     present(std::string indent);
+  std::string              render(ConnectionInfo*     ciP,
+                                  RequestType         requestType,
+                                  const std::string&  indent,
+                                  bool                comma               = false,
+                                  bool                omitAttributeValues = false);
+
+  void                     present(const std::string& indent);
   void                     push_back(ContextElementResponse* item);
   unsigned int             size(void);
-  ContextElementResponse*  get(int ix);
+  ContextElementResponse*  lookup(EntityId* eP, HttpStatusCode code = SccNone);
   void                     release();
+  void                     fill(ContextElementResponseVector& cerV);
+  ContextElementResponse*  operator[] (unsigned int ix) const;
+  
+
+  std::string              check(ConnectionInfo*     ciP,
+                                 RequestType         requestType,
+                                 const std::string&  indent,
+                                 const std::string&  predetectedError,
+                                 int                 counter);
 } ContextElementResponseVector;
 
-#endif
+#endif  // SRC_LIB_NGSI_CONTEXTELEMENTRESPONSEVECTOR_H_

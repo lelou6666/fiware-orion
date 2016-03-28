@@ -1,5 +1,5 @@
-#ifndef ENTITY_ID_VECTOR_H
-#define ENTITY_ID_VECTOR_H
+#ifndef SRC_LIB_NGSI_ENTITYIDVECTOR_H_
+#define SRC_LIB_NGSI_ENTITYIDVECTOR_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,24 +29,42 @@
 #include <vector>
 
 #include "ngsi/EntityId.h"
+#include "apiTypesV2/EntityVector.h"
 
 
 
 /* ****************************************************************************
 *
 * EntityIdVector - 
+*
+* NOTE
+* The method 'lookup' looks up an *exact* match for an entity.
+* I.e. the id must be exactly the same, the type exactly the same and isPattern, exactly the same.
+* This is not a *match* method that would find 'matching' entityIds.
+*
+* If you need an entity-matching method, then a new method, called 'match' should be implemented.
+*
 */
 typedef struct EntityIdVector
 {
   std::vector<EntityId*>  vec;
 
-  std::string  render(Format format, std::string indent, bool comma = false);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void         present(std::string indent);
+  std::string  render(const std::string& indent, bool comma = false);
+  void         present(const std::string& indent);
   void         push_back(EntityId* item);
-  unsigned int size(void);
-  EntityId*    get(int ix);
+  bool         push_back_if_absent(EntityId* item);
+  unsigned int size(void) const;
+  EntityId*    lookup(const std::string& name, const std::string& type, const std::string& isPattern);
   void         release();
+  void         fill(EntityVector& _vec);
+
+  EntityId* operator[](unsigned int ix) const;
+
+  std::string  check(ConnectionInfo*     ciP,
+                     RequestType         requestType,
+                     const std::string&  indent,
+                     const std::string&  predetectedError,
+                     int                 counter);
 } EntityIdVector;
 
-#endif
+#endif  // SRC_LIB_NGSI_ENTITYIDVECTOR_H_

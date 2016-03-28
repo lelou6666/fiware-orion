@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -35,6 +35,6 @@
 *
 * orionReply - 
 */
-extern std::string orionReply(ConnectionInfo* ciP, std::string what, std::string value);
+extern std::string orionReply(ConnectionInfo* ciP, const std::string& what, const std::string& value);
 
 #endif

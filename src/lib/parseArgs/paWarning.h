@@ -1,5 +1,5 @@
-#ifndef PA_WARNINGS_H
-#define PA_WARNINGS_H
+#ifndef SRC_LIB_PARSEARGS_PAWARNING_H_
+#define SRC_LIB_PARSEARGS_PAWARNING_H_
 
 /*
 *
@@ -21,12 +21,12 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
-#include "logMsg/logMsg.h"             /* LM_W                                      */
-#include "parseArgs/parseArgs.h"       /* PaSeverity, PaWarning                     */
+#include "logMsg/logMsg.h"             /* LM_W                               */
+#include "parseArgs/parseArgs.h"       /* PaSeverity, PaWarning              */
 
 
 
@@ -37,7 +37,7 @@
 #define PA_WARNING(s, txt) \
 do                         \
 {                          \
-    paWarningAdd(s, txt);  \
+  paWarningAdd(s, txt);    \
 } while (0)
 
 
@@ -56,4 +56,4 @@ extern void paWarningInit(void);
 */
 extern void paWarningAdd(PaSeverity severity, char* txt);
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_PAWARNING_H_

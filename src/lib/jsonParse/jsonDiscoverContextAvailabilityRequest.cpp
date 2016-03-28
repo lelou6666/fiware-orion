@@ -18,22 +18,25 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 #include <vector>
 
-#include "common/globals.h"
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
+
+#include "common/globals.h"
+#include "alarmMgr/alarmMgr.h"
+
 #include "jsonParse/JsonNode.h"
-#include "jsonParse/jsonNullTreat.h"
 #include "jsonParse/jsonDiscoverContextAvailabilityRequest.h"
 #include "ngsi/ContextAttribute.h"
 #include "ngsi/EntityId.h"
 #include "ngsi9/DiscoverContextAvailabilityRequest.h"
+#include "parse/nullTreat.h"
 #include "rest/ConnectionInfo.h"
 
 
@@ -42,15 +45,15 @@
 *
 * entityId - 
 */
-static std::string entityId(std::string path, std::string value, ParseData* reqDataP)
+static std::string entityId(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
 
   reqDataP->dcar.entityIdP = new EntityId();
 
   LM_T(LmtNew, ("New entityId at %p", reqDataP->dcar.entityIdP));
-  reqDataP->dcar.entityIdP->id        = "not in use";
-  reqDataP->dcar.entityIdP->type      = "not in use";
+  reqDataP->dcar.entityIdP->id        = "";
+  reqDataP->dcar.entityIdP->type      = "";
   reqDataP->dcar.entityIdP->isPattern = "false";
 
   reqDataP->dcar.res.entityIdVector.push_back(reqDataP->dcar.entityIdP);
@@ -64,12 +67,12 @@ static std::string entityId(std::string path, std::string value, ParseData* reqD
 *
 * entityIdId - 
 */
-static std::string entityIdId(std::string path, std::string value, ParseData* reqDataP)
+static std::string entityIdId(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
-   reqDataP->dcar.entityIdP->id = value;
-   LM_T(LmtParse, ("Set 'id' to '%s' for an entity", reqDataP->dcar.entityIdP->id.c_str()));
+  reqDataP->dcar.entityIdP->id = value;
+  LM_T(LmtParse, ("Set 'id' to '%s' for an entity", reqDataP->dcar.entityIdP->id.c_str()));
 
-   return "OK";
+  return "OK";
 }
 
 
@@ -78,12 +81,12 @@ static std::string entityIdId(std::string path, std::string value, ParseData* re
 *
 * entityIdType - 
 */
-static std::string entityIdType(std::string path, std::string value, ParseData* reqDataP)
+static std::string entityIdType(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
-   reqDataP->dcar.entityIdP->type = value;
-   LM_T(LmtParse, ("Set 'type' to '%s' for an entity", reqDataP->dcar.entityIdP->type.c_str()));
+  reqDataP->dcar.entityIdP->type = value;
+  LM_T(LmtParse, ("Set 'type' to '%s' for an entity", reqDataP->dcar.entityIdP->type.c_str()));
 
-   return "OK";
+  return "OK";
 }
 
 
@@ -92,14 +95,16 @@ static std::string entityIdType(std::string path, std::string value, ParseData* 
 *
 * entityIdIsPattern - 
 */
-static std::string entityIdIsPattern(std::string path, std::string value, ParseData* reqDataP)
+static std::string entityIdIsPattern(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got an entityId:isPattern: '%s'", value.c_str()));
 
   reqDataP->dcar.entityIdP->isPattern = value;
 
   if (!isTrue(value) && !isFalse(value))
-    return "bad 'isPattern' value: '" + value + "'";
+  {
+    return "invalid isPattern value for entity: /" + value + "/";
+  }
 
   return "OK";
 }
@@ -110,7 +115,7 @@ static std::string entityIdIsPattern(std::string path, std::string value, ParseD
 *
 * attribute - 
 */
-static std::string attribute(std::string path, std::string value, ParseData* reqDataP)
+static std::string attribute(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got an attribute: '%s'", value.c_str()));
 
@@ -125,7 +130,7 @@ static std::string attribute(std::string path, std::string value, ParseData* req
 *
 * attributeList - 
 */
-static std::string attributeList(std::string path, std::string value, ParseData* reqDataP)
+static std::string attributeList(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got an attributeList: '%s'", value.c_str()));
   return "OK";
@@ -135,16 +140,31 @@ static std::string attributeList(std::string path, std::string value, ParseData*
 
 /* ****************************************************************************
 *
+* restriction - 
+*/
+static std::string restriction(const std::string& path, const std::string& value, ParseData* reqDataP)
+{
+  reqDataP->dcar.res.restrictions += 1;
+  return "OK";
+}
+
+
+
+/* ****************************************************************************
+*
 * attributeExpression - 
 */
-static std::string attributeExpression(std::string path, std::string value, ParseData* reqDataP)
+static std::string attributeExpression(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got an attributeExpression: '%s'", value.c_str()));
 
   reqDataP->dcar.res.restriction.attributeExpression.set(value);
 
   if (value == "")
-     LM_RE("Empty attribute expression", ("Empty attribute expression"));
+  {
+    alarmMgr.badInput(clientIp, "empty attribute expression");
+    return "Empty attribute expression";
+  }
 
   return "OK";
 }
@@ -155,14 +175,14 @@ static std::string attributeExpression(std::string path, std::string value, Pars
 *
 * operationScope - 
 */
-static std::string operationScope(std::string path, std::string value, ParseData* reqDataP)
+static std::string operationScope(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got an operationScope"));
-  
+
   reqDataP->dcar.scopeP = new Scope();
   reqDataP->dcar.res.restriction.scopeVector.push_back(reqDataP->dcar.scopeP);
-  reqDataP->dcar.scopeP->type  = "not in use";
-  reqDataP->dcar.scopeP->value = "not in use";
+  reqDataP->dcar.scopeP->type  = "";
+  reqDataP->dcar.scopeP->value = "";
 
   return "OK";
 }
@@ -173,13 +193,11 @@ static std::string operationScope(std::string path, std::string value, ParseData
 *
 * scopeType - 
 */
-static std::string scopeType(std::string path, std::string value, ParseData* reqDataP)
+static std::string scopeType(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
-   LM_W(("Setting scope type to '%s'", value.c_str()));
-   reqDataP->dcar.scopeP->type = value;
-   LM_T(LmtParse, ("Set scope 'type' to '%s' for a scope", reqDataP->dcar.scopeP->type.c_str()));
-
-   return "OK";
+  reqDataP->dcar.scopeP->type = value;
+  LM_T(LmtParse, ("Set scope 'type' to '%s' for a scope", reqDataP->dcar.scopeP->type.c_str()));
+  return "OK";
 }
 
 
@@ -188,53 +206,14 @@ static std::string scopeType(std::string path, std::string value, ParseData* req
 *
 * scopeValue - 
 */
-static std::string scopeValue(std::string path, std::string value, ParseData* reqDataP)
+static std::string scopeValue(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
-   LM_W(("Setting scope value to '%s'", value.c_str()));
-   reqDataP->dcar.scopeP->value = value;
-   LM_T(LmtParse, ("Set scope 'value' to '%s' for a scope", reqDataP->dcar.scopeP->value.c_str()));
+  reqDataP->dcar.scopeP->value = value;
+  LM_T(LmtParse, ("Set scope 'value' to '%s' for a scope", reqDataP->dcar.scopeP->value.c_str()));
 
-   return "OK";
-}
-
-
-
-/* ****************************************************************************
-*
-* restriction - 
-*/
-static std::string restriction(std::string path, std::string value, ParseData* reqDataP)
-{
-  reqDataP->dcar.res.restrictions += 1;
   return "OK";
 }
 
-
-
-/* ****************************************************************************
-*
-* dcarParseVector - 
-*/
-JsonNode jsonDcarParseVector[] =
-{
-   { "/entities",                         jsonNullTreat         },
-   { "/entities/entity",                  entityId              },
-   { "/entities/entity/id",               entityIdId            },
-   { "/entities/entity/type",             entityIdType          },
-   { "/entities/entity/isPattern",        entityIdIsPattern     },
-
-   { "/attributes",                       attributeList         },
-   { "/attributes/attribute",             attribute             },
-
-   { "/restriction",                      restriction           },
-   { "/restriction/attributeExpression",  attributeExpression   },
-   { "/restriction/scopes",               jsonNullTreat         },
-   { "/restriction/scopes/scope",         operationScope        },
-   { "/restriction/scopes/scope/type",    scopeType             },
-   { "/restriction/scopes/scope/value",   scopeValue            },
-
-  { "LAST", NULL }
-};
 
 
 /* ****************************************************************************
@@ -272,21 +251,54 @@ void jsonDcarRelease(ParseData* reqDataP)
 */
 std::string jsonDcarCheck(ParseData* reqDataP, ConnectionInfo* ciP)
 {
-   return reqDataP->dcar.res.check(DiscoverContextAvailability, ciP->outFormat, "", reqDataP->errorString, reqDataP->dcar.res.restrictions);
+  return reqDataP->dcar.res.check(ciP,
+                                  DiscoverContextAvailability,
+                                  "",
+                                  reqDataP->errorString,
+                                  reqDataP->dcar.res.restrictions);
 }
 
 
 
-#define PRINTF printf
+
 /* ****************************************************************************
 *
 * jsonDcarPresent - 
 */
 void jsonDcarPresent(ParseData* reqDataP)
 {
-  if (!lmTraceIsSet(LmtDump))
+  if (!lmTraceIsSet(LmtPresent))
+  {
     return;
+  }
 
-  PRINTF("\n\n");
+  LM_T(LmtPresent,("\n\n"));
   reqDataP->dcar.res.present("");
 }
+
+
+
+/* ****************************************************************************
+*
+* dcarParseVector - 
+*/
+JsonNode jsonDcarParseVector[] =
+{
+  { "/entities",                          jsonNullTreat         },
+  { "/entities/entity",                   entityId              },
+  { "/entities/entity/id",                entityIdId            },
+  { "/entities/entity/type",              entityIdType          },
+  { "/entities/entity/isPattern",         entityIdIsPattern     },
+
+  { "/attributes",                        attributeList         },
+  { "/attributes/attribute",              attribute             },
+
+  { "/restriction",                       restriction           },
+  { "/restriction/attributeExpression",   attributeExpression   },
+  { "/restriction/scopes",                jsonNullTreat         },
+  { "/restriction/scopes/scope",          operationScope        },
+  { "/restriction/scopes/scope/type",     scopeType             },
+  { "/restriction/scopes/scope/value",    scopeValue            },
+
+  { "LAST", NULL }
+};

@@ -18,25 +18,25 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
-#include "NotifyContextRequest.h"
-
 #include <string>
 
 #include "common/globals.h"
 #include "common/tag.h"
 #include "ngsi10/NotifyContextRequest.h"
 #include "ngsi10/NotifyContextResponse.h"
+#include "rest/ConnectionInfo.h"
+
 
 
 /* ****************************************************************************
 *
 * NotifyContextRequest::render -
 */
-std::string NotifyContextRequest::render(RequestType requestType, Format format, std::string indent)
+std::string NotifyContextRequest::render(ConnectionInfo* ciP, RequestType requestType, const std::string& indent)
 {
   std::string  out                                  = "";
   std::string  tag                                  = "notifyContextRequest";
@@ -48,49 +48,51 @@ std::string NotifyContextRequest::render(RequestType requestType, Format format,
   //   The only doubt here if whether originator should end in a comma.
   //   This doubt is taken care of by the variable 'contextElementResponseVectorRendered'
   //
-  out += startTag(indent, tag, format, false);
-  out += subscriptionId.render(NotifyContext, format, indent + "  ", true);
-  out += originator.render(format, indent  + "  ", contextElementResponseVectorRendered);
-  out += contextElementResponseVector.render(NotifyContext, format, indent  + "  ", false);
-  out += endTag(indent, tag, format);
+  out += startTag1(indent, tag, false);
+  out += subscriptionId.render(NotifyContext, indent + "  ", true);
+  out += originator.render(indent  + "  ", contextElementResponseVectorRendered);
+  out += contextElementResponseVector.render(ciP, NotifyContext, indent  + "  ", false);
+  out += endTag(indent);
 
   return out;
 }
+
 
 
 /* ****************************************************************************
 *
 * NotifyContextRequest::check
 */
-std::string NotifyContextRequest::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string NotifyContextRequest::check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
   std::string            res;
   NotifyContextResponse  response;
    
   if (predetectedError != "")
   {
-    response.responseCode.code         = SccBadRequest;
-    response.responseCode.reasonPhrase = predetectedError;
+    response.responseCode.fill(SccBadRequest, predetectedError);
   }
-  else if (((res = subscriptionId.check(QueryContext, format, indent, predetectedError, 0))               != "OK") ||
-           ((res = originator.check(QueryContext, format, indent, predetectedError, 0))                   != "OK") ||
-           ((res = contextElementResponseVector.check(QueryContext, format, indent, predetectedError, 0)) != "OK"))
+  else if (((res = subscriptionId.check(QueryContext, indent, predetectedError, 0))               != "OK") ||
+           ((res = originator.check(QueryContext, indent, predetectedError, 0))                   != "OK") ||
+           ((res = contextElementResponseVector.check(ciP, QueryContext, indent, predetectedError, 0)) != "OK"))
   {
-    response.responseCode.code         = SccBadRequest;
-    response.responseCode.reasonPhrase = res;
+    response.responseCode.fill(SccBadRequest, res);
   }
   else
+  {
     return "OK";
+  }
 
-  return response.render(NotifyContext, format, indent);
+  return response.render(NotifyContext, indent);
 }
+
 
 
 /* ****************************************************************************
 *
 * NotifyContextRequest::present -
 */
-void NotifyContextRequest::present(std::string indent)
+void NotifyContextRequest::present(const std::string& indent)
 {
   subscriptionId.present(indent);
   originator.present(indent);

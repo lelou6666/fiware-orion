@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -38,7 +38,13 @@
 *
 * AttributeDomainName::check - 
 */
-std::string AttributeDomainName::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string AttributeDomainName::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   // FIXME P3: AttributeDomainName::check always returns "OK"
   return "OK";
@@ -52,8 +58,10 @@ std::string AttributeDomainName::check(RequestType requestType, Format format, s
 */
 bool AttributeDomainName::isEmpty(void)
 {
-  if ((string == "") || (string == "not in use"))
+  if (string == "")
+  {
     return true;
+  }
 
   return false;
 }
@@ -64,7 +72,7 @@ bool AttributeDomainName::isEmpty(void)
 *
 * AttributeDomainName::set - 
 */
-void AttributeDomainName::set(std::string value)
+void AttributeDomainName::set(const std::string& value)
 {
   string = value;
 }
@@ -86,12 +94,16 @@ std::string AttributeDomainName::get(void)
 *
 * AttributeDomainName::present - 
 */
-void AttributeDomainName::present(std::string indent)
+void AttributeDomainName::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sAttributeDomainName: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sAttributeDomainName: %s", indent.c_str(), string.c_str()));
+  }
   else
-    PRINTF("%sNo AttributeDomainName\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo AttributeDomainName", indent.c_str()));
+  }
 }
 
 
@@ -100,12 +112,14 @@ void AttributeDomainName::present(std::string indent)
 *
 * AttributeDomainName::render - 
 */
-std::string AttributeDomainName::render(Format format, std::string indent, bool comma)
+std::string AttributeDomainName::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
+  }
 
-  return valueTag(indent, "attributeDomainName", string, format, comma);
+  return valueTag1(indent, "attributeDomainName", string, comma);
 }
 
 
@@ -116,7 +130,7 @@ std::string AttributeDomainName::render(Format format, std::string indent, bool 
 */
 const char* AttributeDomainName::c_str(void)
 {
-   return string.c_str();
+  return string.c_str();
 }
 
 
@@ -127,5 +141,16 @@ const char* AttributeDomainName::c_str(void)
 */
 void AttributeDomainName::release(void)
 {
-   /* This method is included for the sake of homogeneity */
+  /* This method is included for the sake of homogeneity */
+}
+
+
+
+/* ****************************************************************************
+*
+* fill - 
+*/
+void AttributeDomainName::fill(const AttributeDomainName& adn)
+{
+  string = adn.string;
 }

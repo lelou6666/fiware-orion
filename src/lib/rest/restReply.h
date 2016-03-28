@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -36,7 +36,7 @@
 *
 * restReply - 
 */
-extern void restReply(ConnectionInfo* ciP, std::string answer);
+extern void restReply(ConnectionInfo* ciP, const std::string& answer);
 
 
 
@@ -44,6 +44,6 @@ extern void restReply(ConnectionInfo* ciP, std::string answer);
 *
 * restErrorReplyGet - 
 */
-extern std::string restErrorReplyGet(ConnectionInfo* ciP, Format format, std::string indent, std::string request, HttpStatusCode code, std::string detail);
+extern std::string restErrorReplyGet(ConnectionInfo* ciP, const std::string& indent, const std::string& request, HttpStatusCode code, const std::string& detail);
 
 #endif

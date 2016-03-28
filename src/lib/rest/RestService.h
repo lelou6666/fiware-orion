@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,8 +31,8 @@
 #include "rest/ConnectionInfo.h"
 #include "ngsi/ParseData.h"
 #include "ngsi/Request.h"
-#include "xmlParse/xmlRequest.h"
 #include "jsonParse/jsonRequest.h"
+#include "jsonParseV2/jsonRequestTreat.h"
 
 
 
@@ -40,7 +40,7 @@
 *
 * RestServiceHandler - 
 */
-typedef std::string (*RestServiceHandler)(ConnectionInfo* ciP, int compononts, std::vector<std::string> compV);
+typedef std::string (*RestServiceHandler)(ConnectionInfo* ciP, int compononts, std::vector<std::string>& compV);
 
 
 
@@ -48,13 +48,13 @@ typedef std::string (*RestServiceHandler)(ConnectionInfo* ciP, int compononts, s
 *
 * RestService - 
 */
-typedef std::string (*RestTreat)(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* reqDataP);
+typedef std::string (*RestTreat)(ConnectionInfo* ciP, int components, std::vector<std::string>& compV, ParseData* reqDataP);
 typedef struct RestService
 {
   std::string   verb;
   RequestType   request;
   int           components;
-  std::string   compV[6];
+  std::string   compV[10];
   std::string   payloadWord;
   RestTreat     treat;
 } RestService;
@@ -73,6 +73,14 @@ extern std::string restService(ConnectionInfo* ciP, RestService* serviceV);
 *
 * payloadParse - 
 */
-extern std::string payloadParse(ConnectionInfo* ciP, ParseData* parseDataP, RestService* service, XmlRequest** reqPP, JsonRequest** jsonPP);
+extern std::string payloadParse
+(
+  ConnectionInfo*            ciP,
+  ParseData*                 parseDataP,
+  RestService*               service,  
+  JsonRequest**              jsonPP,
+  JsonDelayedRelease*        jsonReleaseP,
+  std::vector<std::string>&  compV
+);
 
 #endif

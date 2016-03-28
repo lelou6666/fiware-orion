@@ -18,13 +18,16 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <stdio.h>
 #include <string>
 #include <vector>
+
+#include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
 #include "common/tag.h"
@@ -34,20 +37,34 @@
 
 /* ****************************************************************************
 *
-* NotifyConditionVector::render - 
+* NotifyConditionVector::NotifyConditionVector - 
 */
-std::string NotifyConditionVector::render(Format format, std::string indent, bool comma)
+NotifyConditionVector::NotifyConditionVector()
+{
+}
+
+
+
+/* ****************************************************************************
+*
+* NotifyConditionVector::render -
+*/
+std::string NotifyConditionVector::render(const std::string& indent, bool comma)
 {
   std::string out = "";
   std::string tag = "notifyConditions";
 
   if (vec.size() == 0)
+  {
     return "";
+  }
 
-  out += startTag(indent, tag, tag, format, true, true);
+  out += startTag2(indent, tag, true, true);
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-    out += vec[ix]->render(format, indent + "  ", ix != vec.size() - 1);
-  out += endTag(indent, tag, format, comma, true);
+  {
+    out += vec[ix]->render(indent + "  ", ix != vec.size() - 1);
+  }
+  out += endTag(indent, comma, true);
 
   return out;
 }
@@ -56,16 +73,24 @@ std::string NotifyConditionVector::render(Format format, std::string indent, boo
 
 /* ****************************************************************************
 *
-* NotifyConditionVector::check - 
+* NotifyConditionVector::check -
 */
-std::string NotifyConditionVector::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string NotifyConditionVector::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
     std::string res;
 
-    if ((res = vec[ix]->check(requestType, format, indent, predetectedError, counter)) != "OK")
+    if ((res = vec[ix]->check(requestType, indent, predetectedError, counter)) != "OK")
+    {
       return res;
+    }
   }
 
   return "OK";
@@ -75,21 +100,25 @@ std::string NotifyConditionVector::check(RequestType requestType, Format format,
 
 /* ****************************************************************************
 *
-* NotifyConditionVector::present - 
+* NotifyConditionVector::present -
 */
-void NotifyConditionVector::present(std::string indent)
+void NotifyConditionVector::present(const std::string& indent)
 {
-  PRINTF("%lu NotifyConditions", (unsigned long) vec.size());
+  LM_T(LmtPresent, ("%s%lu NotifyConditions", 
+		    indent.c_str(), 
+		    (uint64_t) vec.size()));
 
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
     vec[ix]->present(indent, ix);
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* NotifyConditionVector::push_back - 
+* NotifyConditionVector::push_back -
 */
 void NotifyConditionVector::push_back(NotifyCondition* item)
 {
@@ -100,18 +129,22 @@ void NotifyConditionVector::push_back(NotifyCondition* item)
 
 /* ****************************************************************************
 *
-* NotifyConditionVector::get - 
+* NotifyConditionVector::operator[] -
 */
-NotifyCondition* NotifyConditionVector::get(int ix)
+NotifyCondition* NotifyConditionVector::operator[] (unsigned int ix) const
 {
-  return vec[ix];
+   if (ix < vec.size())
+   {
+     return vec[ix];
+   }
+   return NULL;
 }
 
 
 
 /* ****************************************************************************
 *
-* NotifyConditionVector::size - 
+* NotifyConditionVector::size -
 */
 unsigned int NotifyConditionVector::size(void)
 {
@@ -122,7 +155,7 @@ unsigned int NotifyConditionVector::size(void)
 
 /* ****************************************************************************
 *
-* NotifyConditionVector::release - 
+* NotifyConditionVector::release -
 */
 void NotifyConditionVector::release(void)
 {
@@ -133,4 +166,19 @@ void NotifyConditionVector::release(void)
   }
 
   vec.clear();
+}
+
+
+
+/* ****************************************************************************
+*
+* NotifyConditionVector::fill - 
+*/
+void NotifyConditionVector::fill(NotifyConditionVector& nv)
+{
+  for (unsigned int ncIx = 0; ncIx < nv.size(); ++ncIx)
+  {
+    NotifyCondition* ncP = new NotifyCondition(nv[ncIx]);
+    push_back(ncP);
+  }
 }

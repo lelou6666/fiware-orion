@@ -1,5 +1,5 @@
-#ifndef ENTITY_ID_H
-#define ENTITY_ID_H
+#ifndef SRC_LIB_NGSI_ENTITYID_H_
+#define SRC_LIB_NGSI_ENTITYID_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -39,23 +39,39 @@
 */
 class EntityId
 {
-public:
-  std::string  id;         // Mandatory
-  std::string  type;       // Optional
-  std::string  isPattern;  // Optional
+ public:
+  std::string  id;           // Mandatory
+  std::string  type;         // Optional
+  std::string  isPattern;    // Optional
 
-  std::string  tag;        // Help variable for the 'render' method
+  std::string  servicePath;  // Not part of payload, just an internal field
+  std::string  keyName;      // Help variable for the 'render' method
 
   EntityId();
-  EntityId(std::string _id, std::string _type, std::string _isPattern = "", std::string _tag = "entityId");
+  EntityId(EntityId* eP);
+  EntityId(const std::string&  _id,
+           const std::string&  _type,
+           const std::string&  _isPattern = "",
+           const std::string&  _keyName = "entityId");
 
-  void         tagSet(std::string tagName);
-  std::string  render(Format format, std::string indent, bool comma = false, bool isInVector = false, std::string assocTag = "");
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void         fill(std::string _id, std::string _type, std::string _isPattern);
-  void         present(std::string indent, int ix);
+  void         keyNameSet(const std::string& _keyName);
+  void         fill(const std::string& _id, const std::string& _type, const std::string& _isPattern);
+  void         fill(const struct EntityId* eidP, bool useDefaultType = false);
+  void         present(const std::string& indent, int ix);
   void         release(void);
-  std::string  toString(bool useIsPattern = false, std::string delimiter = ", ");
+  std::string  toString(bool useIsPattern = false, const std::string& delimiter = ", ");
+  bool         equal(EntityId* eP);
+  bool         isPatternIsTrue(void);
+
+  std::string  render(const std::string&  indent,
+                      bool                comma      = false,
+                      bool                isInVector = false);
+
+  std::string  check(ConnectionInfo*      ciP,
+                     RequestType          requestType,
+                     const std::string&   indent,
+                     const std::string&   predetectedError,
+                     int                  counter);
 };
 
-#endif
+#endif  // SRC_LIB_NGSI_ENTITYID_H_

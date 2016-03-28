@@ -21,10 +21,11 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
+#include "gtest/gtest.h"
 #include "testDataFromFile.h"
 #include "commonMocks.h"
 #include "testInit.h"
@@ -37,7 +38,41 @@
 */
 using ::testing::_;
 using ::testing::Throw;
+using ::testing::Invoke;
 using ::testing::Return;
+using ::testing::MatchesRegex;
+
+
+
+/* ****************************************************************************
+*
+* uriParams - 
+*/
+extern std::map<std::string, std::string> uriParams;
+
+
+
+/* ****************************************************************************
+*
+* options -
+*/
+extern std::map<std::string, bool> options;
+
+ 
+
+/* ****************************************************************************
+*
+* servicePathV - 
+*/
+extern std::vector<std::string> servicePathV;
+
+ 
+
+/* ****************************************************************************
+*
+* servicePathVector - 
+*/
+extern std::vector<std::string> servicePathVector;
 
 
 

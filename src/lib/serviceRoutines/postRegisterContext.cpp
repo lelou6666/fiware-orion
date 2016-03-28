@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,113 +29,67 @@
 #include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
+#include "common/Format.h"
+#include "common/string.h"
+#include "common/defaultValues.h"
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+#include "alarmMgr/alarmMgr.h"
+
 #include "serviceRoutines/postRegisterContext.h"
 #include "mongoBackend/mongoRegisterContext.h"
-#include "mongoBackend/mongoConfManOperations.h"
 #include "ngsi/ParseData.h"
 #include "rest/ConnectionInfo.h"
-#include "rest/clientSocketHttp.h"
-#include "xmlParse/xmlRequest.h"
+#include "rest/httpRequestSend.h"
+#include "rest/uriParamNames.h"
 
 
 
 /* ****************************************************************************
 *
-* fordwardRegisterContext -
-*
-* NOTE
-*   Used by registerContextForward
+* postRegisterContext -
 */
-static std::string fordwardRegisterContext(char* host, int port, std::string payload) {
-
-    LM_T(LmtCm, ("forwarding registerContext to: host='%s', port=%d", fwdHost, fwdPort));
-    LM_T(LmtCm, ("payload (content-type: application/xml): '%s'", payload.c_str()));
-    std::string response = sendHttpSocket(fwdHost,
-                   fwdPort,
-                   "POST",
-                   "ngsi9/registerContext",
-                   //FIXME P3: unhardwire content type
-                   std::string ("application/xml"),
-                   payload,
-                   true);
-    LM_T(LmtCm, ("response to forward registerContext: '%s'", response.c_str()));
-
-    return response;
-}
-
-
-
-/* ****************************************************************************
-*
-* registerContextForward -
-*
-* NOTE
-*   Used by postRegisterContext
-*/
-static void registerContextForward(ConnectionInfo* ciP, ParseData* parseDataP, RegisterContextResponse* rcrP)
-{
-  /* Forward registerContext */
-  if (parseDataP->rcr.res.registrationId.isEmpty())
-  {
-    /* New registration case */
-    ciP->httpStatusCode  = mongoRegisterContext(&parseDataP->rcr.res, rcrP);
-
-    std::string payload  = parseDataP->rcr.res.render(RegisterContext, ciP->inFormat, "");
-    std::string response = fordwardRegisterContext(fwdHost, fwdPort, payload);
-
-    if (response == "error")
-       LM_RVE(("fordwardRegisterContext failed"));
-
-    ParseData    responseData;
-    XmlRequest*  reqP = NULL;
-    const char*  payloadStart = strstr(response.c_str(), "<registerContextResponse>");
-
-    if (payloadStart == NULL)
-      LM_RVE(("<registerContextResponse> not found in fordwardRegisterContext response '%s'", response.c_str()));
-
-    std::string  s = xmlTreat(payloadStart, ciP, &responseData, RegisterResponse, "", &reqP);
-    if (s != "OK")
-      LM_E(("Error parsing registerContextResponse: %s", s.c_str()));
-    else
-    {
-      std::string fwdRegId = responseData.rcrs.res.registrationId.get();
-      LM_T(LmtCm, ("forward regId is: '%s'", fwdRegId.c_str()));
-      mongoSetFwdRegId(rcrP->registrationId.get(), fwdRegId);
-    }
-      
-    if (reqP != NULL)
-      reqP->release(&responseData);
-  }
-  else
-  {
-    /* Update case */
-    std::string fwdRegId = mongoGetFwdRegId(parseDataP->rcr.res.registrationId.get());
-    ciP->httpStatusCode = mongoRegisterContext(&parseDataP->rcr.res, rcrP);
-    parseDataP->rcr.res.registrationId.set(fwdRegId);
-    mongoSetFwdRegId(rcrP->registrationId.get(), fwdRegId);
-    std::string payload = parseDataP->rcr.res.render(RegisterContext, ciP->inFormat, "");
-    fordwardRegisterContext(fwdHost, fwdPort, payload);
-  }
-}
-
-
-
-/* ****************************************************************************
-*
-* postRegisterContext - 
-*/
-std::string postRegisterContext(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postRegisterContext
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   RegisterContextResponse  rcr;
+  std::string              answer;
 
-  if (fwdPort != 0)
+  //
+  // If more than ONE service-path is input, an error is returned as response.
+  // If NO service-path is issued, then the default service-path "/" is used.
+  // After these checks, the service-path is checked to be 'correct'.
+  //
+  if (ciP->servicePathV.size() > 1)
   {
-    registerContextForward(ciP, parseDataP, &rcr);
-  }
-  else
-    ciP->httpStatusCode = mongoRegisterContext(&parseDataP->rcr.res, &rcr);
+    alarmMgr.badInput(clientIp, "more than one service path for a registration");
+    rcr.errorCode.fill(SccBadRequest, "more than one service path for notification");
 
-  std::string answer = rcr.render(RegisterContext, ciP->outFormat, "");
+    TIMED_RENDER(answer = rcr.render(RegisterContext, ""));
+
+    return answer;
+  }
+  else if (ciP->servicePathV.size() == 0)
+  {
+    ciP->servicePathV.push_back(DEFAULT_SERVICE_PATH);
+  }
+
+  std::string res = servicePathCheck(ciP->servicePathV[0].c_str());
+  if (res != "OK")
+  {
+    rcr.errorCode.fill(SccBadRequest, res);
+
+    TIMED_RENDER(answer = rcr.render(RegisterContext, ""));
+    return answer;
+  }
+
+  TIMED_MONGO(ciP->httpStatusCode = mongoRegisterContext(&parseDataP->rcr.res, &rcr, ciP->uriParam, ciP->tenant, ciP->servicePathV[0]));
+  TIMED_RENDER(answer = rcr.render(RegisterContext, ""));
 
   return answer;
 }

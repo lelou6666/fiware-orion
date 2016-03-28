@@ -1,5 +1,5 @@
-#ifndef NOTIFY_CONDITION_H
-#define NOTIFY_CONDITION_H
+#ifndef SRC_LIB_NGSI_NOTIFYCONDITION_H_
+#define SRC_LIB_NGSI_NOTIFYCONDITION_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,9 +31,9 @@
 #include "ngsi/RestrictionString.h"
 #include "ngsi/ConditionValueList.h"
 
-#define ON_TIMEINTERVAL_CONDITION "ONTIMEINTERVAL"
-#define ON_CHANGE_CONDITION "ONCHANGE"
-#define ON_VALUE_CONDITION "ONVALUE"
+#define ON_CHANGE_CONDITION  "ONCHANGE"
+
+
 
 /* ****************************************************************************
 *
@@ -45,10 +45,17 @@ typedef struct NotifyCondition
   ConditionValueList        condValueList;   // Optional
   RestrictionString         restriction;     // Optional
 
-  std::string   render(Format format, std::string indent, bool notLastInVector);
-  std::string   check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void          present(std::string indent, int ix);
+  NotifyCondition();
+  NotifyCondition(NotifyCondition* ncP);
+
+  std::string   render(const std::string& indent, bool notLastInVector);
+  void          present(const std::string& indent, int ix);
   void          release(void);
+
+  std::string   check(RequestType         requestType,
+                      const std::string&  indent,
+                      const std::string&  predetectedError,
+                      int                 counter);
 } NotifyCondition;
 
-#endif
+#endif  // SRC_LIB_NGSI_NOTIFYCONDITION_H_

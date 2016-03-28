@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -28,10 +28,15 @@
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
-#include "convenienceMap/mapDeleteIndividualContextEntityAttribute.h"
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "ngsi/ParseData.h"
 #include "ngsi/StatusCode.h"
 #include "rest/ConnectionInfo.h"
+#include "rest/uriParamNames.h"
+#include "rest/EntityTypeInfo.h"
+#include "serviceRoutines/postUpdateContext.h"
 #include "serviceRoutines/deleteIndividualContextEntityAttribute.h"
 
 
@@ -39,22 +44,57 @@
 /* ****************************************************************************
 *
 * deleteIndividualContextEntityAttribute - 
+*
+* DELETE /v1/contextEntities/{entityId::id}/attributes/{attributeName}
+* DELETE /ngsi10/contextEntities/{entityId::id}/attributes/{attributeName}
+*
+* Payload In:  None
+* Payload Out: StatusCode
+*
+* URI parameters:
+*   - entity::type=TYPE
+*   - note that '!exist=entity::type' and 'exist=entity::type' are not supported by convenience operations
+*     that use the standard operation UpdateContext as there is no restriction within UpdateContext.
+*   [ attributesFormat=object: makes no sense for this operation as StatusCode is returned ]
+*   
+* 0. Take care of URI params
+* 1. Fill in UpdateContextRequest from URL-path components
+* 2. Call postUpdateContext standard service routine
+* 3. Translate UpdateContextResponse to StatusCode
+* 4. Cleanup and return result
 */
-std::string deleteIndividualContextEntityAttribute(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string deleteIndividualContextEntityAttribute
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   std::string  answer;
-  std::string  entityId      = "unknown entityId";
-  std::string  attributeName = "unknown attributeName";
+  std::string  entityId      = compV[2];
+  std::string  entityType    = ciP->uriParam[URI_PARAM_ENTITY_TYPE];
+  std::string  attributeName = compV[4];
   StatusCode   response;
 
-  if (compV.size() > 2)   entityId      = compV[2];
-  if (compV.size() > 4)   attributeName = compV[4];
 
-  LM_T(LmtConvenience, ("CONVENIENCE: got a 'DELETE' request for entityId '%s'", entityId.c_str()));
+  // 1. Fill in UpdateContextRequest from URL-path components
+  parseDataP->upcr.res.fill(entityId, entityType, "false", attributeName, "", "DELETE");
 
-  ciP->httpStatusCode = mapDeleteIndividualContextEntityAttribute(entityId, attributeName, &response);
-  answer = response.render(ciP->outFormat, "");
+
+  // 2. Call postUpdateContext standard service routine
+  postUpdateContext(ciP, components, compV, parseDataP);
+
+
+  // 3. Translate UpdateContextResponse to StatusCode
+  response.fill(parseDataP->upcrs.res);
+
+
+  // 4. Cleanup and return result
+  TIMED_RENDER(answer = response.render("", false, false));
+
   response.release();
+  parseDataP->upcr.res.release();
 
   return answer;
 }

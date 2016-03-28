@@ -18,17 +18,23 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 #include <vector>
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+#include "common/limits.h"
+#include "alarmMgr/alarmMgr.h"
+
 #include "mongoBackend/mongoSubscribeContext.h"
 #include "ngsi/ParseData.h"
 #include "ngsi10/SubscribeContextResponse.h"
 #include "rest/ConnectionInfo.h"
+#include "rest/uriParamNames.h"
 #include "serviceRoutines/postSubscribeContext.h"
 
 
@@ -36,18 +42,50 @@
 /* ****************************************************************************
 *
 * postSubscribeContext - 
+*
+* POST /v1/subscribeContext
+* POST /ngsi10/subscribeContext
+*
+* Payload In:  SubscribeContextRequest
+* Payload Out: SubscribeContextResponse
+*
+* URI parameters
+*   - notifyFormat=XXX    (used by mongoBackend)
 */
-std::string postSubscribeContext(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postSubscribeContext
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   SubscribeContextResponse  scr;
   std::string               answer;
 
-  // FIXME P6: by the moment, we are assuming that notification will be sent in the same format than the one
-  // used to do the subscription, so we are passing ciP->inFomat. This is just an heuristic, the client could want
-  // for example to use XML in the subscription message but wants notifications in JSON. We need a more
-  // flexible approach, to be implemented
-  ciP->httpStatusCode = mongoSubscribeContext(&parseDataP->scr.res, &scr, ciP->inFormat);
-  answer = scr.render(SubscribeContext, ciP->outFormat, "");
+  //
+  // FIXME P0: Only *one* service path is allowed for subscriptions.
+  //           Personally (kz) I kind of like that. If you want additional service-paths, just add another subscription!
+  //           However, we need to at least state that HERE is where we limit the number of service paths to *one*.
+  //
+  if (ciP->servicePathV.size() > 1)
+  {
+    char  noOfV[STRING_SIZE_FOR_INT];
+    snprintf(noOfV, sizeof(noOfV), "%lu", ciP->servicePathV.size());
+    std::string details = std::string("max *one* service-path allowed for subscriptions (") + noOfV + " given";
+
+    alarmMgr.badInput(clientIp, details);
+
+    scr.subscribeError.errorCode.fill(SccBadRequest, "max one service-path allowed for subscriptions");
+
+    TIMED_RENDER(answer = scr.render(SubscribeContext, ""));
+    return answer;
+  }
+
+  TIMED_MONGO(ciP->httpStatusCode = mongoSubscribeContext(&parseDataP->scr.res, &scr, ciP->tenant, ciP->uriParam, ciP->httpHeaders.xauthToken, ciP->servicePathV));
+  TIMED_RENDER(answer = scr.render(SubscribeContext, ""));
+
+  parseDataP->scr.res.release();
 
   return answer;
 }

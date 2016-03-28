@@ -18,38 +18,52 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermín Galán
 */
 
-#include "mongoNotifyContext.h"
+#include "common/sem.h"
 
+#include "mongoBackend/mongoNotifyContext.h"
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/MongoCommonUpdate.h"
-#include "common/sem.h"
 #include "ngsi10/UpdateContextResponse.h"
 
 /* ****************************************************************************
 *
-* mongoNofityContext -
+* mongoNotifyContext -
 */
-HttpStatusCode mongoNotifyContext(NotifyContextRequest* requestP, NotifyContextResponse* responseP) {
+HttpStatusCode mongoNotifyContext
+(
+  NotifyContextRequest*            requestP,
+  NotifyContextResponse*           responseP,
+  const std::string&               tenant,
+  const std::string&               xauthToken,
+  const std::vector<std::string>&  servicePathV
+)
+{
+    bool reqSemTaken;
 
-    /* Take semaphore. The LM_S* family of macros combines semaphore release with return */
-    semTake();
+    reqSemTake(__FUNCTION__, "ngsi10 notification", SemWriteOp, &reqSemTaken);
 
     /* We ignore "subscriptionId" and "originator" in the request, as we don't have anything interesting
      * to do with them */
 
     /* Process each ContextElement */
-    for (unsigned int ix= 0; ix < requestP->contextElementResponseVector.size(); ++ix) {
-        /* We use 'ucr' to conform processContextElement signature but we are not doing anything with that */
-        UpdateContextResponse ucr;
-        processContextElement(&requestP->contextElementResponseVector.get(ix)->contextElement, &ucr, "append");
+    for (unsigned int ix = 0; ix < requestP->contextElementResponseVector.size(); ++ix)
+    {
+        // We use 'ucr' to conform to processContextElement signature but we are not doing anything with that
+        UpdateContextResponse  ucr;
+        ContextElement*        ceP = &requestP->contextElementResponseVector[ix]->contextElement;
+        // FIXME P10: we pass an empty uriParams in order to fulfill the processContextElement signature().
+        std::map<std::string, std::string> uriParams;
+
+        processContextElement(ceP, &ucr, "append", tenant, servicePathV, uriParams, xauthToken);
     }
 
+    reqSemGive(__FUNCTION__, "ngsi10 notification", reqSemTaken);
     responseP->responseCode.fill(SccOk);
 
-    LM_SR(SccOk);
+    return SccOk;
 }

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -48,8 +48,10 @@ static RestService rs[] =
 /* ****************************************************************************
 *
 * notFound - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(getIndividualContextEntityAttribute, notFound)
+TEST(getIndividualContextEntityAttribute, DISABLED_notFound)
 {
   setupDatabase();
 
@@ -59,7 +61,7 @@ TEST(getIndividualContextEntityAttribute, notFound)
 
   utInit();
 
-  ci.outFormat = XML;
+  ci.outFormat = JSON;
   out          = restService(&ci, rs);
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";

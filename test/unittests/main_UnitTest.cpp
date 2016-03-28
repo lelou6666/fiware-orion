@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -39,6 +39,8 @@
 #include "common/sem.h"
 #include "mongoBackend/MongoGlobal.h"
 #include "ngsiNotify/Notifier.h"
+#include "alarmMgr/alarmMgr.h"
+#include "logSummary/logSummary.h"
 
 #include "unittest.h"
 
@@ -59,18 +61,23 @@ PaArgument paArgs[] =
 *
 * global variables
 */
-bool  harakiri          = true;
-int   logFd             = -1;
-int   fwdPort           = -1;
-char  fwdHost[64];
-
+bool          harakiri              = true;
+int           logFd                 = -1;
+int           fwdPort               = -1;
+int           subCacheInterval      = 10;
+unsigned int  cprForwardLimit       = 1000;
+bool          noCache               = false;
+char          fwdHost[64];
+char          notificationMode[64];
+bool          simulatedNotification;
+int           lsPeriod             = 0;
 
 
 /* ****************************************************************************
 *
 * exitFunction - 
 */
-void exitFunction(int code, std::string reason)
+void exitFunction(int code, const std::string& reason)
 {
   LM_E(("Orion library asks to exit %d: '%s', but no exit is allowed inside unit tests", code, reason.c_str()));
 }
@@ -105,7 +112,9 @@ int main(int argC, char** argV)
     paParse(paArgs, 1, argV, 1, false);
 
   LM_M(("Init tests"));
-  orionInit(exitFunction, orionUnitTestVersion);
+  orionInit(exitFunction, orionUnitTestVersion, SemReadWriteOp, false, false, false, false, false);
+  alarmMgr.init(false);
+  logSummaryInit(&lsPeriod);
   setupDatabase();
 
   LM_M(("Run all tests"));

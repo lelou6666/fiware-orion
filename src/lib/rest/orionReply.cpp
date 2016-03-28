@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -34,15 +34,15 @@
 *
 * orionReply - 
 */
-std::string orionReply(ConnectionInfo* ciP, std::string what, std::string value)
+std::string orionReply(ConnectionInfo* ciP, const std::string& what, const std::string& value)
 {
    std::string out = "";
 
-   out += startTag("",     "orion", ciP->outFormat);
-   out += startTag("  ",   "log",   ciP->outFormat);
-   out += valueTag("    ",  what,   value, ciP->outFormat);
-   out += endTag("  ",     "log",   ciP->outFormat);
-   out += endTag("",       "orion", ciP->outFormat);
+   out += startTag1("",     "orion");
+   out += startTag1("  ",   "log");
+   out += valueTag1("    ",  what, value);
+   out += endTag("  ");
+   out += endTag("");
 
    ciP->httpStatusCode = SccOk;
    restReply(ciP, out);

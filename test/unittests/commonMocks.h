@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
@@ -51,51 +51,58 @@ public:
                 .WillByDefault(Invoke(this, &DBClientConnectionMock::parent_count));
         ON_CALL(*this, findOne(_,_,_,_))
                 .WillByDefault(Invoke(this, &DBClientConnectionMock::parent_findOne));
-        ON_CALL(*this, insert(_,_,_))
+        ON_CALL(*this, insert(_,_,_,_))
                 .WillByDefault(Invoke(this, &DBClientConnectionMock::parent_insert));
-        ON_CALL(*this, remove(_,_,_))
+        ON_CALL(*this, remove(_,_,_,_))
                 .WillByDefault(Invoke(this, &DBClientConnectionMock::parent_remove));
-        ON_CALL(*this, update(_,_,_,_,_))
+        ON_CALL(*this, update(_,_,_,_,_,_))
                 .WillByDefault(Invoke(this, &DBClientConnectionMock::parent_update));
         ON_CALL(*this, _query(_,_,_,_,_,_,_))
                 .WillByDefault(Invoke(this, &DBClientConnectionMock::parent_query));
+        ON_CALL(*this, runCommand(_,_,_,_))
+                .WillByDefault(Invoke(this, &DBClientConnectionMock::parent_runCommand));
     }
 
-    MOCK_METHOD5(count, unsigned long long(const string &ns, const BSONObj &query, int options, int limit, int skip));
-    MOCK_METHOD4(findOne, BSONObj(const string &ns, const Query &query, const BSONObj *fieldsToReturn, int queryOptions));
-    MOCK_METHOD3(insert, void(const string &ns, BSONObj obj, int flags));
-    MOCK_METHOD5(update, void(const string &ns, Query query, BSONObj obj, bool upsert, bool multi));
-    MOCK_METHOD3(remove, void(const string &ns, Query q, bool justOne));
+    MOCK_METHOD5(count, unsigned long long(const std::string &ns, const BSONObj &query, int options, int limit, int skip));
+    MOCK_METHOD4(findOne, BSONObj(const std::string &ns, const Query &query, const BSONObj *fieldsToReturn, int queryOptions));
+    MOCK_METHOD4(insert, void(const std::string &ns, BSONObj obj, int flags, const WriteConcern* wc));
+    MOCK_METHOD6(update, void(const std::string &ns, Query query, BSONObj obj, bool upsert, bool multi, const WriteConcern* wc));
+    MOCK_METHOD4(remove, void(const std::string &ns, Query q, bool justOne, const WriteConcern* wc));
+    MOCK_METHOD4(runCommand, bool(const std::string &dbname, const BSONObj& cmd, BSONObj &info, int options));
 
-    /* We can not directly mock a method that returns auto_ptr<T>, so we are using the workaround described in
+    /* We can not directly mock a method that returns std::auto_ptr<T>, so we are using the workaround described in
      * http://stackoverflow.com/questions/7616475/can-google-mock-a-method-with-a-smart-pointer-return-type */
-    virtual auto_ptr<DBClientCursor> query(const string &ns, Query query, int nToReturn, int nToSkip, const BSONObj *fieldsToReturn, int queryOptions, int batchSize)
+    virtual std::auto_ptr<DBClientCursor> query(const std::string &ns, Query query, int nToReturn, int nToSkip, const BSONObj *fieldsToReturn, int queryOptions, int batchSize)
     {
-        return auto_ptr<DBClientCursor>(_query(ns, query, nToReturn, nToSkip, fieldsToReturn, queryOptions, batchSize));
+        return std::auto_ptr<DBClientCursor>(_query(ns, query, nToReturn, nToSkip, fieldsToReturn, queryOptions, batchSize));
     }
-    MOCK_METHOD7(_query, DBClientCursor*(const string &ns, Query query, int nToReturn, int nToSkip, const BSONObj *fieldsToReturn, int queryOptions, int batchSize));
+    MOCK_METHOD7(_query, DBClientCursor*(const std::string &ns, Query query, int nToReturn, int nToSkip, const BSONObj *fieldsToReturn, int queryOptions, int batchSize));
 
     /* Wrappers for parent methods (used in ON_CALL() defaults set in the constructor) */
-    unsigned long long parent_count(const string &ns, const BSONObj &query, int options, int limit, int skip) {
+    unsigned long long parent_count(const std::string &ns, const BSONObj &query, int options, int limit, int skip) {
         return DBClientConnection::count(ns, query, options, limit, skip);
     }
-    BSONObj parent_findOne(const string &ns, const Query &query, const BSONObj *fieldsToReturn, int queryOptions) {
+    BSONObj parent_findOne(const std::string &ns, const Query &query, const BSONObj *fieldsToReturn, int queryOptions) {
         return DBClientConnection::findOne(ns, query, fieldsToReturn, queryOptions);
     }
-    void parent_insert(const string &ns, BSONObj obj, int flags) {
-        return DBClientConnection::insert(ns, obj, flags);
+    void parent_insert(const std::string &ns, BSONObj obj, int flags, const WriteConcern* wc) {
+        return DBClientConnection::insert(ns, obj, flags, wc);
     }
-    void parent_update(const string &ns, Query query, BSONObj obj, bool upsert, bool multi) {
-        return DBClientConnection::update(ns, query, obj, upsert, multi);
+    void parent_update(const std::string &ns, Query query, BSONObj obj, bool upsert, bool multi, const WriteConcern* wc) {
+        return DBClientConnection::update(ns, query, obj, upsert, multi, wc);
     }
-    void parent_remove(const string &ns, Query query, bool justOne) {
-        return DBClientConnection::remove(ns, query, justOne);
+    void parent_remove(const std::string &ns, Query query, bool justOne, const WriteConcern* wc) {
+        return DBClientConnection::remove(ns, query, justOne, wc);
     }
     /* Note that given the way in which query() and _query() are defined, parent_query uses
      * a slightly different pattern */
-    DBClientCursor* parent_query(const string &ns, Query query, int nToReturn, int nToSkip, const BSONObj *fieldsToReturn, int queryOptions, int batchSize) {
-        auto_ptr<DBClientCursor> cursor = DBClientConnection::query(ns, query, nToReturn, nToSkip, fieldsToReturn, queryOptions, batchSize);
+    DBClientCursor* parent_query(const std::string &ns, Query query, int nToReturn, int nToSkip, const BSONObj *fieldsToReturn, int queryOptions, int batchSize) {
+        std::auto_ptr<DBClientCursor> cursor = DBClientConnection::query(ns, query, nToReturn, nToSkip, fieldsToReturn, queryOptions, batchSize);
         return cursor.get();
+    }
+    bool parent_runCommand(const std::string &dbname, const BSONObj& cmd,BSONObj &info, int options)
+    {
+        return DBClientConnection::runCommand(dbname, cmd, info, options);
     }
 
 };
@@ -110,8 +117,8 @@ class DBClientCursorMock: public DBClientCursor {
 
 public:
 
-    DBClientCursorMock(DBClientBase *client, const string &_ns, long long _cursorId, int _nToReturn, int options) :
-        DBClientCursor(client, _ns, _cursorId, _nToReturn, options)
+    DBClientCursorMock(DBClientBase *client, const std::string &_ns, long long _cursorId, int _nToReturn, int options) :
+        DBClientCursor(client, _ns, _cursorId, _nToReturn, options, /*batchSize*/ 10)
     {
         /* By default, all methods are redirected to the parent ones. We use the
          * technique described at
@@ -153,23 +160,15 @@ public:
          * actually created/sent */
     }
 
-    MOCK_METHOD3(sendNotifyContextRequest, void(NotifyContextRequest* ncr, std::string url, Format f));
-    MOCK_METHOD3(sendNotifyContextAvailabilityRequest, void(NotifyContextAvailabilityRequest* ncar, std::string url, Format f));
-    MOCK_METHOD2(createIntervalThread, void(std::string subId, int interval));
-    MOCK_METHOD1(destroyOntimeIntervalThreads, void(std::string subId));
+    MOCK_METHOD5(sendNotifyContextRequest, void(NotifyContextRequest* ncr, const std::string& url, const std::string& tenant, const std::string& xauthToken, Format f));
+    MOCK_METHOD4(sendNotifyContextAvailabilityRequest, void(NotifyContextAvailabilityRequest* ncar, const std::string& url, const std::string& tenant, Format f));
 
     /* Wrappers for parent methods (used in ON_CALL() defaults set in the constructor) */
-    void parent_sendNotifyContextRequest(NotifyContextRequest* ncr, std::string url, Format format) {
-        return Notifier::sendNotifyContextRequest(ncr, url, format);
+    void parent_sendNotifyContextRequest(NotifyContextRequest* ncr, const std::string& url, const std::string& tenant, const std::string& xauthToken, Format format) {
+       return Notifier::sendNotifyContextRequest(ncr, url, tenant, xauthToken, format);
     }
-    void parent_sendNotifyContextAvailabilityRequest(NotifyContextAvailabilityRequest* ncar, std::string url, Format format) {
-        return Notifier::sendNotifyContextAvailabilityRequest(ncar, url, format);
-    }
-    void parent_createIntervalThread(std::string subId, int interval) {
-        return Notifier::createIntervalThread(subId, interval);
-    }
-    void parent_destroyOntimeIntervalThreads(std::string subId) {
-        return Notifier::destroyOntimeIntervalThreads(subId);
+    void parent_sendNotifyContextAvailabilityRequest(NotifyContextAvailabilityRequest* ncar, const std::string& url, const std::string& tenant, Format format) {
+       return Notifier::sendNotifyContextAvailabilityRequest(ncar, url, tenant, format);
     }
 
 };

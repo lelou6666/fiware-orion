@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -30,28 +30,40 @@
 
 #include "rest/ConnectionInfo.h"
 #include "ngsi/ParseData.h"
-#include "ngsi9/RegisterContextRequest.h"
-#include "serviceRoutines/postRegisterContext.h"  // instead of convenienceMap function, postRegisterContext is used
+#include "serviceRoutines/postRegisterContext.h"
 #include "serviceRoutines/postContextEntityTypeAttribute.h"
 
 
 
 /* ****************************************************************************
 *
-* postContextEntityTypeAttribute - 
+* postContextEntityTypeAttribute -
 *
 * POST /ngsi9/contextEntityTypes/{typeName}/attributes/{attributeName}
+* POST /v1/registry/contextEntityTypes/{typeName}/attributes/{attributeName}
+*
+* Payload In: RegisterProviderRequest
+* Payload Out: RegisterContextResponse
+*
+* 1. Transform RegisterProviderRequest+typeName+attributeName into a RegisterContextRequest
+* 2. Call the Standard operation for RegisterContextRequest 
 */
-std::string postContextEntityTypeAttribute(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postContextEntityTypeAttribute
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  std::string  entityIdType   = compV[2];
-  std::string  attributeName  = compV[4];  
-  
-  // Transform RegisterProviderRequest into RegisterContextRequest
-  parseDataP->rcr.res.fill(parseDataP->rpr.res, "", entityIdType, attributeName);
+  std::string  entityIdType   = (compV[0] == "v1")? compV[3] : compV[2];
+  std::string  attributeName  = (compV[0] == "v1")? compV[5] : compV[4];
+  std::string  answer;
 
-  // Now call postRegisterContext (postRegisterContext doesn't use the parameters 'components' and 'compV')
-  std::string answer = postRegisterContext(ciP, components, compV, parseDataP);
+  parseDataP->rcr.res.fill(parseDataP->rpr.res, "", entityIdType, attributeName);
+  answer = postRegisterContext(ciP, components, compV, parseDataP);
+
+  parseDataP->rpr.res.release();
   parseDataP->rcr.res.release();
 
   return answer;

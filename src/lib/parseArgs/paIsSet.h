@@ -1,5 +1,5 @@
-#ifndef PA_IS_SET_H
-#define PA_IS_SET_H
+#ifndef SRC_LIB_PARSEARGS_PAISSET_H_
+#define SRC_LIB_PARSEARGS_PAISSET_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -42,4 +42,4 @@ extern bool paIsSet(int argC, char* argV[], const char* option);
 */
 extern const char* paIsSetSoGet(int argC, char* argV[], const char* option);
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_PAISSET_H_

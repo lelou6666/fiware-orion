@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -28,6 +28,7 @@
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
+#include "alarmMgr/alarmMgr.h"
 #include "ngsi/ParseData.h"
 #include "rest/ConnectionInfo.h"
 #include "rest/restReply.h"
@@ -39,11 +40,23 @@
 *
 * badNgsi10Request - 
 */
-std::string badNgsi10Request(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string badNgsi10Request
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   std::string answer;
+  std::string details = std::string("service '") + ciP->url + "' not found";
 
-  answer = restErrorReplyGet(ciP, ciP->outFormat, "", ciP->payloadWord, SccBadRequest, std::string("ngsi10 service '") + ciP->url +"' not found");
+  alarmMgr.badInput(clientIp, details);
+  answer = restErrorReplyGet(ciP,
+                             "",
+                             ciP->payloadWord,
+                             SccBadRequest,
+                             "service not found");
 
   return answer;
 }

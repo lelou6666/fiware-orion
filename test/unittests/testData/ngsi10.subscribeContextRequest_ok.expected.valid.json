@@ -11,12 +11,12 @@
       "id" : "OfficeRoom"
     }
   ],
-  "attributeList" : {
-    "attribute" : "temperature",
-    "attribute" : "occupancy",
-    "attribute" : "lightstatus"
-  },
-  "reference" : "127.0.0.1",
+  "attributes" : [
+    "temperature",
+    "occupancy",
+    "lightstatus"
+  ],
+  "reference" : "http://127.0.0.1",
   "duration" : "P5Y",
   "restriction" : {
     "attributeExpression" : "testRestriction",
@@ -33,7 +33,7 @@
   },
   "notifyConditions" : [
     {
-      "type" : "ONTIMEINTERVAL",
+      "type" : "ONCHANGE",
       "condValueList" : [
         "temperature",
         "lightstatus"

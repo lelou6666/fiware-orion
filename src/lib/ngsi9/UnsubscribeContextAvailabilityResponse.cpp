@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -75,17 +75,17 @@ UnsubscribeContextAvailabilityResponse::~UnsubscribeContextAvailabilityResponse(
 *
 * UnsubscribeContextAvailabilityResponse::render - 
 */
-std::string UnsubscribeContextAvailabilityResponse::render(RequestType requestType, Format format, std::string indent)
+std::string UnsubscribeContextAvailabilityResponse::render(RequestType requestType, const std::string& indent)
 {
   std::string out = "";
   std::string tag = "unsubscribeContextAvailabilityResponse";
 
-  out += startTag(indent, tag, format, false);
+  out += startTag1(indent, tag, false);
 
-  out += subscriptionId.render(RtUnsubscribeContextAvailabilityResponse, format, indent + "  ", true);  // always json comma - statusCode is mandatory
-  out += statusCode.render(format, indent + "  ");
+  out += subscriptionId.render(RtUnsubscribeContextAvailabilityResponse, indent + "  ", true);  // always json comma - statusCode is mandatory
+  out += statusCode.render(indent + "  ");
 
-  out += endTag(indent, tag, format);
+  out += endTag(indent);
 
   return out;
 }

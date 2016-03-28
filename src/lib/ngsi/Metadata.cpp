@@ -18,83 +18,188 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <stdio.h>
+#include <string>
 
+#include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
+#include "common/limits.h"
 #include "common/tag.h"
+#include "common/string.h"
+#include "alarmMgr/alarmMgr.h"
+
+#include "orionTypes/OrionValueType.h"
+#include "parse/forbiddenChars.h"
 #include "ngsi/Metadata.h"
+
+#include "mongoBackend/dbConstants.h"
+#include "mongoBackend/safeMongo.h"
+
+#include "rest/ConnectionInfo.h"
+
+using namespace mongo;
 
 
 
 /* ****************************************************************************
 *
-* Metadata::Metadata - 
-*/ 
+* Metadata::Metadata -
+*/
 Metadata::Metadata()
 {
-  name  = "";
-  type  = "";
-  value = "";
+  name         = "";
+  type         = "";
+  stringValue  = "";
+  valueType    = orion::ValueTypeString;
+  typeGiven    = false;
 }
 
 
 
 /* ****************************************************************************
 *
-* Metadata::Metadata - 
+* Metadata::Metadata -
 *
-* FIXME 8: Copy also the Association!
-*  
-*/ 
-Metadata::Metadata(Metadata* mP)
+*/
+Metadata::Metadata(Metadata* mP, bool useDefaultType)
 {
   LM_T(LmtClone, ("'cloning' a Metadata"));
 
-  name  = mP->name;
-  type  = mP->type;
-  value = mP->value;
+  name         = mP->name;
+  type         = mP->type;
+  valueType    = mP->valueType;
+  stringValue  = mP->stringValue;
+  numberValue  = mP->numberValue;
+  boolValue    = mP->boolValue;
+  typeGiven    = mP->typeGiven;
+
+  if (useDefaultType && !typeGiven)
+  {
+    type = DEFAULT_TYPE;
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* Metadata::Metadata - 
-*/ 
-Metadata::Metadata(std::string _name, std::string _type, std::string _value)
-{
-  name  = _name;
-  type  = _type;
-  value = _value;
-}
-
-
-
-/* ****************************************************************************
-*
-* Metadata::render - 
+* Metadata::Metadata -
 */
-std::string Metadata::render(Format format, std::string indent, bool comma)
+Metadata::Metadata(const std::string& _name, const std::string& _type, const char* _value)
+{
+  name         = _name;
+  type         = _type;
+  valueType    = orion::ValueTypeString;
+  stringValue  = std::string(_value);
+  typeGiven    = false;
+}
+
+
+
+/* ****************************************************************************
+*
+* Metadata::Metadata -
+*/
+Metadata::Metadata(const std::string& _name, const std::string& _type, const std::string& _value)
+{
+  name         = _name;
+  type         = _type;
+  valueType    = orion::ValueTypeString;
+  stringValue  = _value;
+  typeGiven    = false;
+}
+
+
+
+/* ****************************************************************************
+*
+* Metadata::Metadata -
+*/
+Metadata::Metadata(const std::string& _name, const std::string& _type, double _value)
+{
+  name         = _name;
+  type         = _type;
+  valueType    = orion::ValueTypeNumber;
+  numberValue  = _value;
+  typeGiven    = false;
+}
+
+
+
+/* ****************************************************************************
+*
+* Metadata::Metadata -
+*/
+Metadata::Metadata(const std::string& _name, const std::string& _type, bool _value)
+{
+  name         = _name;
+  type         = _type;
+  valueType    = orion::ValueTypeBoolean;
+  boolValue    = _value;
+  typeGiven    = false;
+}
+
+/* ****************************************************************************
+*
+* Metadata::Metadata -
+*/
+Metadata::Metadata(const BSONObj& mdB)
+{
+  name = getStringFieldF(mdB, ENT_ATTRS_MD_NAME);
+  type = mdB.hasField(ENT_ATTRS_MD_TYPE) ? getStringFieldF(mdB, ENT_ATTRS_MD_TYPE) : "";
+
+  typeGiven = (type == "")? false : true;
+
+  switch (getFieldF(mdB, ENT_ATTRS_MD_VALUE).type())
+  {
+  case String:
+    valueType   = orion::ValueTypeString;
+    stringValue = getStringFieldF(mdB, ENT_ATTRS_MD_VALUE);
+    break;
+
+  case NumberDouble:
+    valueType   = orion::ValueTypeNumber;
+    numberValue = getFieldF(mdB, ENT_ATTRS_MD_VALUE).Number();
+    break;
+
+  case Bool:
+    valueType = orion::ValueTypeBoolean;
+    boolValue = getBoolFieldF(mdB, ENT_ATTRS_MD_VALUE);
+    break;
+
+  case jstNULL:
+    valueType = orion::ValueTypeNone;
+    break;
+
+  default:
+    valueType = orion::ValueTypeUnknown;
+    LM_E(("Runtime Error (unknown metadata value value type in DB: %d)", getFieldF(mdB, ENT_ATTRS_MD_VALUE).type()));
+    break;
+  }
+}
+
+
+/* ****************************************************************************
+*
+* Metadata::render -
+*/
+std::string Metadata::render(const std::string& indent, bool comma)
 {
   std::string out     = "";
-  std::string tag  = "contextMetadata";
-  std::string xValue  = value;
+  std::string tag     = "contextMetadata";
+  std::string xValue  = stringValue;
 
-  out += startTag(indent, tag, tag, format, false, false);
-  out += valueTag(indent + "  ", "name", name, format, true);
-  out += valueTag(indent + "  ", "type", type, format, true);
-
-  if (type == "Association")
-    xValue = std::string("\n") + association.render(format, indent + "  ", false);
-
-  out += valueTag(indent + "  ", "value", xValue, format, false, (type == "Association"));
-  out += endTag(indent, tag, format, comma);
+  out += startTag2(indent, tag, false, false);
+  out += valueTag1(indent + "  ", "name", name, true);
+  out += valueTag1(indent + "  ", "type", type, true);
+  out += valueTag1(indent + "  ", "value", xValue, false);
+  out += endTag(indent, comma);
 
   return out;
 }
@@ -103,18 +208,74 @@ std::string Metadata::render(Format format, std::string indent, bool comma)
 
 /* ****************************************************************************
 *
-* Metadata::check - 
+* Metadata::check -
 */
-std::string Metadata::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string Metadata::check
+(
+  ConnectionInfo*     ciP,
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
+  size_t len;
+  char   errorMsg[128];
+
   if (name == "")
+  {
+    alarmMgr.badInput(clientIp, "missing metadata name");
     return "missing metadata name";
+  }
 
-  if ((value == "") && (type != "Association"))
-    return "missing metadata value";
+  if ( (len = strlen(name.c_str())) > MAX_ID_LEN)
+  {
+    snprintf(errorMsg, sizeof errorMsg, "metadata name length: %zd, max length supported: %d", len, MAX_ID_LEN);
+    alarmMgr.badInput(clientIp, errorMsg);
+    return std::string(errorMsg);
+  }
 
-  if (type == "Association")
-     return association.check(requestType, format, indent, predetectedError, counter);
+  if (forbiddenIdChars(ciP->apiVersion , name.c_str()))
+  {
+    alarmMgr.badInput(clientIp, "found a forbidden character in the name of a Metadata");
+    return "Invalid characters in metadata name";
+  }
+
+  if ( (len = strlen(type.c_str())) > MAX_ID_LEN)
+  {
+    snprintf(errorMsg, sizeof errorMsg, "metadata type length: %zd, max length supported: %d", len, MAX_ID_LEN);
+    alarmMgr.badInput(clientIp, errorMsg);
+    return std::string(errorMsg);
+  }
+
+
+  if (ciP->apiVersion == "v2" && (len = strlen(type.c_str())) < MIN_ID_LEN)
+  {
+    snprintf(errorMsg, sizeof errorMsg, "metadata type length: %zd, min length supported: %d", len, MIN_ID_LEN);
+    alarmMgr.badInput(clientIp, errorMsg);
+    return std::string(errorMsg);
+  }
+
+  if (forbiddenIdChars(ciP->apiVersion, type.c_str()))
+  {
+    alarmMgr.badInput(clientIp, "found a forbidden character in the type of a Metadata");
+    return "Invalid characters in metadata type";
+  }
+
+  if (valueType == orion::ValueTypeString)
+  {
+    if (forbiddenChars(stringValue.c_str()))
+    {
+      alarmMgr.badInput(clientIp, "found a forbidden character in the value of a Metadata");
+      return "Invalid characters in metadata value";
+    }
+
+    if (stringValue == "")
+    {
+      alarmMgr.badInput(clientIp, "missing metadata value");
+      return "missing metadata value";
+    }
+  }
 
   return "OK";
 }
@@ -123,23 +284,124 @@ std::string Metadata::check(RequestType requestType, Format format, std::string 
 
 /* ****************************************************************************
 *
-* Metadata::present - 
+* Metadata::present -
 */
-void Metadata::present(std::string metadataType, int ix, std::string indent)
+void Metadata::present(const std::string& metadataType, int ix, const std::string& indent)
 {
-  PRINTF("%s%s Metadata %d:\n",   indent.c_str(), metadataType.c_str(), ix);
-  PRINTF("%s  Name:     %s\n", indent.c_str(), name.c_str());
-  PRINTF("%s  Type:     %s\n", indent.c_str(), type.c_str());
-  PRINTF("%s  Value:    %s\n", indent.c_str(), value.c_str());
+  LM_T(LmtPresent, ("%s%s Metadata %d:",   
+		    indent.c_str(), 
+		    metadataType.c_str(), 
+		    ix));
+  LM_T(LmtPresent, ("%s  Name:     %s", 
+		    indent.c_str(), 
+		    name.c_str()));
+  LM_T(LmtPresent, ("%s  Type:     %s", 
+		    indent.c_str(), 
+		    type.c_str()));
+  LM_T(LmtPresent, ("%s  Value:    %s", 
+		    indent.c_str(), 
+		    stringValue.c_str()));
 }
 
 
 
 /* ****************************************************************************
 *
-* release - 
+* release -
 */
 void Metadata::release(void)
 {
-   association.release();
+}
+
+
+
+/* ****************************************************************************
+*
+* fill - 
+*/
+void Metadata::fill(const struct Metadata& md)
+{
+  name         = md.name;
+  type         = md.type;
+  stringValue  = md.stringValue;
+}
+
+/* ****************************************************************************
+*
+* toStringValue -
+*/
+std::string Metadata::toStringValue(void) const
+{
+  char buffer[64];
+
+  switch (valueType)
+  {
+  case orion::ValueTypeString:
+    return stringValue;
+    break;
+
+  case orion::ValueTypeNumber:
+    snprintf(buffer, sizeof(buffer), "%f", numberValue);
+    return std::string(buffer);
+    break;
+
+  case orion::ValueTypeBoolean:
+    return boolValue ? "true" : "false";
+    break;
+
+  default:
+    return "<unknown type>";
+    break;
+  }
+
+  // Added to avoid warning when compiling with -fstack-check -fstack-protector
+  return "";
+}
+
+
+
+/* ****************************************************************************
+*
+* toJson - 
+*/
+std::string Metadata::toJson(bool isLastElement)
+{
+  std::string  out;
+
+  out = JSON_STR(name) + ":{";
+
+  /* This is needed for entities coming from NGSIv1 (which allows empty or missing types) */
+  out += (type != "")? JSON_VALUE("type", type) : JSON_VALUE("type", DEFAULT_TYPE);
+  out += ",";
+
+  if (valueType == orion::ValueTypeString)
+  {
+    out += JSON_VALUE("value", stringValue);
+  }
+  else if (valueType == orion::ValueTypeNumber)
+  {
+    out += JSON_VALUE_NUMBER("value", toString(numberValue));
+  }
+  else if (valueType == orion::ValueTypeBoolean)
+  {
+    out += JSON_VALUE_BOOL("value", boolValue);
+  }
+  else if (valueType == orion::ValueTypeNone)
+  {
+    out += JSON_STR("value") + ":null";
+  }
+  else
+  {
+    LM_E(("Runtime Error (invalid value type for metadata %s)", name.c_str()));
+    out += JSON_VALUE("value", stringValue);
+  }
+
+  out += "}";
+
+  if (!isLastElement)
+  {
+    out += ",";
+  }
+
+  return out;
 }

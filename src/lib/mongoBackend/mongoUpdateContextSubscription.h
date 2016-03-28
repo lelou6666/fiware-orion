@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
@@ -37,6 +37,14 @@
 *
 * mongoUpdateContextSubscription - 
 */
-extern HttpStatusCode mongoUpdateContextSubscription(UpdateContextSubscriptionRequest* requestP, UpdateContextSubscriptionResponse* responseP, Format inFormat = XML);
+extern HttpStatusCode mongoUpdateContextSubscription
+(
+  UpdateContextSubscriptionRequest*   requestP,
+  UpdateContextSubscriptionResponse*  responseP,  
+  const std::string&                  tenant,
+  const std::string&                  xauthToken,
+  const std::vector<std::string>&     servicePathV,
+  std::string                         version = "v1"
+);
 
 #endif

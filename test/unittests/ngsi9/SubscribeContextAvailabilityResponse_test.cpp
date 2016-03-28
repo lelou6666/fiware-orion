@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -83,7 +83,7 @@ TEST(SubscribeContextAvailabilityResponse, jsonRender)
   scarP->subscriptionId.set("012345678901234567890123");
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), filename1)) << "Error getting test data from '" << filename1 << "'";
-  rendered = scarP->render(SubscribeContextAvailability, JSON, "");
+  rendered = scarP->render(SubscribeContextAvailability, "");
   EXPECT_STREQ(expectedBuf, rendered.c_str());
 
   
@@ -91,7 +91,7 @@ TEST(SubscribeContextAvailabilityResponse, jsonRender)
   scarP->errorCode.fill(SccBadRequest);
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), filename2)) << "Error getting test data from '" << filename2 << "'";
-  rendered = scarP->render(SubscribeContextAvailability, JSON, "");
+  rendered = scarP->render(SubscribeContextAvailability, "");
   EXPECT_STREQ(expectedBuf, rendered.c_str());
 
 
@@ -100,7 +100,7 @@ TEST(SubscribeContextAvailabilityResponse, jsonRender)
   scarP->duration.set("PT1H");
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), filename3)) << "Error getting test data from '" << filename3 << "'";
-  rendered = scarP->render(SubscribeContextAvailability, JSON, "");
+  rendered = scarP->render(SubscribeContextAvailability, "");
   EXPECT_STREQ(expectedBuf, rendered.c_str());
 
 
@@ -108,7 +108,7 @@ TEST(SubscribeContextAvailabilityResponse, jsonRender)
   scarP->errorCode.fill(SccBadRequest, "no details");
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), filename4)) << "Error getting test data from '" << filename4 << "'";
-  rendered = scarP->render(SubscribeContextAvailability, JSON, "");
+  rendered = scarP->render(SubscribeContextAvailability, "");
   EXPECT_STREQ(expectedBuf, rendered.c_str());
 
 

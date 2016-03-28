@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -35,18 +35,18 @@
 */
 static RestService rs[] = 
 {
-   { "GET",    LogRequest,                            2, { "log", "verbose"                                         }, logVerboseTreat                           },
-   { "PUT",    LogRequest,                            3, { "log", "verbose", "*"                                    }, logVerboseTreat                           },
-   { "POST",   LogRequest,                            3, { "log", "verbose", "*"                                    }, logVerboseTreat                           },
-   { "DELETE", LogRequest,                            2, { "log", "verbose"                                         }, logVerboseTreat                           },
+   { "GET",    LogTraceRequest,                       2, { "log", "verbose"                                         }, logVerboseTreat                           },
+   { "PUT",    LogTraceRequest,                       3, { "log", "verbose", "*"                                    }, logVerboseTreat                           },
+   { "POST",   LogTraceRequest,                       3, { "log", "verbose", "*"                                    }, logVerboseTreat                           },
+   { "DELETE", LogTraceRequest,                       2, { "log", "verbose"                                         }, logVerboseTreat                           },
 
-   { "GET",    LogRequest,                            2, { "log", "traceLevel"                                      }, logTraceTreat                             },
-   { "PUT",    LogRequest,                            3, { "log", "traceLevel", "*"                                 }, logTraceTreat                             },
-   { "POST",   LogRequest,                            3, { "log", "traceLevel", "*"                                 }, logTraceTreat                             },
-   { "DELETE", LogRequest,                            2, { "log", "traceLevel"                                      }, logTraceTreat                             },
+   { "GET",    LogTraceRequest,                       2, { "log", "traceLevel"                                      }, logTraceTreat                             },
+   { "PUT",    LogTraceRequest,                       3, { "log", "traceLevel", "*"                                 }, logTraceTreat                             },
+   { "POST",   LogTraceRequest,                       3, { "log", "traceLevel", "*"                                 }, logTraceTreat                             },
+   { "DELETE", LogTraceRequest,                       2, { "log", "traceLevel"                                      }, logTraceTreat                             },
 
-   { "*",      LogRequest,                            2, { "log", "*"                                               }, logErrorTreat                             },
-   { "*",      LogRequest,                            3, { "log", "*", "*"                                          }, logErrorTreat                             },
+   { "*",      LogTraceRequest,                       2, { "log", "*"                                               }, logErrorTreat                             },
+   { "*",      LogTraceRequest,                       3, { "log", "*", "*"                                          }, logErrorTreat                             },
 
    { "*",      InvalidRequest,                        0, { "*", "*", "*", "*", "*", "*"                             }, badRequest                                },
 
@@ -62,7 +62,9 @@ static RestService rs[] =
 TEST(versionTreat, get_verbose)
 {
   ConnectionInfo ci("/log/verbose",  "GET", "1.1");
-  std::string out = restService(&ci, rs);
+  std::string out;
+
+  out = restService(&ci, rs);
   EXPECT_STREQ("OK", out.c_str());
 }
 
@@ -75,7 +77,9 @@ TEST(versionTreat, get_verbose)
 TEST(versionTreat, put_verbose)
 {
   ConnectionInfo ci("/log/verbose/3",  "PUT", "1.1");
-  std::string out = restService(&ci, rs);
+  std::string out;
+
+  out = restService(&ci, rs);
   EXPECT_STREQ("OK", out.c_str());
 }
 
@@ -88,7 +92,9 @@ TEST(versionTreat, put_verbose)
 TEST(versionTreat, post_verbose)
 {
   ConnectionInfo ci("/log/verbose/3",  "POST", "1.1");
-  std::string out = restService(&ci, rs);
+  std::string out;
+
+  out = restService(&ci, rs);
   EXPECT_STREQ("OK", out.c_str());
 }
 
@@ -101,7 +107,9 @@ TEST(versionTreat, post_verbose)
 TEST(versionTreat, delete_verbose)
 {
   ConnectionInfo ci("/log/verbose",  "DELETE", "1.1");
-  std::string out = restService(&ci, rs);
+  std::string out;
+
+  out = restService(&ci, rs);
   EXPECT_STREQ("OK", out.c_str());
 }
 

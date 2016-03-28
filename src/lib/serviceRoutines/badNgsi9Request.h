@@ -1,5 +1,5 @@
-#ifndef BAD_NGSI9_REQUEST_H
-#define BAD_NGSI9_REQUEST_H
+#ifndef SRC_LIB_SERVICEROUTINES_BADNGSI9REQUEST_H_
+#define SRC_LIB_SERVICEROUTINES_BADNGSI9REQUEST_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,6 +37,12 @@
 *
 * badNgsi9Request - 
 */
-extern std::string badNgsi9Request(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP);
+extern std::string badNgsi9Request
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+);
 
-#endif
+#endif  // SRC_LIB_SERVICEROUTINES_BADNGSI9REQUEST_H_

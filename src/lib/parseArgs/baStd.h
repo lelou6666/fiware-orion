@@ -1,5 +1,5 @@
-#ifndef BA_STD_H
-#define BA_STD_H
+#ifndef SRC_LIB_PARSEARGS_BASTD_H_
+#define SRC_LIB_PARSEARGS_BASTD_H_
 
 /*
 *
@@ -21,24 +21,12 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
-
-
-
-/* ****************************************************************************
-*
-* useful macros
-*/
-#ifndef MIN
-#  define MIN(a, b)     ((a) < (b)? (a) : (b))
-#endif
-
-#ifndef MAX
-#  define MAX(a, b)     ((a) > (b)? (a) : (b))
-#endif
+#include <stdint.h>
+#include <string>
 
 
 
@@ -72,7 +60,7 @@
 *
 * baStoi - string to integer
 */
-extern long baStoi(char* string, int* baseP = (int*) 0, char* errorText = (char*) 0);
+extern int64_t baStoi(char* string, int* baseP = (int*) 0, char* errorText = (char*) 0, int errorTextLen = 0);
 
 
 
@@ -129,4 +117,4 @@ extern bool baWsOnly(char* str);
 */
 extern int baCharCount(char* line, char c);
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_BASTD_H_

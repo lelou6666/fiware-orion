@@ -1,5 +1,5 @@
-#ifndef PA_LOG_H
-#define PA_LOG_H
+#ifndef SRC_LIB_PARSEARGS_PALOG_H_
+#define SRC_LIB_PARSEARGS_PALOG_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -83,4 +83,4 @@ do {                                                                \
 #  define PA_P(s)
 #endif
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_PALOG_H_

@@ -16,24 +16,28 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
 SET (SOURCES
     Notifier.cpp
-    onTimeIntervalThread.cpp
     senderThread.cpp
     ContextSubscriptionInfo.cpp
+    QueueWorkers.cpp
+    QueueNotifier.cpp
+    QueueStatistics.cpp
 )
 
 SET (HEADERS
     ContextSubscriptionInfo.h
     Notifier.h
-    onTimeIntervalThread.h
     senderThread.h
     ThreadData.h
     OnIntervalThreadParams.h
+    QueueWorkers.h
+    QueueNotifier.h
+    QueueStatistics.h
 )
 
 

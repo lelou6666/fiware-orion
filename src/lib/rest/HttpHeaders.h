@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,8 +37,9 @@ typedef struct HttpHeaders
 {
   HttpHeaders()
   {
-    gotHeaders    = false;
-    contentLength = 0;
+    gotHeaders          = false;
+    servicePathReceived = false;
+    contentLength       = 0;
   }
 
   bool          gotHeaders;
@@ -47,6 +48,14 @@ typedef struct HttpHeaders
   std::string   accept;
   std::string   expect;
   std::string   contentType;
+  std::string   origin;
+  std::string   tenant;
+  std::string   servicePath;
+  std::string   xauthToken;
+  std::string   xforwardedFor;
+
+  bool          servicePathReceived;
+
   unsigned int  contentLength;
   std::string   connection;
 } HttpHeaders;

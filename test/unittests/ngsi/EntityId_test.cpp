@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -36,20 +36,15 @@ TEST(EntityId, render)
 {
   EntityId     eId;
   std::string  out;
-  const char*  outfile1 = "ngsi.entityId.render.middle.xml";
-  const char*  outfile2 = "ngsi.entityId.render.middle.json";
+  const char*  outfile1 = "ngsi.entityId.render.middle.json";
 
   utInit();
 
-  eId.tagSet("eId");
-  EXPECT_STREQ("eId", eId.tag.c_str());
+  eId.keyNameSet("eId");
+  EXPECT_STREQ("eId", eId.keyName.c_str());
 
-  out = eId.render(XML, "");
+  out = eId.render("");
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  out = eId.render(JSON, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();
@@ -67,7 +62,7 @@ TEST(EntityId, present)
 
   utInit();
 
-  eId.tagSet("entityId");
+  eId.keyNameSet("entityId");
   eId.present("", -1);
   eId.present("", 0);
 

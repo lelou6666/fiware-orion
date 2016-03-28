@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -30,35 +30,9 @@
 #include "common/Format.h"
 #include "convenience/UpdateContextElementRequest.h"
 #include "convenience/ContextAttributeResponseVector.h"
+#include "rest/ConnectionInfo.h"
 
 #include "unittest.h"
-
-
-
-/* ****************************************************************************
-*
-* render_xml - 
-*/
-TEST(UpdateContextElementRequest, render_xml)
-{
-  UpdateContextElementRequest     ucer;
-  ContextAttribute                ca("caName", "caType", "caValue");
-  std::string                     out;
-  const char*                     outfile = "ngsi10.updateContextElementRequest.render.valid.xml";
-
-  utInit();
-
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
-
-  // Just the normal case
-  ucer.attributeDomainName.set("ADN");
-  ucer.contextAttributeVector.push_back(&ca);
-
-  out = ucer.render(UpdateContext, XML, "");
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  utExit();
-}
 
 
 
@@ -72,6 +46,7 @@ TEST(UpdateContextElementRequest, render_json)
   ContextAttribute                ca("caName", "caType", "caValue");
   std::string                     out;
   const char*                     outfile = "ngsi10.updateContextElementRequest.render.valid.json";
+  ConnectionInfo                  ci(JSON);
 
   utInit();
 
@@ -81,49 +56,7 @@ TEST(UpdateContextElementRequest, render_json)
   ucer.attributeDomainName.set("ADN");
   ucer.contextAttributeVector.push_back(&ca);
 
-  out = ucer.render(UpdateContext, JSON, "");
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  utExit();
-}
-
-
-
-/* ****************************************************************************
-*
-* check_xml - 
-*/
-TEST(UpdateContextElementRequest, check_xml)
-{
-  UpdateContextElementRequest     ucer;
-  ContextAttribute                ca("caName", "caType", "caValue");
-  std::string                     out;
-  const char*                     outfile1  = "ngsi10.updateContextElementRequest.check1.valid.xml";
-  const char*                     outfile2  = "ngsi10.updateContextElementRequest.check2.valid.xml";
-
-  utInit();
-
-  ucer.attributeDomainName.set("ADN");
-
-  // 1. predetectedError
-  ucer.contextAttributeVector.push_back(&ca);
-  out = ucer.check(UpdateContextElement, XML, "", "PRE Error", 0);
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  // 2. ok
-  out = ucer.check(UpdateContextElement, XML, "", "", 0);
-  EXPECT_STREQ("OK", out.c_str());
-
-  // 3. bad attributeDomainName
-  ucer.attributeDomainName.set("");
-  EXPECT_STREQ("OK", out.c_str());
-
-  // 4. bad contextAttributeVector
-  ContextAttribute                ca2("", "caType", "caValue");
-  ucer.contextAttributeVector.push_back(&ca2);
-  out = ucer.check(UpdateContextElement, XML, "", "", 0);
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
+  out = ucer.render(&ci, UpdateContext, "");
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();
@@ -142,6 +75,7 @@ TEST(UpdateContextElementRequest, check_json)
   std::string                     out;
   const char*                     outfile1  = "ngsi10.updateContextElementRequest.check1.valid.json";
   const char*                     outfile2  = "ngsi10.updateContextElementRequest.check2.valid.json";
+  ConnectionInfo                  ci(JSON);
 
   utInit();
 
@@ -149,12 +83,12 @@ TEST(UpdateContextElementRequest, check_json)
 
   // 1. predetectedError
   ucer.contextAttributeVector.push_back(&ca);
-  out = ucer.check(UpdateContextElement, JSON, "", "PRE Error", 0);
+  out = ucer.check(&ci, UpdateContextElement, "", "PRE Error", 0);
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   // 2. ok
-  out = ucer.check(UpdateContextElement, JSON, "", "", 0);
+  out = ucer.check(&ci, UpdateContextElement, "", "", 0);
   EXPECT_STREQ("OK", out.c_str());
 
   // 3. bad attributeDomainName
@@ -164,7 +98,7 @@ TEST(UpdateContextElementRequest, check_json)
   // 4. bad contextAttributeVector
   ContextAttribute                ca2("", "caType", "caValue");
   ucer.contextAttributeVector.push_back(&ca2);
-  out = ucer.check(UpdateContextElement, JSON, "", "", 0);
+  out = ucer.check(&ci, UpdateContextElement, "", "", 0);
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 

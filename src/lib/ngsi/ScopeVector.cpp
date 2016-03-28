@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -26,28 +26,37 @@
 #include <string>
 #include <vector>
 
+#include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
+
 #include "common/globals.h"
 #include "common/tag.h"
+#include "common/limits.h"
+#include "alarmMgr/alarmMgr.h"
 #include "ngsi/ScopeVector.h"
 
 
 
 /* ****************************************************************************
 *
-* ScopeVector::render - 
+* ScopeVector::render -
 */
-std::string ScopeVector::render(Format format, std::string indent, bool comma)
+std::string ScopeVector::render(const std::string& indent, bool comma)
 {
   std::string out = "";
   std::string tag = "scope";
 
   if (vec.size() == 0)
+  {
     return "";
+  }
 
-  out += startTag(indent, tag, tag, format, true, true);
+  out += startTag2(indent, tag, true, true);
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-     out += vec[ix]->render(format, indent + "  ", ix != vec.size() - 1);
-  out += endTag(indent, tag, format, comma, true);
+  {
+     out += vec[ix]->render(indent + "  ", ix != vec.size() - 1);
+  }
+  out += endTag(indent, comma, true);
 
   return out;
 }
@@ -56,16 +65,28 @@ std::string ScopeVector::render(Format format, std::string indent, bool comma)
 
 /* ****************************************************************************
 *
-* ScopeVector::check - 
+* ScopeVector::check -
 */
-std::string ScopeVector::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ScopeVector::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
     std::string res;
 
-    if ((res = vec[ix]->check(requestType, format, indent, predetectedError, counter)) != "OK")
+    if ((res = vec[ix]->check(requestType, indent, predetectedError, counter)) != "OK")
+    {
+      char ixV[STRING_SIZE_FOR_INT];
+      snprintf(ixV, sizeof(ixV), "%d", ix);
+      std::string details = std::string("error in scope ") + ixV + ": " + res;
+      alarmMgr.badInput(clientIp, details);
       return res;
+    }
   }
 
   return "OK";
@@ -75,24 +96,32 @@ std::string ScopeVector::check(RequestType requestType, Format format, std::stri
 
 /* ****************************************************************************
 *
-* ScopeVector::present - 
+* ScopeVector::present -
 */
-void ScopeVector::present(std::string indent)
+void ScopeVector::present(const std::string& indent)
 {
   if (vec.size() == 0)
-    PRINTF("No scopes\n");
+  {
+    LM_T(LmtPresent, ("%sNo scopes", indent.c_str()));
+  }
   else
-    PRINTF("%lu Scopes:\n", (unsigned long) vec.size());
+  {
+    LM_T(LmtPresent, ("%s%lu Scopes:", 
+		      indent.c_str(), 
+		      (uint64_t) vec.size()));
+  }
 
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-    vec[ix]->present(indent, ix);
+  {
+    vec[ix]->present(indent + "  ", ix);
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* ScopeVector::push_back - 
+* ScopeVector::push_back -
 */
 void ScopeVector::push_back(Scope* item)
 {
@@ -103,20 +132,24 @@ void ScopeVector::push_back(Scope* item)
 
 /* ****************************************************************************
 *
-* ScopeVector::get - 
+* ScopeVector::operator[] -
 */
-Scope* ScopeVector::get(int ix)
+Scope* ScopeVector::operator[](unsigned int ix) const
 {
-  return vec[ix];
+   if (ix < vec.size())
+   {
+     return vec[ix];
+   }
+   return NULL;
 }
 
 
 
 /* ****************************************************************************
 *
-* ScopeVector::size - 
+* ScopeVector::size -
 */
-unsigned int ScopeVector::size(void)
+unsigned int ScopeVector::size(void) const
 {
   return vec.size();
 }
@@ -125,7 +158,7 @@ unsigned int ScopeVector::size(void)
 
 /* ****************************************************************************
 *
-* ScopeVector::release - 
+* ScopeVector::release -
 */
 void ScopeVector::release(void)
 {
@@ -136,4 +169,32 @@ void ScopeVector::release(void)
   }
 
   vec.clear();
+}
+
+
+
+/* ****************************************************************************
+*
+* ScopeVector::fill(ScopeVector) - 
+*
+* If the parameter 'copy' is set to false, then no copy of the scopes is made, 
+* they are just referenced from this ScopeVector as well.
+* This case is meant to save some time, allocating new scopes anf freeing the old scopes.
+* Doesn't make much sense to on allocate new and delete the 'original'.
+* So, what the caller of this method must do after calling ScopeVector::fill, is to
+* simply *clear* the original ScopeVector to avoid a double free on the scopes.
+*/
+void ScopeVector::fill(const ScopeVector& scopeV, bool copy)
+{
+  for (unsigned int ix = 0; ix < scopeV.vec.size(); ++ix)
+  {
+    if (copy == false)
+    {
+      vec.push_back(scopeV[ix]);
+    }
+    else
+    {
+      // FIXME P5: if this is ever needed, it must be implemented here
+    }
+  }
 }

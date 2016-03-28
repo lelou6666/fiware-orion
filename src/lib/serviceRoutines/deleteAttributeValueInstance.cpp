@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -27,11 +27,14 @@
 
 #include "logMsg/logMsg.h"
 
-#include "mongoBackend/mongoUpdateContext.h"
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "ngsi/ParseData.h"
-#include "ngsi10/UpdateContextRequest.h"
-#include "ngsi10/UpdateContextResponse.h"
+#include "ngsi/StatusCode.h"
 #include "rest/ConnectionInfo.h"
+#include "rest/uriParamNames.h"
+#include "serviceRoutines/postUpdateContext.h"
 #include "serviceRoutines/deleteAttributeValueInstance.h"
 
 
@@ -40,48 +43,60 @@
 *
 * deleteAttributeValueInstance - 
 *
-* DELETE /ngsi10/contextEntities/{entityID}/attributes/{attributeName}/{valueID}
+* DELETE /v1/contextEntities/{entity::id}/attributes/{attribute::name}/{metaID}
+* DELETE /ngsi10/contextEntities/{entity::id}/attributes/{attribute::name}/{metaID}
+*
+* Payload In:  None
+* Payload Out: StatusCode
+*
+* Mapped Standard Operation: UpdateContextRequest/DELETE
+*
+* URI params:
+*   - entity::type=TYPE
+*   - note that '!exist=entity::type' and 'exist=entity::type' are not supported by convenience operations
+*     that use the standard operation UpdateContext as there is no restriction within UpdateContext.
+*
+* 01. URI parameters
+* 02. Fill in UpdateContextRequest
+* 03. Call postUpdateContext standard service routine
+* 04. Translate UpdateContextResponse to StatusCode
+* 05. Cleanup and return result
+*
 */
-std::string deleteAttributeValueInstance(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string deleteAttributeValueInstance
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  UpdateContextRequest            request;
-  UpdateContextResponse           response;
-  std::string                     entityId      = compV[2];
-  std::string                     attributeName = compV[4];
-  std::string                     valueId       = compV[5];
-  ContextAttribute*               attributeP    = new ContextAttribute(attributeName, "", "false");
-  Metadata*                       mP            = new Metadata("ID", "", valueId);
-  ContextElement*                 ceP           = new ContextElement();
+  StatusCode              response;
+  std::string             answer;
+  std::string             entityId      = compV[2];
+  std::string             attributeName = compV[4];
+  std::string             metaId        = compV[5];
+  std::string             entityType;
 
-  attributeP->metadataVector.push_back(mP);
-  
-  ceP->entityId.fill(entityId, "", "false");
-  ceP->attributeDomainName.set("");
-  ceP->contextAttributeVector.push_back(attributeP);
+  // 01. URI parameters
+  entityType    = ciP->uriParam[URI_PARAM_ENTITY_TYPE];
 
-  request.contextElementVector.push_back(ceP);
-  request.updateActionType.set("DELETE");
+  // 02. Fill in UpdateContextRequest
+  parseDataP->upcr.res.fill(entityId, entityType, "false", attributeName, metaId, "DELETE");
 
-  response.errorCode.code = SccNone;
-  ciP->httpStatusCode = mongoUpdateContext(&request, &response);
-  
-  StatusCode statusCode;
-  if (response.contextElementResponseVector.size() == 0)
-    statusCode.fill(SccContextElementNotFound, std::string("Entity-Attribute pair: '") + entityId + "-" + attributeName + "'");
-  else if (response.contextElementResponseVector.size() == 1)
-  {
-     ContextElementResponse* cerP = response.contextElementResponseVector.get(0);
+  // 03. Call postUpdateContext standard service routine
+  postUpdateContext(ciP, components, compV, parseDataP);
 
-    if (response.errorCode.code != SccNone)
-      statusCode.fill(&response.errorCode);
-    else if (cerP->statusCode.code != SccNone)
-      statusCode.fill(&cerP->statusCode);
-    else
-      statusCode.fill(SccOk);
-  }
-  else
-    statusCode.fill(SccReceiverInternalError, "More than one response from deleteAttributeValueInstance::mongoUpdateContext");
 
-  request.release();
-  return statusCode.render(ciP->outFormat, "", false);
+  // 04. Translate UpdateContextResponse to StatusCode
+  response.fill(parseDataP->upcrs.res);
+
+
+  // 05. Cleanup and return result
+  TIMED_RENDER(answer = response.render("", false, false));
+
+  response.release();
+  parseDataP->upcr.res.release();
+
+  return answer;
 }

@@ -21,11 +21,12 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
 #include <string>
+#include <map>
 
 #include "rest/HttpStatusCode.h"
 #include "ngsi9/DiscoverContextAvailabilityRequest.h"
@@ -37,6 +38,13 @@
 *
 * mongoDiscoverContextAvailability - 
 */
-extern HttpStatusCode mongoDiscoverContextAvailability(DiscoverContextAvailabilityRequest* requestP, DiscoverContextAvailabilityResponse* responseP);
+extern HttpStatusCode mongoDiscoverContextAvailability
+(
+  DiscoverContextAvailabilityRequest*        requestP,
+  DiscoverContextAvailabilityResponse*       responseP,
+  const std::string&                         tenant,
+  std::map<std::string, std::string>&        uriParams,
+  const std::vector<std::string>&            servicePathV
+);
 
 #endif

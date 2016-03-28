@@ -1,5 +1,5 @@
-#ifndef CONTEXT_ID_VECTOR_H
-#define CONTEXT_ID_VECTOR_H
+#ifndef SRC_LIB_CONVENIENCE_CONTEXTATTRIBUTERESPONSEVECTOR_H_
+#define SRC_LIB_CONVENIENCE_CONTEXTATTRIBUTERESPONSEVECTOR_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "convenience/ContextAttributeResponse.h"
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -40,13 +41,20 @@ typedef struct ContextAttributeResponseVector
 {
   std::vector<ContextAttributeResponse*>  vec;
 
-  std::string                render(RequestType requestType, Format format, std::string indent);
-  std::string                check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
+  std::string                render(ConnectionInfo* ciP, RequestType requestType, std::string indent);
   void                       present(std::string indent);
   void                       push_back(ContextAttributeResponse* item);
   unsigned int               size(void);
-  ContextAttributeResponse*  get(int ix);
-  void                       release();
+  void                       release(void);
+  std::string                check(ConnectionInfo*  ciP,
+                                   RequestType      requestType,
+                                   std::string      indent,
+                                   std::string      predetectedError,
+                                   int              counter);
+  void                       fill(ContextAttributeVector* cavP, const StatusCode& statusCode);
+
+  ContextAttributeResponse*  operator[](unsigned int ix) const;
+
 } ContextAttributeResponseVector;
 
-#endif
+#endif  // SRC_LIB_CONVENIENCE_CONTEXTATTRIBUTERESPONSEVECTOR_H_

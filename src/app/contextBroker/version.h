@@ -1,5 +1,5 @@
-#ifndef CONTEXT_BROKER_VERSION_H
-#define CONTEXT_BROKER_VERSION_H
+#ifndef SRC_APP_CONTEXTBROKER_VERSION_H_
+#define SRC_APP_CONTEXTBROKER_VERSION_H_
 
 /*
 *
@@ -21,13 +21,13 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 
 
 
-#define ORION_VERSION "0.10.1"
+#define ORION_VERSION "0.28.0-next"
 
-#endif
+#endif  // SRC_APP_CONTEXTBROKER_VERSION_H_

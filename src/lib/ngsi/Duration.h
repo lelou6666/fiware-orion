@@ -1,5 +1,5 @@
-#ifndef DURATION_H
-#define DURATION_H
+#ifndef SRC_LIB_NGSI_DURATION_H_
+#define SRC_LIB_NGSI_DURATION_H_
 
 /*
 *
@@ -21,10 +21,11 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
+#include <stdint.h>   // int64_t et al
 #include <string>
 
 #include "common/Format.h"
@@ -35,28 +36,32 @@
 
 /* ****************************************************************************
 *
-* Duration - 
+* Duration -
 */
 class Duration
 {
-public:
+ public:
   std::string   string;
-  long long     seconds; 
+  int64_t       seconds;
 
-private:
+ private:
   bool          used;
   bool          valid;
 
-public:
+ public:
   Duration();
-  void          set(std::string value);
+  void          set(const std::string& value);
   std::string   get(void);
   bool          isEmpty(void);
-  std::string   render(Format format, std::string indent, bool comma = true);
-  std::string   check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  long long     parse(void);
-  void          present(std::string indent);
+  std::string   render(const std::string& indent, bool comma = true);
+  int64_t       parse(void);
+  void          present(const std::string& indent);
   void          release(void);
+
+  std::string   check(RequestType         requestType,
+                      const std::string&  indent,
+                      const std::string&  predetectedError,
+                      int                 counter);
 };
 
-#endif
+#endif  // SRC_LIB_NGSI_DURATION_H_

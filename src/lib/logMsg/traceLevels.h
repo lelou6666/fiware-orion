@@ -1,5 +1,5 @@
-#ifndef TRACE_LEVELS_H
-#define TRACE_LEVELS_H
+#ifndef SRC_LIB_LOGMSG_TRACELEVELS_H_
+#define SRC_LIB_LOGMSG_TRACELEVELS_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -43,20 +43,40 @@ typedef enum TraceLevels
   LmtUrlParse,
   LmtHttpRequest,
   LmtHttpHeaders,
-  LmtHttpDaemon,
+  LmtHttpDaemon = 25,
   LmtHttpUnsupportedHeader,
   LmtMhd,
   LmtSavedResponse,
   LmtIncompletePayload,
+  LmtTenant = 30,
+  LmtUriParams,
+  LmtServicePath,
+  LmtPagination,
+  LmtCoap,
+  LmtHttps = 35,
+  LmtIpVersion,
+  LmtCtxProviders,
+  LmtRequest = 38,          // ONLY to be used in ONE place - incoming requests
+  LmtPayload,
 
   /* Parser (40-59) */
   LmtParse    = 40,
   LmtParsedPayload,
+  LmtParseCheck,
   LmtPresent,
   LmtNew,
-  LmtTreat,
+  LmtTreat = 45,
   LmtDump,
   LmtNullNode,
+  LmtCompoundValue,
+  LmtCompoundValueAdd,
+  LmtCompoundValueLookup = 50,
+  LmtCompoundValueRender,
+  LmtCompoundValueRaw,
+  LmtCompoundValueContainer,
+  LmtCompoundValueStep,
+  LmtCompoundValueShow = 55,
+  LmtJsonAttributes,
 
   /* RestService and Service (60-79) */
   LmtService     = 60,
@@ -84,13 +104,32 @@ typedef enum TraceLevels
   LmtServiceInputPayload = 180,
   LmtServiceOutPayload,
   LmtClientInputPayload,
-  LmtClientOutputPayload,
+  LmtClientOutputPayload = 183,  // Very important for harness test notification_different_sizes
   LmtPartialPayload,
+  LmtClientOutputPayloadDump,
+  LmtCPrForwardRequestPayload,
+  LmtCPrForwardResponsePayload,
 
-  /* Others (>=200) */
-  LmtCm = 200,
-  LmtIotaXmlReg,
-  LmtIotaXmlObs,
+  /* Semaphores (200-204) */
+  LmtReqSem = 200,
+  LmtMongoSem,
+  LmtTransSem,
+  LmtCacheSem,
+  LmtTimeStatSem,
+
+  /* Cache (210 - 230) */
+  LmtSubCache = 210,
+  LmtSubCacheMatch,
+  LmtCacheSync,
+
+  /* Others (>=230) */
+  LmtCm = 230,
+  LmtRush,
+  LmtSoftError,
+  LmtNotImplemented,
+  LmtCurlContext,
+
+  LmtBug = 250
 } TraceLevels;
 
 
@@ -101,4 +140,4 @@ typedef enum TraceLevels
 */
 extern char* traceLevelName(TraceLevels level);
 
-#endif
+#endif  // SRC_LIB_LOGMSG_TRACELEVELS_H_

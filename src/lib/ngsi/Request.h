@@ -1,5 +1,5 @@
-#ifndef REQUEST_H
-#define REQUEST_H
+#ifndef SRC_LIB_NGSI_REQUEST_H_
+#define SRC_LIB_NGSI_REQUEST_H_
 
 /*
 *
@@ -21,13 +21,13 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 
-#include "rest/ConnectionInfo.h"
+struct ConnectionInfo;
 
 
 
@@ -37,6 +37,7 @@
 */
 typedef enum RequestType
 {
+  NoRequest,
   RegisterContext = 1,
   DiscoverContextAvailability,
   SubscribeContextAvailability,
@@ -48,12 +49,15 @@ typedef enum RequestType
   NotifyContextAvailability,
 
   QueryContext = 11,
+  RtQueryContextResponse,
   SubscribeContext,
   UpdateContextSubscription,
   UnsubscribeContext,
   RtUnsubscribeContextResponse,
   NotifyContext,
   UpdateContext,
+  RtUpdateContextResponse,
+  NotifyContextSent,
 
   ContextEntitiesByEntityId = 21,
   ContextEntityAttributes,
@@ -66,7 +70,9 @@ typedef enum RequestType
   IndividualContextEntity                = 31,
   IndividualContextEntityAttributes,
   IndividualContextEntityAttribute,
+  IndividualContextEntityAttributeWithTypeAndId,
   AttributeValueInstance,
+  AttributeValueInstanceWithTypeAndId,
   Ngsi10ContextEntityTypes,
   Ngsi10ContextEntityTypesAttributeContainer,
   Ngsi10ContextEntityTypesAttribute,
@@ -76,7 +82,8 @@ typedef enum RequestType
   AppendContextElement,
   UpdateContextAttribute,
 
-  LogRequest = 51,
+  LogTraceRequest = 51,
+  LogLevelRequest,
   VersionRequest,
   ExitRequest,
   LeakRequest,
@@ -85,7 +92,40 @@ typedef enum RequestType
   RegisterResponse,
   RtSubscribeResponse,
   RtSubscribeError,
-  InvalidRequest,
+  RtContextElementResponse,
+  RtContextAttributeResponse,
+
+  EntityTypes = 62,
+  AttributesForEntityType,
+  RtEntityTypesResponse,
+  RtAttributesForEntityTypeResponse,
+  AllContextEntities,
+  AllEntitiesWithTypeAndId,
+  ContextEntitiesByEntityIdAndType,
+  EntityByIdAttributeByNameIdAndType,
+
+  // /v2 API
+  EntitiesRequest = 70,
+  EntitiesResponse,
+  EntryPointsRequest,
+  EntryPointsResponse,
+  EntityRequest,
+  EntityResponse,
+  EntityAttributeRequest,
+  EntityAttributeResponse,
+  EntityAttributeValueRequest,
+  EntityAttributeValueResponse,
+  PostEntity,
+  PostAttributes,
+  DeleteEntity,
+  EntityTypeRequest,
+  EntityAllTypesRequest,
+  SubscriptionsRequest,
+  IndividualSubscriptionRequest,
+  BatchQueryRequest,
+  BatchUpdateRequest,
+
+  InvalidRequest = 100
 } RequestType;
 
 
@@ -136,4 +176,4 @@ typedef std::string (*RequestCheck)(ParseData* reqDataP, ConnectionInfo* ciP);
 */
 typedef void (*RequestPresent)(ParseData* reqDataP);
 
-#endif
+#endif  // SRC_LIB_NGSI_REQUEST_H_

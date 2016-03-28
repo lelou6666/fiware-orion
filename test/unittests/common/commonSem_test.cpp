@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -48,9 +48,11 @@ TEST(commonSem, unique)
    s = semInit();
    EXPECT_EQ(0, s);
 
-   s = semGive();
+   s = reqSemGive(__FUNCTION__, "test");
    EXPECT_EQ(0, s);
-   
-   s = semTake();
+
+   bool taken;
+   s = reqSemTake(__FUNCTION__, "test", SemReadWriteOp, &taken);
    EXPECT_EQ(0, s);
+   EXPECT_TRUE(taken);
 }

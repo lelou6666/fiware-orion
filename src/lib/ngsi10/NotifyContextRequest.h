@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
@@ -31,6 +31,8 @@
 #include "ngsi/SubscriptionId.h"
 #include "ngsi/Originator.h"
 #include "ngsi/ContextElementResponseVector.h"
+#include "rest/ConnectionInfo.h"
+
 
 
 /* ****************************************************************************
@@ -43,9 +45,9 @@ typedef struct NotifyContextRequest
   Originator                    originator;                    // Mandatory
   ContextElementResponseVector  contextElementResponseVector;  // Optional
 
-  std::string   render(RequestType requestType, Format format, std::string indent);
-  std::string   check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void          present(std::string indent);
+  std::string   render(ConnectionInfo* ciP, RequestType requestType, const std::string& indent);
+  std::string   check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter);
+  void          present(const std::string& indent);
   void          release(void);
 } NotifyContextRequest;
 

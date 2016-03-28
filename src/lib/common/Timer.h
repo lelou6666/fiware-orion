@@ -1,5 +1,5 @@
-#ifndef TIMER_H
-#define TIMER_H
+#ifndef SRC_LIB_COMMON_TIMER_H_
+#define SRC_LIB_COMMON_TIMER_H_
 
 /*
 *
@@ -21,19 +21,22 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
 
-class Timer {
 
-public:
 
-    virtual ~Timer(void);
-
-    virtual int getCurrentTime(void);
-
+/* ****************************************************************************
+*
+* Timer - 
+*/
+class Timer
+{
+ public:
+  virtual ~Timer(void);
+  virtual int getCurrentTime(void);
 };
 
-#endif
+#endif  // SRC_LIB_COMMON_TIMER_H_

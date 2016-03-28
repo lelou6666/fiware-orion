@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermín Galán & Ken Zangelin
 */
@@ -62,16 +62,16 @@ NotifyContextAvailabilityResponse::NotifyContextAvailabilityResponse(StatusCode&
 *
 * NotifyContextAvailabilityResponse::render -
 */
-std::string NotifyContextAvailabilityResponse::render(RequestType requestType, Format format, std::string indent)
+std::string NotifyContextAvailabilityResponse::render(RequestType requestType, const std::string& indent)
 {
   std::string out = "";
   std::string tag = "notifyContextAvailabilityResponse";
 
-  responseCode.tagSet("responseCode");
+  responseCode.keyNameSet("responseCode");
 
-  out += startTag(indent, tag, format, false);
-  out += responseCode.render(format, indent + "  ");
-  out += endTag(indent, tag, format);
+  out += startTag1(indent, tag, false);
+  out += responseCode.render(indent + "  ");
+  out += endTag(indent);
 
   return out;
 }
@@ -82,11 +82,11 @@ std::string NotifyContextAvailabilityResponse::render(RequestType requestType, F
 *
 * NotifyContextAvailabilityResponse::present -
 */
-void NotifyContextAvailabilityResponse::present(std::string indent)
+void NotifyContextAvailabilityResponse::present(const std::string& indent)
 {
-  PRINTF("%sNotifyContextAvailabilityResponse:", indent.c_str());
+  LM_T(LmtPresent, ("%sNotifyContextAvailabilityResponse:", indent.c_str()));
   responseCode.present(indent + "  ");
-  PRINTF("\n");
+  LM_T(LmtPresent, ("\n"));
 }
 
 

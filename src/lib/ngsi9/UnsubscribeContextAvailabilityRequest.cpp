@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -46,7 +46,7 @@ UnsubscribeContextAvailabilityRequest::UnsubscribeContextAvailabilityRequest()
 *
 * UnsubscribeContextAvailabilityRequest::UnsubscribeContextAvailabilityRequest - 
 */
-UnsubscribeContextAvailabilityRequest::UnsubscribeContextAvailabilityRequest(SubscriptionId _subscriptionId)
+UnsubscribeContextAvailabilityRequest::UnsubscribeContextAvailabilityRequest(SubscriptionId& _subscriptionId)
 {
    subscriptionId.set(_subscriptionId.get());
 }
@@ -57,25 +57,23 @@ UnsubscribeContextAvailabilityRequest::UnsubscribeContextAvailabilityRequest(Sub
 *
 * UnsubscribeContextAvailabilityRequest::check - 
 */
-std::string UnsubscribeContextAvailabilityRequest::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string UnsubscribeContextAvailabilityRequest::check(RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
    UnsubscribeContextAvailabilityResponse  response(subscriptionId);
    std::string                             res;
 
   if (predetectedError != "")
   {
-    response.statusCode.code         = SccBadRequest;
-    response.statusCode.reasonPhrase = predetectedError;
+    response.statusCode.fill(SccBadRequest, predetectedError);
   }
-  else if ((res = subscriptionId.check(UnsubscribeContextAvailability, format, indent, predetectedError, counter)) != "OK")
+  else if ((res = subscriptionId.check(UnsubscribeContextAvailability, indent, predetectedError, counter)) != "OK")
   {
-    response.statusCode.code         = SccBadRequest;
-    response.statusCode.reasonPhrase = res;
+    response.statusCode.fill(SccBadRequest, res);
   }
   else
     return "OK";
 
-  return response.render(UnsubscribeContextAvailability, format, indent);
+  return response.render(UnsubscribeContextAvailability, indent);
 }
 
 
@@ -87,4 +85,15 @@ std::string UnsubscribeContextAvailabilityRequest::check(RequestType requestType
 void UnsubscribeContextAvailabilityRequest::release(void)
 {
    subscriptionId.release();
+}
+
+
+
+/* ****************************************************************************
+*
+* UnsubscribeContextAvailabilityRequest::fill - 
+*/
+void UnsubscribeContextAvailabilityRequest::fill(const std::string& _subscriptionId)
+{
+  subscriptionId.set(_subscriptionId);
 }

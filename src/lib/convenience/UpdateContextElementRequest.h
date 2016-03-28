@@ -1,5 +1,5 @@
-#ifndef UPDATE_CONTEXT_ELEMENT_REQUEST_H
-#define UPDATE_CONTEXT_ELEMENT_REQUEST_H
+#ifndef SRC_LIB_CONVENIENCE_UPDATECONTEXTELEMENTREQUEST_H_
+#define SRC_LIB_CONVENIENCE_UPDATECONTEXTELEMENTREQUEST_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,7 +31,7 @@
 #include "common/Format.h"
 #include "ngsi/AttributeDomainName.h"
 #include "ngsi/ContextAttributeVector.h"
-
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -45,10 +45,14 @@ typedef struct UpdateContextElementRequest
   ContextAttributeVector     contextAttributeVector;     // Optional
   MetadataVector             domainMetadataVector;       // Optional
 
-  std::string render(RequestType requestType, Format format, std::string indent);
-  std::string check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void        present(std::string indent);
-  void        release(void);
+  std::string  render(ConnectionInfo* ciP, RequestType requestType, std::string indent);
+  void         present(std::string indent);
+  void         release(void);
+  std::string  check(ConnectionInfo*  ciP,
+                     RequestType      requestType,
+                     std::string      indent,
+                     std::string      predetectedError,
+                     int              counter);
 } UpdateContextElementRequest;
 
-#endif
+#endif  // SRC_LIB_CONVENIENCE_UPDATECONTEXTELEMENTREQUEST_H_

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -44,7 +44,7 @@ RegisterContextResponse::RegisterContextResponse()
 {
   registrationId.set("");
   duration.set("");
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
 
 /* ****************************************************************************
@@ -65,7 +65,7 @@ RegisterContextResponse::RegisterContextResponse(RegisterContextRequest* rcrP)
 {
   registrationId.set(rcrP->registrationId.get());
   duration.set(rcrP->duration.get());
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
 
 
@@ -74,11 +74,11 @@ RegisterContextResponse::RegisterContextResponse(RegisterContextRequest* rcrP)
 *
 * RegisterContextResponse::RegisterContextResponse - 
 */ 
-RegisterContextResponse::RegisterContextResponse(std::string _registrationId, std::string _duration)
+RegisterContextResponse::RegisterContextResponse(const std::string& _registrationId, const std::string& _duration)
 {
   registrationId.set(_registrationId);
   duration.set(_duration);
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
 
 
@@ -87,11 +87,11 @@ RegisterContextResponse::RegisterContextResponse(std::string _registrationId, st
 *
 * RegisterContextResponse::RegisterContextResponse - 
 */ 
-RegisterContextResponse::RegisterContextResponse(std::string _registrationId, StatusCode& _errorCode)
+RegisterContextResponse::RegisterContextResponse(const std::string& _registrationId, StatusCode& _errorCode)
 {
   registrationId.set(_registrationId);
   errorCode     = _errorCode;
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
 
 
@@ -100,21 +100,21 @@ RegisterContextResponse::RegisterContextResponse(std::string _registrationId, St
 *
 * RegisterContextResponse::render - 
 */
-std::string RegisterContextResponse::render(RequestType requestType, Format format, std::string indent)
+std::string RegisterContextResponse::render(RequestType requestType, const std::string& indent)
 {
   std::string  out = "";
   std::string  tag = "registerContextResponse";
   bool         errorCodeRendered = (errorCode.code != SccNone) && (errorCode.code != SccOk);
 
-  out += startTag(indent, tag, format, false);
+  out += startTag1(indent, tag, false);
 
-  out += duration.render(format, indent + "  ", true);
-  out += registrationId.render(RegisterResponse, format, indent + "  ", errorCodeRendered);
+  out += duration.render(indent + "  ", true);
+  out += registrationId.render(RegisterResponse, indent + "  ", errorCodeRendered);
 
   if (errorCodeRendered)
-    out += errorCode.render(format, indent + "  ");
+    out += errorCode.render(indent + "  ");
 
-  out += endTag(indent, tag, format);
+  out += endTag(indent);
 
   return out;
 }
@@ -125,26 +125,24 @@ std::string RegisterContextResponse::render(RequestType requestType, Format form
 *
 * RegisterContextResponse::check - 
 */
-std::string RegisterContextResponse::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string RegisterContextResponse::check(RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
   RegisterContextResponse  response;
   std::string              res;
 
   if (predetectedError != "")
   {
-    response.errorCode.code         = SccBadRequest;
-    response.errorCode.reasonPhrase = predetectedError;
+    response.errorCode.fill(SccBadRequest, predetectedError);
   }
-  else if (((res = duration.check(RegisterResponse, format, indent, predetectedError, counter))       != "OK") ||
-           ((res = registrationId.check(RegisterResponse, format, indent, predetectedError, counter)) != "OK"))
+  else if (((res = duration.check(RegisterResponse, indent, predetectedError, counter))       != "OK") ||
+           ((res = registrationId.check(RegisterResponse, indent, predetectedError, counter)) != "OK"))
   {
-    response.errorCode.code         = SccBadRequest;
-    response.errorCode.reasonPhrase = res;
+    response.errorCode.fill(SccBadRequest, res);
   }
   else
     return "OK";
 
-  return response.render(RegisterContext, format, indent);
+  return response.render(RegisterContext, indent);
 }
 
 
@@ -153,7 +151,7 @@ std::string RegisterContextResponse::check(RequestType requestType, Format forma
 *
 * present - 
 */
-void RegisterContextResponse::present(std::string indent)
+void RegisterContextResponse::present(const std::string& indent)
 {
    registrationId.present(indent);
    duration.present(indent);

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -27,6 +27,7 @@
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
+#include "alarmMgr/alarmMgr.h"
 
 #include "ngsi/ParseData.h"
 #include "rest/ConnectionInfo.h"
@@ -39,13 +40,21 @@
 *
 * badVerbPostOnly - 
 */
-std::string badVerbPostOnly(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string badVerbPostOnly
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
+  std::string details = std::string("bad verb for url '") + ciP->url + "', method '" + ciP->method + "'";
+
   ciP->httpHeader.push_back("Allow");
   ciP->httpHeaderValue.push_back("POST");
   ciP->httpStatusCode = SccBadVerb;
 
-  LM_W(("bad verb for url '%s', method '%s'", ciP->url.c_str(), ciP->method.c_str()));
+  alarmMgr.badInput(clientIp, details);
 
   return "";
 }

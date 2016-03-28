@@ -1,5 +1,5 @@
-#ifndef GET_CONTEXT_ENTITIES_BY_ENTITYID_H
-#define GET_CONTEXT_ENTITIES_BY_ENTITYID_H
+#ifndef SRC_LIB_SERVICEROUTINES_GETCONTEXTENTITIESBYENTITYID_H_
+#define SRC_LIB_SERVICEROUTINES_GETCONTEXTENTITIESBYENTITYID_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,6 +37,12 @@
 *
 * getContextEntitiesByEntityId - 
 */
-extern std::string getContextEntitiesByEntityId(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP);
+extern std::string getContextEntitiesByEntityId
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+);
 
-#endif
+#endif  // SRC_LIB_SERVICEROUTINES_GETCONTEXTENTITIESBYENTITYID_H_

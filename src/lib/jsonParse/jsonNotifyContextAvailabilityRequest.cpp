@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,7 +31,7 @@
 #include "logMsg/traceLevels.h"
 
 #include "jsonParse/JsonNode.h"
-#include "jsonParse/jsonNullTreat.h"
+#include "parse/nullTreat.h"
 #include "jsonParse/jsonNotifyContextAvailabilityRequest.h"
 
 #include "rest/ConnectionInfo.h"
@@ -40,9 +40,9 @@
 
 /* ****************************************************************************
 *
-* subscriptionId - 
+* subscriptionId -
 */
-static std::string subscriptionId(std::string path, std::string value, ParseData* parseDataP)
+static std::string subscriptionId(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a subscriptionId: '%s'", value.c_str()));
   parseDataP->ncar.res.subscriptionId.set(value);
@@ -53,9 +53,9 @@ static std::string subscriptionId(std::string path, std::string value, ParseData
 
 /* ****************************************************************************
 *
-* contextRegistrationResponse - 
+* contextRegistrationResponse -
 */
-static std::string contextRegistrationResponse(std::string path, std::string value, ParseData* parseDataP)
+static std::string contextRegistrationResponse(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a contextRegistrationResponse"));
 
@@ -69,9 +69,9 @@ static std::string contextRegistrationResponse(std::string path, std::string val
 
 /* ****************************************************************************
 *
-* entityId - 
+* entityId -
 */
-static std::string entityId(std::string path, std::string value, ParseData* parseDataP)
+static std::string entityId(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an entityId"));
 
@@ -85,9 +85,9 @@ static std::string entityId(std::string path, std::string value, ParseData* pars
 
 /* ****************************************************************************
 *
-* entityIdId - 
+* entityIdId -
 */
-static std::string entityIdId(std::string path, std::string value, ParseData* parseDataP)
+static std::string entityIdId(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an entityId.Id: '%s'", value.c_str()));
 
@@ -99,9 +99,9 @@ static std::string entityIdId(std::string path, std::string value, ParseData* pa
 
 /* ****************************************************************************
 *
-* entityIdType - 
+* entityIdType -
 */
-static std::string entityIdType(std::string path, std::string value, ParseData* parseDataP)
+static std::string entityIdType(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an entityId.Type: '%s'", value.c_str()));
 
@@ -113,9 +113,9 @@ static std::string entityIdType(std::string path, std::string value, ParseData* 
 
 /* ****************************************************************************
 *
-* entityIdIsPattern - 
+* entityIdIsPattern -
 */
-static std::string entityIdIsPattern(std::string path, std::string value, ParseData* parseDataP)
+static std::string entityIdIsPattern(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an entityId.IsPattern: '%s'", value.c_str()));
 
@@ -127,9 +127,9 @@ static std::string entityIdIsPattern(std::string path, std::string value, ParseD
 
 /* ****************************************************************************
 *
-* attribute - 
+* attribute -
 */
-static std::string attribute(std::string path, std::string value, ParseData* parseDataP)
+static std::string attribute(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("got an attribute"));
 
@@ -142,9 +142,9 @@ static std::string attribute(std::string path, std::string value, ParseData* par
 
 /* ****************************************************************************
 *
-* attributeName - 
+* attributeName -
 */
-static std::string attributeName(std::string path, std::string value, ParseData* parseDataP)
+static std::string attributeName(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("got an attributeName: '%s'", value.c_str()));
 
@@ -156,9 +156,9 @@ static std::string attributeName(std::string path, std::string value, ParseData*
 
 /* ****************************************************************************
 *
-* attributeType - 
+* attributeType -
 */
-static std::string attributeType(std::string path, std::string value, ParseData* parseDataP)
+static std::string attributeType(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("got an attributeType: '%s'", value.c_str()));
 
@@ -170,9 +170,9 @@ static std::string attributeType(std::string path, std::string value, ParseData*
 
 /* ****************************************************************************
 *
-* attributeIsDomain - 
+* attributeIsDomain -
 */
-static std::string attributeIsDomain(std::string path, std::string value, ParseData* parseDataP)
+static std::string attributeIsDomain(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("got an attributeIsDomain: '%s'", value.c_str()));
 
@@ -184,9 +184,9 @@ static std::string attributeIsDomain(std::string path, std::string value, ParseD
 
 /* ****************************************************************************
 *
-* attributeMetadata - 
+* attributeMetadata -
 */
-static std::string attributeMetadata(std::string path, std::string value, ParseData* parseDataP)
+static std::string attributeMetadata(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an attributeMetadata: '%s'", value.c_str()));
 
@@ -200,9 +200,9 @@ static std::string attributeMetadata(std::string path, std::string value, ParseD
 
 /* ****************************************************************************
 *
-* attributeMetadataName - 
+* attributeMetadataName -
 */
-static std::string attributeMetadataName(std::string path, std::string value, ParseData* parseDataP)
+static std::string attributeMetadataName(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an attributeMetadataName: '%s'", value.c_str()));
   parseDataP->ncar.attributeMetadataP->name = value;
@@ -213,9 +213,9 @@ static std::string attributeMetadataName(std::string path, std::string value, Pa
 
 /* ****************************************************************************
 *
-* attributeMetadataType - 
+* attributeMetadataType -
 */
-static std::string attributeMetadataType(std::string path, std::string value, ParseData* parseDataP)
+static std::string attributeMetadataType(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an attributeMetadataType: '%s'", value.c_str()));
   parseDataP->ncar.attributeMetadataP->type = value;
@@ -226,12 +226,12 @@ static std::string attributeMetadataType(std::string path, std::string value, Pa
 
 /* ****************************************************************************
 *
-* attributeMetadataValue - 
+* attributeMetadataValue -
 */
-static std::string attributeMetadataValue(std::string path, std::string value, ParseData* parseDataP)
+static std::string attributeMetadataValue(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got an attributeMetadataValue: '%s'", value.c_str()));
-  parseDataP->ncar.attributeMetadataP->value = value;
+  parseDataP->ncar.attributeMetadataP->stringValue = value;
   return "OK";
 }
 
@@ -239,14 +239,14 @@ static std::string attributeMetadataValue(std::string path, std::string value, P
 
 /* ****************************************************************************
 *
-* registrationMetadata - 
+* registrationMetadata -
 */
-static std::string registrationMetadata(std::string path, std::string value, ParseData* parseDataP)
+static std::string registrationMetadata(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a registrationMetadata: '%s'", value.c_str()));
   parseDataP->ncar.regMetadataP = new Metadata();
   parseDataP->ncar.crrP->contextRegistration.registrationMetadataVector.push_back(parseDataP->ncar.regMetadataP);
-  
+
   return "OK";
 }
 
@@ -254,9 +254,9 @@ static std::string registrationMetadata(std::string path, std::string value, Par
 
 /* ****************************************************************************
 *
-* registrationMetadataName - 
+* registrationMetadataName -
 */
-static std::string registrationMetadataName(std::string path, std::string value, ParseData* parseDataP)
+static std::string registrationMetadataName(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a registrationMetadataName: '%s'", value.c_str()));
   parseDataP->ncar.regMetadataP->name = value;
@@ -267,9 +267,9 @@ static std::string registrationMetadataName(std::string path, std::string value,
 
 /* ****************************************************************************
 *
-* registrationMetadataType - 
+* registrationMetadataType -
 */
-static std::string registrationMetadataType(std::string path, std::string value, ParseData* parseDataP)
+static std::string registrationMetadataType(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a registrationMetadataType: '%s'", value.c_str()));
   parseDataP->ncar.regMetadataP->type = value;
@@ -280,12 +280,12 @@ static std::string registrationMetadataType(std::string path, std::string value,
 
 /* ****************************************************************************
 *
-* registrationMetadataValue - 
+* registrationMetadataValue -
 */
-static std::string registrationMetadataValue(std::string path, std::string value, ParseData* parseDataP)
+static std::string registrationMetadataValue(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a registrationMetadataValue: '%s'", value.c_str()));
-  parseDataP->ncar.regMetadataP->value = value;
+  parseDataP->ncar.regMetadataP->stringValue = value;
   return "OK";
 }
 
@@ -293,9 +293,9 @@ static std::string registrationMetadataValue(std::string path, std::string value
 
 /* ****************************************************************************
 *
-* providingApplication - 
+* providingApplication -
 */
-static std::string providingApplication(std::string path, std::string value, ParseData* parseDataP)
+static std::string providingApplication(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("Got a providingApplication: '%s'", value.c_str()));
 
@@ -304,45 +304,46 @@ static std::string providingApplication(std::string path, std::string value, Par
 }
 
 
-
+#define CRR "/contextRegistrationResponses/contextRegistrationResponse"
 /* ****************************************************************************
 *
 * jsonNcarParseVector -
 */
 JsonNode jsonNcarParseVector[] =
 {
-   { "/subscriptionId",                                                   subscriptionId                     },
-   { "/contextRegistrationResponses",                                     jsonNullTreat                      },         
-   { "/contextRegistrationResponses/contextRegistrationResponse",         contextRegistrationResponse        },
+  { "/subscriptionId",                                                         subscriptionId               },
+  { "/contextRegistrationResponses",                                           jsonNullTreat                },
+  { CRR,                                                                       contextRegistrationResponse  },
 
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration",                            jsonNullTreat          },
-   
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/entities",                   jsonNullTreat          },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/entities/entity",            entityId               },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/entities/entity/id",         entityIdId             },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/entities/entity/type",       entityIdType           },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/entities/entity/isPattern",  entityIdIsPattern      },
+  { CRR "/contextRegistration",                                                jsonNullTreat                },
 
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes",                    jsonNullTreat          },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute",          attribute              },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute/name",     attributeName          },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute/type",     attributeType          },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute/isDomain", attributeIsDomain      },
+  { CRR "/contextRegistration/entities",                                       jsonNullTreat                },
+  { CRR "/contextRegistration/entities/entity",                                entityId                     },
+  { CRR "/contextRegistration/entities/entity/id",                             entityIdId                   },
+  { CRR "/contextRegistration/entities/entity/type",                           entityIdType                 },
+  { CRR "/contextRegistration/entities/entity/isPattern",                      entityIdIsPattern            },
 
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute/metadatas",                 jsonNullTreat            },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute/metadatas/metadata",        attributeMetadata        },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute/metadatas/metadata/name",   attributeMetadataName    },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute/metadatas/metadata/type",   attributeMetadataType    },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/attributes/attribute/metadatas/metadata/value",  attributeMetadataValue   },
+  { CRR "/contextRegistration/attributes",                                     jsonNullTreat                },
+  { CRR "/contextRegistration/attributes/attribute",                           attribute                    },
+  { CRR "/contextRegistration/attributes/attribute/name",                      attributeName                },
+  { CRR "/contextRegistration/attributes/attribute/type",                      attributeType                },
+  { CRR "/contextRegistration/attributes/attribute/isDomain",                  attributeIsDomain            },
 
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/metadatas/metadata",        registrationMetadata        },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/metadatas/metadata/name",   registrationMetadataName    },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/metadatas/metadata/type",   registrationMetadataType    },
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/metadatas/metadata/value",  registrationMetadataValue   },
+  { CRR "/contextRegistration/attributes/attribute/metadatas",                 jsonNullTreat                },
+  { CRR "/contextRegistration/attributes/attribute/metadatas/metadata",        attributeMetadata            },
+  { CRR "/contextRegistration/attributes/attribute/metadatas/metadata/name",   attributeMetadataName        },
+  { CRR "/contextRegistration/attributes/attribute/metadatas/metadata/type",   attributeMetadataType        },
+  { CRR "/contextRegistration/attributes/attribute/metadatas/metadata/value",  attributeMetadataValue       },
 
-   { "/contextRegistrationResponses/contextRegistrationResponse/contextRegistration/providingApplication",      providingApplication        },
+  { CRR "/contextRegistration/metadatas",                                      jsonNullTreat                },
+  { CRR "/contextRegistration/metadatas/metadata",                             registrationMetadata         },
+  { CRR "/contextRegistration/metadatas/metadata/name",                        registrationMetadataName     },
+  { CRR "/contextRegistration/metadatas/metadata/type",                        registrationMetadataType     },
+  { CRR "/contextRegistration/metadatas/metadata/value",                       registrationMetadataValue    },
 
-   { "LAST", NULL }
+  { CRR "/contextRegistration/providingApplication",                           providingApplication         },
+
+  { "LAST", NULL }
 };
 
 
@@ -381,7 +382,7 @@ void jsonNcarRelease(ParseData* parseDataP)
 */
 std::string jsonNcarCheck(ParseData* parseDataP, ConnectionInfo* ciP)
 {
-  return parseDataP->ncar.res.check(NotifyContext, ciP->outFormat, "", parseDataP->errorString, 0);
+  return parseDataP->ncar.res.check(ciP, NotifyContext, "", parseDataP->errorString, 0);
 }
 
 
@@ -395,6 +396,6 @@ void jsonNcarPresent(ParseData* parseDataP)
   if (!lmTraceIsSet(LmtPresent))
     return;
 
-  PRINTF("\n\n");
+  LM_T(LmtPresent,("\n\n"));
   parseDataP->ncar.res.present("");
 }

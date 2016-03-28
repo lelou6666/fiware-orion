@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -49,7 +49,9 @@ TEST(badVerbPostOnly, ok)
 {
   ConnectionInfo ci("/ngsi9/registerContext",  "PUT", "1.1");
   std::string     expected = ""; // Bad verb gives no payload, only HTTP headers
-  std::string     out = restService(&ci, rs);
+  std::string     out;
+
+  out = restService(&ci, rs);
 
   EXPECT_EQ(expected, out);
   EXPECT_EQ("Allow", ci.httpHeader[0]);

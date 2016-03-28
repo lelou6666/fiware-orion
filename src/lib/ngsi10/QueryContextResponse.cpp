@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -26,11 +26,14 @@
 
 #include "logMsg/traceLevels.h"
 #include "logMsg/logMsg.h"
+
 #include "common/string.h"
 #include "common/tag.h"
+#include "alarmMgr/alarmMgr.h"
 #include "rest/HttpStatusCode.h"
 #include "ngsi/StatusCode.h"
 #include "ngsi10/QueryContextResponse.h"
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -40,19 +43,41 @@
 */
 QueryContextResponse::QueryContextResponse()
 {
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
+
 
 
 /* ****************************************************************************
 *
 * QueryContextResponse::QueryContextResponse - 
 */
-QueryContextResponse::QueryContextResponse(StatusCode _errorCode)
+QueryContextResponse::QueryContextResponse(StatusCode& _errorCode)
 {
   errorCode.fill(&_errorCode);
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::QueryContextResponse - 
+*/
+QueryContextResponse::QueryContextResponse(EntityId* eP, ContextAttribute* aP)
+{
+  ContextElementResponse* cerP = new ContextElementResponse();
+  ContextAttribute*       caP  = new ContextAttribute(aP);
+
+  cerP->contextElement.entityId.fill(eP);
+  cerP->contextElement.contextAttributeVector.push_back(caP);  
+  cerP->statusCode.fill(SccOk);
+
+  contextElementResponseVector.push_back(cerP);
+  errorCode.fill(SccOk);
+}
+
+
 
 /* ****************************************************************************
 *
@@ -60,35 +85,161 @@ QueryContextResponse::QueryContextResponse(StatusCode _errorCode)
 */
 QueryContextResponse::~QueryContextResponse()
 {
+  errorCode.release();
   contextElementResponseVector.release();
-  LM_T(LmtDestructor,("destroyed"));
 }
+
+
 
 /* ****************************************************************************
 *
 * QueryContextResponse::render - 
 */
-std::string QueryContextResponse::render(RequestType requestType, Format format, std::string indent)
+std::string QueryContextResponse::render(ConnectionInfo* ciP, RequestType requestType, const std::string& indent)
 {
-  std::string out = "";
-  std::string tag = "queryContextResponse";
-
-  out += startTag(indent, tag, format, false);
-
-  if ((errorCode.code == SccNone) || (errorCode.code == SccOk))
+  std::string  out               = "";
+  std::string  tag               = "queryContextResponse";
+  bool         errorCodeRendered = false;
+  
+  //
+  // 01. Decide whether errorCode should be rendered
+  //
+  if ((errorCode.code != SccNone) && (errorCode.code != SccOk))
   {
-    if (contextElementResponseVector.size() == 0)
-    {
-      errorCode.fill(SccContextElementNotFound);
-      out += errorCode.render(format, indent + "  ");
-    }
-    else 
-      out += contextElementResponseVector.render(QueryContext, format, indent + "  ");
+    errorCodeRendered = true;
   }
-  else
-     out += errorCode.render(format, indent + "  ");
+  else if (contextElementResponseVector.size() == 0)
+  {
+    errorCodeRendered = true;
+  }
+  else if (errorCode.details != "")
+  {
+    if (errorCode.code == SccNone)
+    {
+      errorCode.code = SccOk;
+    }
 
-  out += endTag(indent, tag, format);
+    errorCodeRendered = true;
+  }
+
+
+  //
+  // 02. render 
+  //
+  out += startTag1(indent, tag, false);
+
+  if (contextElementResponseVector.size() > 0)
+  {
+    out += contextElementResponseVector.render(ciP, QueryContext, indent + "  ", errorCodeRendered);
+  }
+
+  if (errorCodeRendered == true)
+  {
+    out += errorCode.render(indent + "  ");
+  }
+
+
+  //
+  // 03. Safety Check
+  //
+  // If neither errorCode nor CER vector was filled by mongoBackend, then we
+  // report a special kind of error.
+  //
+  if ((errorCode.code == SccNone) && (contextElementResponseVector.size() == 0))
+  {
+    LM_W(("Internal Error (Both error-code and response vector empty)"));
+    errorCode.fill(SccReceiverInternalError, "Both the error-code structure and the response vector were empty");
+    out += errorCode.render(indent + "  ");
+  }
+
+  out += endTag(indent);
 
   return out;
+}
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::check -
+*/
+std::string QueryContextResponse::check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
+{
+  std::string  res;
+
+  if (predetectedError != "")
+  {
+    errorCode.fill(SccBadRequest, predetectedError);
+  }
+  else if ((res = contextElementResponseVector.check(ciP, QueryContext, indent, predetectedError, 0)) != "OK")
+  {
+    alarmMgr.badInput(clientIp, res);
+    errorCode.fill(SccBadRequest, res);
+  }
+  else
+  {
+    return "OK";
+  }
+
+  return render(ciP, QueryContext, indent);
+}
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::present -
+*/
+void QueryContextResponse::present(const std::string& indent, const std::string& caller)
+{
+  LM_T(LmtPresent, ("QueryContextResponse presented by %s", caller.c_str()));
+  contextElementResponseVector.present(indent + "  ");
+  errorCode.present(indent + "  ");
+}
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::release -
+*/
+void QueryContextResponse::release(void)
+{
+  contextElementResponseVector.release();
+  errorCode.release();
+}
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::fill - 
+*/
+void QueryContextResponse::fill(QueryContextResponse* qcrsP)
+{
+  errorCode.fill(qcrsP->errorCode);
+
+  for (unsigned int cerIx = 0; cerIx < qcrsP->contextElementResponseVector.size(); ++cerIx)
+  {
+    ContextElementResponse* cerP = new ContextElementResponse();
+
+    cerP->fill(qcrsP->contextElementResponseVector[cerIx]);
+
+    contextElementResponseVector.push_back(cerP);
+  }
+}
+
+
+
+/* ****************************************************************************
+*
+* QueryContextResponse::clone - 
+*/
+QueryContextResponse* QueryContextResponse::clone(void)
+{
+  QueryContextResponse* clon = new QueryContextResponse();
+
+  clon->fill(this);
+
+  return clon;
 }

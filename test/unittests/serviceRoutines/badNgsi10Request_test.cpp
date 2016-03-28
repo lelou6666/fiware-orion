@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -44,8 +44,10 @@ static RestService rs[] =
 /* ****************************************************************************
 *
 * ok - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(badNgsi10Request, ok)
+TEST(badNgsi10Request, DISABLED_ok)
 {
   ConnectionInfo ci("/ngsi10/badbadbad",  "GET", "1.1");
   std::string    out;
@@ -54,7 +56,8 @@ TEST(badNgsi10Request, ok)
   utInit();
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  out      = restService(&ci, rs);
+  ci.apiVersion = "v1";
+  out = restService(&ci, rs);
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();

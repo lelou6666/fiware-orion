@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -47,7 +47,7 @@ typedef struct UnsubscribeContextAvailabilityResponse
   UnsubscribeContextAvailabilityResponse(SubscriptionId _subscriptionId);
   ~UnsubscribeContextAvailabilityResponse();
 
-  std::string render(RequestType requestType, Format format, std::string indent);
+  std::string render(RequestType requestType, const std::string& indent);
 } UnsubscribeContextAvailabilityResponse;
 
 #endif

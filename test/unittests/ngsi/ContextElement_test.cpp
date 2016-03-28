@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -35,55 +35,54 @@
 *
 * Check - 
 */
-TEST(ContextElement, Check)
+TEST(ContextElement, check)
 {
   ContextElement ce;
+  ConnectionInfo               ci;
 
   utInit();
 
   ce.entityId.id = "";
-  EXPECT_EQ(ce.check(UpdateContext, XML, "", "", 0), "empty entityId:id");
+  EXPECT_EQ(ce.check(&ci, UpdateContext, "", "", 0), "empty entityId:id");
 
   ce.entityId.id = "id";
-  EXPECT_EQ(ce.check(UpdateContext, XML, "", "", 0), "OK");
+  EXPECT_EQ(ce.check(&ci, UpdateContext, "", "", 0), "OK");
 
   ContextAttribute a;
   a.name  = "";
-  a.value = "V";
+  a.stringValue = "V";
   ce.contextAttributeVector.push_back(&a);
-  EXPECT_EQ(ce.check(UpdateContext, XML, "", "", 0), "missing attribute name");
+  EXPECT_EQ(ce.check(&ci, UpdateContext, "", "", 0), "missing attribute name");
   a.name = "name";
   
   Metadata m;
   m.name  = "";
-  m.value = "V";
+  m.stringValue = "V";
   ce.domainMetadataVector.push_back(&m);
-  EXPECT_EQ(ce.check(UpdateContext, XML, "", "", 0), "missing metadata name");
+  EXPECT_EQ(ce.check(&ci, UpdateContext, "", "", 0), "missing metadata name");
   m.name = "NAME";
-  EXPECT_EQ(ce.check(UpdateContext, XML, "", "", 0), "OK");
+  EXPECT_EQ(ce.check(&ci, UpdateContext, "", "", 0), "OK");
 
   ContextElement ce2;
   ce2.entityId.id = "id";
 
   ContextElementVector ceVector;
 
-  EXPECT_EQ(ceVector.check(UpdateContext, XML, "", "", 0), "No context elements");
+  EXPECT_EQ(ceVector.check(&ci, UpdateContext, "", "", 0), "No context elements");
 
   ceVector.push_back(&ce);
   ceVector.push_back(&ce2);
-  EXPECT_EQ(ceVector.check(UpdateContext, XML, "", "", 0), "OK");
+  EXPECT_EQ(ceVector.check(&ci, UpdateContext, "", "", 0), "OK");
 
   // render
-  const char*  outfile1 = "ngsi.contextelement.check.middle.xml";
-  const char*  outfile2 = "ngsi.contextelement.check.middle.json";
-  std::string  out;
+  const char*     outfile1 = "ngsi.contextelement.check.middle.json";
+  std::string     out;
 
-  out = ce2.render(UpdateContextElement, XML, "", false);
+  ci = ConnectionInfo(JSON);
+
+  ci.outFormat = JSON;
+  out = ce2.render(&ci, UpdateContextElement, "", false);
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  out = ce2.render(UpdateContextElement, JSON, "", false);
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   // present
@@ -91,7 +90,7 @@ TEST(ContextElement, Check)
   ce2.present("", 1);
 
   m.name  = "";
-  EXPECT_EQ("missing metadata name", ceVector.check(UpdateContext, XML, "", "", 0));
+  EXPECT_EQ("missing metadata name", ceVector.check(&ci, UpdateContext, "", "", 0));
 
   utExit();
 }

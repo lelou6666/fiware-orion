@@ -40,7 +40,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 
 . /etc/rc.d/init.d/functions
@@ -65,6 +65,7 @@ if [[ -z "${BROKER_DATABASE_HOST}" ]] &&  [[ "${PARAM}" != "stop" ]]; then
 fi
 
 # Note that some parameters are not always included
+<<<<<<< HEAD
 if [[ -z "${BROKER_DATABASE_USER}" ]]; then
     BROKER_OPTS="-port ${BROKER_PORT}  \
             -logDir ${BROKER_LOG_DIR}  \
@@ -81,15 +82,46 @@ else
             -dbuser ${BROKER_DATABASE_USER} \
             -dbpwd ${BROKER_DATABASE_PASSWORD} \
             ${BROKER_EXTRA_OPS}"
+=======
+
+# Mandatory parameters
+BROKER_OPTS="-port ${BROKER_PORT} \
+   -logDir ${BROKER_LOG_DIR} \
+   -pidpath ${BROKER_PID_FILE} \
+   -dbhost ${BROKER_DATABASE_HOST} \
+   -db ${BROKER_DATABASE_NAME} \
+   ${BROKER_EXTRA_OPS}"
+
+# Optional parameters
+if [[ ! -z "${BROKER_DATABASE_USER}" ]]; then
+   BROKER_OPTS="${BROKER_OPTS} -dbuser ${BROKER_DATABASE_USER}"
+fi
+
+if [[ ! -z "${BROKER_DATABASE_PASSWORD}" ]]; then
+   BROKER_OPTS="${BROKER_OPTS} -dbpwd ${BROKER_DATABASE_PASSWORD}"
+fi
+
+if [[ ! -z "${BROKER_DATABASE_RPLSET}" ]]; then
+    BROKER_OPTS="${BROKER_OPTS} -rplSet ${BROKER_DATABASE_RPLSET}"
+>>>>>>> refs/remotes/telefonicaid/develop
 fi
 
 broker_start()
 {
     printf "%-50s" "Starting ${NAME}..."
     if [[ -x ${EXECUTABLE} ]]; then
+<<<<<<< HEAD
         su $BROKER_USER -c "${EXECUTABLE} ${BROKER_OPTS} &> /dev/null "
         sleep 2 # wait some time to leave contextbroker start
         PID=$(cat ${BROKER_PID_FILE})
+=======
+        # preserving existing error log (if it already exists)
+        BROKER_OUTPUT_LOG=${BROKER_LOG_DIR}/${NAME}-service.out
+        su $BROKER_USER -c "mv ${BROKER_OUTPUT_LOG} ${BROKER_OUTPUT_LOG}.old 2> /dev/null"
+        su $BROKER_USER -c "${EXECUTABLE} ${BROKER_OPTS} &> ${BROKER_OUTPUT_LOG}"
+        sleep 2 # wait some time to let the contextbroker start
+        PID=$(cat ${BROKER_PID_FILE} 2> /dev/null)
+>>>>>>> refs/remotes/telefonicaid/develop
         if [[ -z "${PID}" ]]; then
             printf "%s" "pidfile not found"
             printf "%s\n" "$(failure)" 

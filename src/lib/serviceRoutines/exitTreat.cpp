@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -36,6 +36,7 @@
 #include "rest/rest.h"
 #include "rest/restReply.h"
 #include "serviceRoutines/exitTreat.h"
+#include "cache/subCache.h"
 
 
 
@@ -43,41 +44,61 @@
 *
 * exitTreat - 
 */
-std::string exitTreat(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string exitTreat
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-   std::string password = "XXX";
-   std::string out;
+  std::string password = "XXX";
+  std::string out;
 
-   if (harakiri == false)
-   {
-     OrionError orionError(SccBadRequest, "no such service");
+  if (harakiri == false)
+  {
+    OrionError orionError(SccBadRequest, "no such service");
 
-     ciP->httpStatusCode = SccOk;
-     out = orionError.render(ciP->outFormat, "");
-     return out;
-   }
+    ciP->httpStatusCode = SccOk;
+    out = orionError.render(ciP, "");
+    return out;
+  }
 
-   if (components > 1)
+  if (components > 1)
+  {
     password = compV[1];
+  }
 
-   if (components == 1)
-   {
-      OrionError orionError(SccBadRequest, "Password requested");
-      ciP->httpStatusCode = SccOk;
-      out = orionError.render(ciP->outFormat, "");
-   }
-   else if (password != "harakiri")
-   {
-      OrionError orionError(SccBadRequest, "Request denied - password erroneous");
-      ciP->httpStatusCode = SccOk;
-      out = orionError.render(ciP->outFormat, "");
-   }
-   else
-   {
-      mongoDisconnect();
-      compV.clear();
-      return "DIE";
-   }
+  if (components == 1)
+  {
+    OrionError orionError(SccBadRequest, "Password requested");
+    ciP->httpStatusCode = SccOk;
+    out = orionError.render(ciP, "");
+  }
+  else if (password != "harakiri")
+  {
+    OrionError orionError(SccBadRequest, "Request denied - password erroneous");
+    ciP->httpStatusCode = SccOk;
+    out = orionError.render(ciP, "");
+  }
+  else
+  {
+    if (subCacheState == ScsSynchronizing)
+    {
+      // 
+      // Subscription Cache is busy doing a synchronization.
+      // Two secs should be enough for it to finish.
+      //
+      // Not very important anyway. This 'hack' is just to avoid
+      // false leaks in the valgrind test suite.
+      //
+      LM_W(("Subscription cache is synchronizing, wait a few seconds before dying"));
+      sleep(2);
+    }
 
-   return out;
+    compV.clear();
+    return "DIE";
+  }
+
+  return out;
 }

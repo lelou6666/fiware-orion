@@ -18,16 +18,20 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 #include <vector>
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "mongoBackend/mongoUpdateContextAvailabilitySubscription.h"
 #include "ngsi/ParseData.h"
 #include "ngsi9/UpdateContextAvailabilitySubscriptionResponse.h"
+#include "rest/uriParamNames.h"
 #include "rest/ConnectionInfo.h"
 
 
@@ -36,19 +40,24 @@
 *
 * postUpdateContextAvailabilitySubscription - 
 */
-std::string postUpdateContextAvailabilitySubscription(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postUpdateContextAvailabilitySubscription
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   UpdateContextAvailabilitySubscriptionResponse  ucas;
   std::string                                    answer;
 
-  ucas.subscriptionId = parseDataP->ucas.res.subscriptionId;
+  ucas.subscriptionId = parseDataP->ucas.res.subscriptionId;  
 
-  // FIXME P6: by the moment, we are assuming that notification will be sent in the same format than the one
-  // used to do the subscription, so we are passing ciP->inFomat. This is just an heuristic, the client could want
-  // for example to use XML in the subscription message but wants notifications in JSON. We need a more
-  // flexible approach, to be implemented
-  ciP->httpStatusCode = mongoUpdateContextAvailabilitySubscription(&parseDataP->ucas.res, &ucas, ciP->inFormat);
-  answer = ucas.render(UpdateContextAvailabilitySubscription, ciP->outFormat, "", 0);
+  TIMED_MONGO(ciP->httpStatusCode = mongoUpdateContextAvailabilitySubscription(&parseDataP->ucas.res,
+                                                                               &ucas,                                                                               
+                                                                               ciP->tenant));
+
+  TIMED_RENDER(answer = ucas.render(UpdateContextAvailabilitySubscription, "", 0));
 
   return answer;
 }

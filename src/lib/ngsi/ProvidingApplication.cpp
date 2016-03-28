@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -33,15 +33,33 @@
 #include "ngsi/ProvidingApplication.h"
 
 
+/* ****************************************************************************
+*
+* ProvidingApplication::ProvidingApplication -
+*/
+ProvidingApplication::ProvidingApplication()
+{
+  /* It is better to have a default constructor that leave format with a random value */
+  string = "";
+  format = NOFORMAT;
+}
 
 /* ****************************************************************************
 *
-* ProvidingApplication::check - 
+* ProvidingApplication::check -
 */
-std::string ProvidingApplication::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ProvidingApplication::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   if (isEmpty())
-     return "no providing application";
+  {
+    return "no providing application";
+  }
 
   return "OK";
 }
@@ -50,81 +68,107 @@ std::string ProvidingApplication::check(RequestType requestType, Format format, 
 
 /* ****************************************************************************
 *
-* ProvidingApplication::isEmpty - 
+* ProvidingApplication::isEmpty -
 */
 bool ProvidingApplication::isEmpty(void)
 {
-   return (string == "")? true : false;
+  return (string == "")? true : false;
 }
 
 
 
 /* ****************************************************************************
 *
-* ProvidingApplication::set - 
+* ProvidingApplication::set -
 */
-void ProvidingApplication::set(std::string value)
+void ProvidingApplication::set(const std::string& value)
 {
   string = value;
 }
 
+/* ****************************************************************************
+*
+* ProvidingApplication::setFormat -
+*/
+void ProvidingApplication::setFormat(const Format& f)
+{
+  format = f;
+}
+
 
 
 /* ****************************************************************************
 *
-* ProvidingApplication::get - 
+* ProvidingApplication::get -
 */
 std::string ProvidingApplication::get(void)
 {
   return string;
 }
 
+/* ****************************************************************************
+*
+* ProvidingApplication::getFormat -
+*/
+Format ProvidingApplication::getFormat(void)
+{
+  return format;
+}
+
 
 
 /* ****************************************************************************
 *
-* ProvidingApplication::present - 
+* ProvidingApplication::present -
 */
-void ProvidingApplication::present(std::string indent)
+void ProvidingApplication::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sProvidingApplication: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sProvidingApplication: %s\n", 
+		      indent.c_str(), 
+		      string.c_str()));
+  }
   else
-    PRINTF("%sNo ProvidingApplication\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo ProvidingApplication\n", indent.c_str()));
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* ProvidingApplication::render - 
+* ProvidingApplication::render -
 */
-std::string ProvidingApplication::render(Format format, std::string indent, bool comma)
+std::string ProvidingApplication::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
+  }
 
-  return valueTag(indent, "providingApplication", string, format, comma);
+  return valueTag1(indent, "providingApplication", string, comma);
 }
 
 
 
 /* ****************************************************************************
 *
-* ProvidingApplication::c_str - 
+* ProvidingApplication::c_str -
 */
 const char* ProvidingApplication::c_str(void)
 {
-   return string.c_str();
+  return string.c_str();
 }
 
 
 
 /* ****************************************************************************
 *
-* release - 
+* release -
 */
 void ProvidingApplication::release(void)
 {
-   /* This method is included for the sake of homogeneity */
+  /* This method is included for the sake of homogeneity */
 }

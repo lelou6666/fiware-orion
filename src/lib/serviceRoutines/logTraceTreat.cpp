@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -27,6 +27,9 @@
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
+
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
 
 #include "ngsi/ParseData.h"
 #include "rest/ConnectionInfo.h"
@@ -38,9 +41,15 @@
 
 /* ****************************************************************************
 *
-* logTraceTreat - 
+* logTraceTreat -
 */
-std::string logTraceTreat(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string logTraceTreat
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
   std::string out  = "OK";
   std::string path = "";
@@ -72,7 +81,7 @@ std::string logTraceTreat(ConnectionInfo* ciP, int components, std::vector<std::
   else if ((components == 2) && (ciP->method == "GET"))
   {
     char tLevels[256];
-    lmTraceGet(tLevels);
+    lmTraceGet(tLevels, sizeof(tLevels));
     out = orionReply(ciP, "tracelevels", tLevels);
   }
   else if ((components == 3) && (ciP->method == "PUT"))
@@ -90,7 +99,8 @@ std::string logTraceTreat(ConnectionInfo* ciP, int components, std::vector<std::
   else
   {
     OrionError error(SccBadRequest, std::string("bad URL/Verb: ") + ciP->method + " " + path);
-    out = error.render(ciP->outFormat, "");
+
+    TIMED_RENDER(out = error.render(ciP, ""));
   }
 
   return out;

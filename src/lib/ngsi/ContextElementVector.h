@@ -1,5 +1,5 @@
-#ifndef CONTEXT_ELEMENT_VECTOR_H
-#define CONTEXT_ELEMENT_VECTOR_H
+#ifndef SRC_LIB_NGSI_CONTEXTELEMENTVECTOR_H_
+#define SRC_LIB_NGSI_CONTEXTELEMENTVECTOR_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,12 +29,13 @@
 #include <vector>
 
 #include "ngsi/ContextElement.h"
+#include "rest/ConnectionInfo.h"
 
 
 
 /* ****************************************************************************
 *
-* ContextElementVector - 
+* ContextElementVector -
 */
 typedef struct ContextElementVector
 {
@@ -42,11 +43,17 @@ typedef struct ContextElementVector
 
   void             push_back(ContextElement* item);
   unsigned int     size(void);
-  ContextElement*  get(int ix);
-  std::string      render(RequestType requestType, Format format, std::string indent, bool comma);
-  std::string      check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void             present(std::string indent);
+  std::string      render(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, bool comma);
+  void             present(const std::string& indent);
   void             release(void);
+  ContextElement*  lookup(EntityId* eP);
+  ContextElement*  operator[](unsigned int ix) const;
+
+  std::string      check(ConnectionInfo*     ciP,
+                         RequestType         requestType,
+                         const std::string&  indent,
+                         const std::string&  predetectedError,
+                         int                 counter);
 } ContextElementVector;
 
-#endif
+#endif  // SRC_LIB_NGSI_CONTEXTELEMENTVECTOR_H_

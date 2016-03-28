@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -57,7 +57,7 @@ TEST(getIndividualContextEntityAttributes, notFound)
 
   utInit();
 
-  ci.outFormat = XML;
+  ci.outFormat = JSON;
   out          = restService(&ci, rs);
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";

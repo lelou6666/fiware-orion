@@ -16,7 +16,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
@@ -24,7 +24,6 @@ SET (SOURCES
 versionTreat.cpp
 exitTreat.cpp
 leakTreat.cpp
-logVerboseTreat.cpp
 logTraceTreat.cpp
 postRegisterContext.cpp
 postDiscoverContextAvailability.cpp
@@ -49,10 +48,7 @@ postContextEntityTypeAttribute.cpp
 getIndividualContextEntity.cpp
 putIndividualContextEntity.cpp
 postIndividualContextEntity.cpp
-getIndividualContextEntityAttributes.cpp
-putIndividualContextEntityAttributes.cpp
-postIndividualContextEntityAttributes.cpp
-deleteIndividualContextEntityAttributes.cpp
+putIndividualContextEntityAttribute.cpp
 getIndividualContextEntityAttribute.cpp
 postIndividualContextEntityAttribute.cpp
 deleteIndividualContextEntityAttribute.cpp
@@ -65,12 +61,14 @@ putAvailabilitySubscriptionConvOp.cpp
 deleteAvailabilitySubscriptionConvOp.cpp
 badVerbPostOnly.cpp
 badVerbAllFour.cpp
+badVerbAllFive.cpp
 badVerbGetPostOnly.cpp
 badVerbGetPostDeleteOnly.cpp
 badVerbGetOnly.cpp
 badVerbGetDeleteOnly.cpp
 badVerbPutDeleteOnly.cpp
-badVerbGetPutDeleteOnly
+badVerbGetPutDeleteOnly.cpp
+badVerbPutOnly.cpp
 badNgsi9Request.cpp
 badNgsi10Request.cpp
 badRequest.cpp
@@ -80,12 +78,32 @@ statisticsTreat.cpp
 getAttributeValueInstance.cpp
 putAttributeValueInstance.cpp
 deleteAttributeValueInstance.cpp
+getEntityTypes.cpp
+getAttributesForEntityType.cpp
+getAllContextEntities.cpp
+getAllEntitiesWithTypeAndId.cpp
+postAllEntitiesWithTypeAndId.cpp
+putAllEntitiesWithTypeAndId.cpp
+deleteAllEntitiesWithTypeAndId.cpp
+getIndividualContextEntityAttributeWithTypeAndId.cpp
+deleteIndividualContextEntityAttributeWithTypeAndId.cpp
+postIndividualContextEntityAttributeWithTypeAndId.cpp
+putIndividualContextEntityAttributeWithTypeAndId.cpp
+getAttributeValueInstanceWithTypeAndId.cpp
+deleteAttributeValueInstanceWithTypeAndId.cpp
+postAttributeValueInstanceWithTypeAndId.cpp
+putAttributeValueInstanceWithTypeAndId.cpp
+getContextEntitiesByEntityIdAndType.cpp
+postContextEntitiesByEntityIdAndType.cpp
+getEntityByIdAttributeByNameWithTypeAndId.cpp
+postEntityByIdAttributeByNameWithTypeAndId.cpp
+postSubscribeContextConvOp.cpp
+postSubscribeContextAvailabilityConvOp.cpp
 )
 
 SET (HEADERS
 versionTreat.h
 exitTreat.h
-logVerboseTreat.h
 logTraceTreat.h
 postRegisterContext.h
 postDiscoverContextAvailability.h
@@ -110,10 +128,7 @@ postContextEntityTypeAttribute.h
 getIndividualContextEntity.h
 putIndividualContextEntity.h
 postIndividualContextEntity.h
-getIndividualContextEntityAttributes.h
-putIndividualContextEntityAttributes.h
-postIndividualContextEntityAttributes.h
-deleteIndividualContextEntityAttributes.h
+putIndividualContextEntityAttribute.h
 getIndividualContextEntityAttribute.h
 postIndividualContextEntityAttribute.h
 deleteIndividualContextEntityAttribute.h
@@ -121,17 +136,36 @@ deleteIndividualContextEntity.h
 getNgsi10ContextEntityTypes.h
 badVerbPostOnly.h
 badVerbAllFour.h
+badVerbAllFive.h
 badVerbGetPostOnly.h
 badVerbGetPostDeleteOnly.h
 badVerbGetOnly.h
 badVerbGetDeleteOnly.h
 badVerbPutDeleteOnly.h
+badVerbGetPutDeleteOnly.h
+badVerbPutOnly.h
 badNgsi9Request.h
 badNgsi10Request.h
 badRequest.h
 postNotifyContext.h
 postNotifyContextAvailability.h
 statisticsTreat.h
+getEntityTypes.h
+getAttributesForEntityType.h
+getAllContextEntities.h
+getIndividualContextEntityAttributeWithTypeAndId.h
+deleteIndividualContextEntityAttributeWithTypeAndId.h
+postIndividualContextEntityAttributeWithTypeAndId.h
+putIndividualContextEntityAttributeWithTypeAndId.h
+getAttributeValueInstanceWithTypeAndId.h
+deleteAttributeValueInstanceWithTypeAndId.h
+postAttributeValueInstanceWithTypeAndId.h
+putAttributeValueInstanceWithTypeAndId.h
+getContextEntitiesByEntityIdAndType.h
+postContextEntitiesByEntityIdAndType.h
+getEntityByIdAttributeByNameWithTypeAndId.h
+postEntityByIdAttributeByNameWithTypeAndId.h
+postSubscribeContextConvOp.h
 )
 
 

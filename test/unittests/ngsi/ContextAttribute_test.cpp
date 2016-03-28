@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -26,6 +26,7 @@
 #include "logMsg/traceLevels.h"
 
 #include "ngsi/ContextAttributeVector.h"
+#include "rest/ConnectionInfo.h"
 
 #include "unittest.h"
 
@@ -39,21 +40,22 @@ TEST(ContextAttribute, checkOne)
 {
   ContextAttribute  ca;
   std::string       res;
+  ConnectionInfo    ci;
 
   utInit();
 
   ca.name = "";
-  res     = ca.check(RegisterContext, XML, "", "", 0);
+  res     = ca.check(&ci, RegisterContext, "", "", 0);
   EXPECT_TRUE(res == "missing attribute name");
 
   ca.name  = "Algo, lo que sea!";
-  ca.value = "";
+  ca.stringValue = ""; // FIXME P10: automacit value -> stringValue change, please review to check if it is safe
 
-  res     = ca.check(RegisterContext, XML, "", "", 0);
-  EXPECT_TRUE(res == "missing attribute value");
+  res     = ca.check(&ci, RegisterContext, "", "", 0);
+  EXPECT_TRUE(res == "OK");
   
-  ca.value = "Algun valor cualquiera";
-  res     = ca.check(RegisterContext, XML, "", "", 0);
+  ca.stringValue = "Algun valor cualquiera"; // FIXME P10: automacit value -> stringValue change, please review to check if it is safe
+  res     = ca.check(&ci, RegisterContext, "", "", 0);
   EXPECT_TRUE(res == "OK");
 
   utExit();
@@ -71,18 +73,19 @@ TEST(ContextAttribute, checkVector)
   ContextAttribute        ca0;
   ContextAttribute        ca1;
   std::string             res;
+  ConnectionInfo          ci;
 
   utInit();
 
-  ca0.name  = "Algo, lo que sea!";
-  ca0.value = "Algo, lo que sea!";
-  ca1.name  = "Algo, lo que sea!";
-  ca1.value = "Algo, lo que sea!";
+  ca0.name        = "Algo, lo que sea!";
+  ca0.stringValue = "Algo, lo que sea!"; // FIXME P10: automacit value -> stringValue change, please review to check if it is safe
+  ca1.name        = "Algo, lo que sea!";
+  ca1.stringValue = "Algo, lo que sea!"; // FIXME P10: automacit value -> stringValue change, please review to check if it is safe
 
   caVector.push_back(&ca0);
   caVector.push_back(&ca1);
 
-  res     = caVector.check(RegisterContext, XML, "", "", 0);
+  res     = caVector.check(&ci, RegisterContext, "", "", 0);
   EXPECT_TRUE(res == "OK");
 
   utExit();
@@ -98,17 +101,14 @@ TEST(ContextAttribute, render)
 {
   ContextAttribute  ca("NAME", "TYPE", "VALUE");
   std::string       out;
-  const char*       outfile1 = "ngsi.contextAttribute.render.middle.xml";
-  const char*       outfile2 = "ngsi.contextAttribute.render.middle.json";
+  const char*       outfile1 = "ngsi.contextAttribute.render.middle.json";
+  ConnectionInfo    ci(JSON);
 
   utInit();
 
-  out = ca.render(XML, "");
+  ci.outFormat = JSON;
+  out = ca.render(&ci, UpdateContext, "");
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  out = ca.render(JSON, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();

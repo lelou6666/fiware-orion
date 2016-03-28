@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -36,7 +36,7 @@
 
 /* ****************************************************************************
 *
-* ContextRegistrationResponseVector::push_back - 
+* ContextRegistrationResponseVector::push_back -
 */
 void ContextRegistrationResponseVector::push_back(ContextRegistrationResponse* item)
 {
@@ -47,23 +47,26 @@ void ContextRegistrationResponseVector::push_back(ContextRegistrationResponse* i
 
 /* ****************************************************************************
 *
-* ContextRegistrationResponseVector::render - 
+* ContextRegistrationResponseVector::render -
 */
-std::string ContextRegistrationResponseVector::render(Format format, std::string indent, bool comma)
+std::string ContextRegistrationResponseVector::render(const std::string& indent, bool comma)
 {
-  std::string  out     = "";
-  std::string  xmlTag  = "contextRegistrationResponseList";
-  std::string  jsonTag = "contextRegistrationResponses";
+  std::string  out = "";
+  std::string  key = "contextRegistrationResponses";
 
   if (vec.size() == 0)
+  {
     return "";
+  }
 
-  out += startTag(indent, xmlTag, jsonTag, format, true, true);
+  out += startTag2(indent, key, true, true);
 
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-     out += vec[ix]->render(format, indent + "  ", (ix != vec.size() - 1));
+  {
+     out += vec[ix]->render(indent + "  ", (ix != vec.size() - 1));
+  }
 
-  out += endTag(indent, xmlTag, format, comma, true);
+  out += endTag(indent, comma, true);
 
   return out;
 }
@@ -72,21 +75,23 @@ std::string ContextRegistrationResponseVector::render(Format format, std::string
 
 /* ****************************************************************************
 *
-* ContextRegistrationResponseVector::present - 
+* ContextRegistrationResponseVector::present -
 */
-void ContextRegistrationResponseVector::present(std::string indent)
+void ContextRegistrationResponseVector::present(const std::string& indent)
 {
-   PRINTF("%lu ContextRegistrationResponses", (unsigned long) vec.size());
+  LM_T(LmtPresent, ("%lu ContextRegistrationResponses", (uint64_t) vec.size()));
 
-   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-     vec[ix]->present(indent);
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    vec[ix]->present(indent);
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* ContextRegistrationResponseVector::release - 
+* ContextRegistrationResponseVector::release -
 */
 void ContextRegistrationResponseVector::release(void)
 {
@@ -103,18 +108,22 @@ void ContextRegistrationResponseVector::release(void)
 
 /* ****************************************************************************
 *
-* ContextRegistrationResponseVector::get - 
+* ContextRegistrationResponseVector::operator[] -
 */
-ContextRegistrationResponse* ContextRegistrationResponseVector::get(int ix)
+ContextRegistrationResponse*  ContextRegistrationResponseVector::operator[] (unsigned int ix) const
 {
-  return vec[ix];
+    if (ix < vec.size())
+    {
+      return vec[ix];
+    }
+    return NULL;
 }
-
+  
 
 
 /* ****************************************************************************
 *
-* ContextRegistrationResponseVector::size - 
+* ContextRegistrationResponseVector::size -
 */
 unsigned int ContextRegistrationResponseVector::size(void)
 {
@@ -125,16 +134,25 @@ unsigned int ContextRegistrationResponseVector::size(void)
 
 /* ****************************************************************************
 *
-* ContextRegistrationResponseVector::check - 
+* ContextRegistrationResponseVector::check -
 */
-std::string ContextRegistrationResponseVector::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ContextRegistrationResponseVector::check
+(
+  ConnectionInfo*     ciP,
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
     std::string res;
 
-    if ((res = vec[ix]->check(requestType, format, indent, predetectedError, counter)) != "OK")
+    if ((res = vec[ix]->check(ciP, requestType, indent, predetectedError, counter)) != "OK")
+    {
       return res;
+    }
   }
 
   return "OK";

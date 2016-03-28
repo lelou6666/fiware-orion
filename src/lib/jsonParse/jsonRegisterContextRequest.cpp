@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -34,7 +34,8 @@
 #include "ngsi/Metadata.h"
 #include "ngsi9/RegisterContextRequest.h"
 #include "jsonParse/JsonNode.h"
-#include "jsonParse/jsonNullTreat.h"
+#include "parse/nullTreat.h"
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -42,12 +43,12 @@
 *
 * contextRegistration - 
 */
-static std::string contextRegistration(std::string path, std::string value, ParseData* reqDataP)
+static std::string contextRegistration(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
-  //LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
+  // LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
   reqDataP->rcr.crP = new ContextRegistration();
-  //LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
-  
+  // LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
+
   reqDataP->rcr.res.contextRegistrationVector.push_back(reqDataP->rcr.crP);
   LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
 
@@ -60,14 +61,14 @@ static std::string contextRegistration(std::string path, std::string value, Pars
 *
 * entityId - 
 */
-static std::string entityId(std::string path, std::string value, ParseData* reqDataP)
+static std::string entityId(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
 
   reqDataP->rcr.entityIdP = new EntityId();
 
-  reqDataP->rcr.entityIdP->id        = "not in use";
-  reqDataP->rcr.entityIdP->type      = "not in use";
+  reqDataP->rcr.entityIdP->id        = "";
+  reqDataP->rcr.entityIdP->type      = "";
   reqDataP->rcr.entityIdP->isPattern = "false";
 
   reqDataP->rcr.crP->entityIdVector.push_back(reqDataP->rcr.entityIdP);
@@ -81,12 +82,12 @@ static std::string entityId(std::string path, std::string value, ParseData* reqD
 *
 * entityIdId - 
 */
-static std::string entityIdId(std::string path, std::string value, ParseData* reqDataP)
+static std::string entityIdId(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
-   reqDataP->rcr.entityIdP->id = value;
-   LM_T(LmtParse, ("Set 'id' to '%s' for an entity", reqDataP->rcr.entityIdP->id.c_str()));
+  reqDataP->rcr.entityIdP->id = value;
+  LM_T(LmtParse, ("Set 'id' to '%s' for an entity", reqDataP->rcr.entityIdP->id.c_str()));
 
-   return "OK";
+  return "OK";
 }
 
 
@@ -95,12 +96,12 @@ static std::string entityIdId(std::string path, std::string value, ParseData* re
 *
 * entityIdType - 
 */
-static std::string entityIdType(std::string path, std::string value, ParseData* reqDataP)
+static std::string entityIdType(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
-   reqDataP->rcr.entityIdP->type = value;
-   LM_T(LmtParse, ("Set 'type' to '%s' for an entity", reqDataP->rcr.entityIdP->type.c_str()));
+  reqDataP->rcr.entityIdP->type = value;
+  LM_T(LmtParse, ("Set 'type' to '%s' for an entity", reqDataP->rcr.entityIdP->type.c_str()));
 
-   return "OK";
+  return "OK";
 }
 
 
@@ -109,15 +110,19 @@ static std::string entityIdType(std::string path, std::string value, ParseData* 
 *
 * entityIdIsPattern - 
 */
-static std::string entityIdIsPattern(std::string path, std::string value, ParseData* reqDataP)
+static std::string entityIdIsPattern(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got an entityId:isPattern: '%s'", value.c_str()));
 
   if (!isTrue(value) && !isFalse(value))
-    return "bad 'isPattern' value: '" + value + "'";
+  {
+    return "invalid isPattern value for entity: /" + value + "/";
+  }
 
   if (isTrue(value))
-    return "isPattern set to TRUE for a registerContext request - this is nonsense ...";
+  {
+    return "isPattern set to true for a registration";
+  }
 
   reqDataP->rcr.entityIdP->isPattern = value;
 
@@ -130,12 +135,11 @@ static std::string entityIdIsPattern(std::string path, std::string value, ParseD
 *
 * crAttribute - 
 */
-static std::string crAttribute(std::string path, std::string value, ParseData* reqDataP)
+static std::string crAttribute(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
 
-  reqDataP->rcr.attributeP = new ContextRegistrationAttribute("not in use", "not in use");
-
+  reqDataP->rcr.attributeP = new ContextRegistrationAttribute("", "");
   reqDataP->rcr.crP->contextRegistrationAttributeVector.push_back(reqDataP->rcr.attributeP);
 
   return "OK";
@@ -147,7 +151,7 @@ static std::string crAttribute(std::string path, std::string value, ParseData* r
 *
 * craName - 
 */
-static std::string craName(std::string path, std::string value, ParseData* reqDataP)
+static std::string craName(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   reqDataP->rcr.attributeP->name = value;
   LM_T(LmtParse, ("Set 'name' to '%s' for a contextRegistrationAttribute", reqDataP->rcr.attributeP->name.c_str()));
@@ -161,7 +165,7 @@ static std::string craName(std::string path, std::string value, ParseData* reqDa
 *
 * craType - 
 */
-static std::string craType(std::string path, std::string value, ParseData* reqDataP)
+static std::string craType(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   reqDataP->rcr.attributeP->type = value;
   LM_T(LmtParse, ("Set 'type' to '%s' for a contextRegistrationAttribute", reqDataP->rcr.attributeP->type.c_str()));
@@ -175,13 +179,16 @@ static std::string craType(std::string path, std::string value, ParseData* reqDa
 *
 * craIsDomain - 
 */
-static std::string craIsDomain(std::string path, std::string value, ParseData* reqDataP)
+static std::string craIsDomain(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   if (!isTrue(value) && !isFalse(value))
-    return "bad 'isDomain' value: '" + value + "'";
+  {
+    return "invalid isDomain value for context registration attribute: /" + value + "/";
+  }
 
   reqDataP->rcr.attributeP->isDomain = value;
-  LM_T(LmtParse, ("Set 'isDomain' to '%s' for a contextRegistrationAttribute", reqDataP->rcr.attributeP->isDomain.c_str()));
+  LM_T(LmtParse, ("Set 'isDomain' to '%s' for a contextRegistrationAttribute",
+                  reqDataP->rcr.attributeP->isDomain.c_str()));
 
   return "OK";
 }
@@ -192,15 +199,15 @@ static std::string craIsDomain(std::string path, std::string value, ParseData* r
 *
 * craMetadata - 
 */
-static std::string craMetadata(std::string path, std::string value, ParseData* reqDataP)
+static std::string craMetadata(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Creating a metadata"));
 
   reqDataP->rcr.attributeMetadataP = new Metadata();
 
-  reqDataP->rcr.attributeMetadataP->type  = "not in use";
-  reqDataP->rcr.attributeMetadataP->name  = "not in use";
-  reqDataP->rcr.attributeMetadataP->value = "not in use";
+  reqDataP->rcr.attributeMetadataP->type  = "";
+  reqDataP->rcr.attributeMetadataP->name  = "";
+  reqDataP->rcr.attributeMetadataP->stringValue = "";
 
   reqDataP->rcr.attributeP->metadataVector.push_back(reqDataP->rcr.attributeMetadataP);
 
@@ -213,7 +220,7 @@ static std::string craMetadata(std::string path, std::string value, ParseData* r
 *
 * craMetadataName - 
 */
-static std::string craMetadataName(std::string path, std::string value, ParseData* reqDataP)
+static std::string craMetadataName(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a metadata name: '%s'", value.c_str()));
   reqDataP->rcr.attributeMetadataP->name = value;
@@ -227,7 +234,7 @@ static std::string craMetadataName(std::string path, std::string value, ParseDat
 *
 * craMetadataType - 
 */
-static std::string craMetadataType(std::string path, std::string value, ParseData* reqDataP)
+static std::string craMetadataType(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a metadata type: '%s'", value.c_str()));
   reqDataP->rcr.attributeMetadataP->type = value;
@@ -241,10 +248,10 @@ static std::string craMetadataType(std::string path, std::string value, ParseDat
 *
 * craMetadataValue - 
 */
-static std::string craMetadataValue(std::string path, std::string value, ParseData* reqDataP)
+static std::string craMetadataValue(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a metadata value: '%s'", value.c_str()));
-  reqDataP->rcr.attributeMetadataP->value = value;
+  reqDataP->rcr.attributeMetadataP->stringValue = value;
 
   return "OK";
 }
@@ -255,14 +262,14 @@ static std::string craMetadataValue(std::string path, std::string value, ParseDa
 *
 * regMetadata - 
 */
-static std::string regMetadata(std::string path, std::string value, ParseData* reqDataP)
+static std::string regMetadata(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Creating a reg metadata"));
 
   reqDataP->rcr.registrationMetadataP = new Metadata();
-  reqDataP->rcr.registrationMetadataP->type  = "not in use";
-  reqDataP->rcr.registrationMetadataP->name  = "not in use";
-  reqDataP->rcr.registrationMetadataP->value = "not in use";
+  reqDataP->rcr.registrationMetadataP->type  = "";
+  reqDataP->rcr.registrationMetadataP->name  = "";
+  reqDataP->rcr.registrationMetadataP->stringValue = "";
   reqDataP->rcr.crP->registrationMetadataVector.push_back(reqDataP->rcr.registrationMetadataP);
 
   return "OK";
@@ -274,7 +281,7 @@ static std::string regMetadata(std::string path, std::string value, ParseData* r
 *
 * regMetadataName - 
 */
-static std::string regMetadataName(std::string path, std::string value, ParseData* reqDataP)
+static std::string regMetadataName(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a reg metadata name: '%s'", value.c_str()));
   reqDataP->rcr.registrationMetadataP->name = value;
@@ -288,7 +295,7 @@ static std::string regMetadataName(std::string path, std::string value, ParseDat
 *
 * regMetadataType - 
 */
-static std::string regMetadataType(std::string path, std::string value, ParseData* reqDataP)
+static std::string regMetadataType(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a reg metadata type: '%s'", value.c_str()));
   reqDataP->rcr.registrationMetadataP->type = value;
@@ -302,10 +309,10 @@ static std::string regMetadataType(std::string path, std::string value, ParseDat
 *
 * regMetadataValue - 
 */
-static std::string regMetadataValue(std::string path, std::string value, ParseData* reqDataP)
+static std::string regMetadataValue(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a reg metadata value: '%s'", value.c_str()));
-  reqDataP->rcr.registrationMetadataP->value = value;
+  reqDataP->rcr.registrationMetadataP->stringValue = value;
 
   return "OK";
 }
@@ -316,7 +323,7 @@ static std::string regMetadataValue(std::string path, std::string value, ParseDa
 *
 * providingApplication - 
 */
-static std::string providingApplication(std::string path, std::string value, ParseData* reqDataP)
+static std::string providingApplication(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a providing application: '%s'", value.c_str()));
   reqDataP->rcr.crP->providingApplication.set(value);
@@ -330,7 +337,7 @@ static std::string providingApplication(std::string path, std::string value, Par
 *
 * duration - 
 */
-static std::string duration(std::string path, std::string value, ParseData* reqDataP)
+static std::string duration(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a duration: '%s'. Saving in %p", value.c_str(), &reqDataP->rcr.res.duration));
   reqDataP->rcr.res.duration.set(value);
@@ -344,7 +351,7 @@ static std::string duration(std::string path, std::string value, ParseData* reqD
 *
 * registrationId - 
 */
-static std::string registrationId(std::string path, std::string value, ParseData* reqDataP)
+static std::string registrationId(const std::string& path, const std::string& value, ParseData* reqDataP)
 {
   LM_T(LmtParse, ("Got a registration id: '%s'", value.c_str()));
   reqDataP->rcr.res.registrationId.set(value);
@@ -354,41 +361,42 @@ static std::string registrationId(std::string path, std::string value, ParseData
 
 
 
+#define CR "/contextRegistrations"
 /* ****************************************************************************
 *
 * jsonRcrParseVector -
 */
 JsonNode jsonRcrParseVector[] =
 {
-  { "/contextRegistrations",                                                                       jsonNullTreat     },
-  { "/contextRegistrations/contextRegistration",                                                   contextRegistration },
-  { "/contextRegistrations/contextRegistration/entities",                                          jsonNullTreat     },
-  { "/contextRegistrations/contextRegistration/entities/entity",                                   entityId          },
-  { "/contextRegistrations/contextRegistration/entities/entity/id",                                entityIdId        },
-  { "/contextRegistrations/contextRegistration/entities/entity/type",                              entityIdType      },
-  { "/contextRegistrations/contextRegistration/entities/entity/isPattern",                         entityIdIsPattern },
+  { "/contextRegistrations",                                                            jsonNullTreat            },
+  { CR "/contextRegistration",                                                          contextRegistration      },
+  { CR "/contextRegistration/entities",                                                 jsonNullTreat            },
+  { CR "/contextRegistration/entities/entity",                                          entityId                 },
+  { CR "/contextRegistration/entities/entity/id",                                       entityIdId               },
+  { CR "/contextRegistration/entities/entity/type",                                     entityIdType             },
+  { CR "/contextRegistration/entities/entity/isPattern",                                entityIdIsPattern        },
 
-  { "/contextRegistrations/contextRegistration/attributes",                                        jsonNullTreat     },
-  { "/contextRegistrations/contextRegistration/attributes/attribute",                              crAttribute       },
-  { "/contextRegistrations/contextRegistration/attributes/attribute/name",                         craName           },
-  { "/contextRegistrations/contextRegistration/attributes/attribute/type",                         craType           },
-  { "/contextRegistrations/contextRegistration/attributes/attribute/isDomain",                     craIsDomain       },
+  { CR "/contextRegistration/attributes",                                               jsonNullTreat            },
+  { CR "/contextRegistration/attributes/attribute",                                     crAttribute              },
+  { CR "/contextRegistration/attributes/attribute/name",                                craName                  },
+  { CR "/contextRegistration/attributes/attribute/type",                                craType                  },
+  { CR "/contextRegistration/attributes/attribute/isDomain",                            craIsDomain              },
 
-  { "/contextRegistrations/contextRegistration/attributes/attribute/metadatas",                    jsonNullTreat     },
-  { "/contextRegistrations/contextRegistration/attributes/attribute/metadatas/metadata",           craMetadata       },
-  { "/contextRegistrations/contextRegistration/attributes/attribute/metadatas/metadata/name",      craMetadataName   },
-  { "/contextRegistrations/contextRegistration/attributes/attribute/metadatas/metadata/type",      craMetadataType   },
-  { "/contextRegistrations/contextRegistration/attributes/attribute/metadatas/metadata/value",     craMetadataValue  },
+  { CR "/contextRegistration/attributes/attribute/metadatas",                           jsonNullTreat            },
+  { CR "/contextRegistration/attributes/attribute/metadatas/metadata",                  craMetadata              },
+  { CR "/contextRegistration/attributes/attribute/metadatas/metadata/name",             craMetadataName          },
+  { CR "/contextRegistration/attributes/attribute/metadatas/metadata/type",             craMetadataType          },
+  { CR "/contextRegistration/attributes/attribute/metadatas/metadata/value",            craMetadataValue         },
 
-  { "/contextRegistrations/contextRegistration/metadatas",                                         jsonNullTreat    },
-  { "/contextRegistrations/contextRegistration/metadatas/metadata",                                regMetadata      },
-  { "/contextRegistrations/contextRegistration/metadatas/metadata/name",                           regMetadataName  },
-  { "/contextRegistrations/contextRegistration/metadatas/metadata/type",                           regMetadataType  },
-  { "/contextRegistrations/contextRegistration/metadatas/metadata/value",                          regMetadataValue },
+  { CR "/contextRegistration/metadatas",                                                jsonNullTreat            },
+  { CR "/contextRegistration/metadatas/metadata",                                       regMetadata              },
+  { CR "/contextRegistration/metadatas/metadata/name",                                  regMetadataName          },
+  { CR "/contextRegistration/metadatas/metadata/type",                                  regMetadataType          },
+  { CR "/contextRegistration/metadatas/metadata/value",                                 regMetadataValue         },
 
-  { "/contextRegistrations/contextRegistration/providingApplication",                providingApplication },
-  { "/duration",                                                                     duration             },
-  { "/registrationId",                                                               registrationId       },
+  { CR "/contextRegistration/providingApplication",                                     providingApplication     },
+  { "/duration",                                                                        duration                 },
+  { "/registrationId",                                                                  registrationId           },
 
   { "LAST", NULL }
 };
@@ -428,7 +436,7 @@ void jsonRcrRelease(ParseData* reqDataP)
 */
 std::string jsonRcrCheck(ParseData* reqData, ConnectionInfo* ciP)
 {
-  return reqData->rcr.res.check(RegisterContext, ciP->outFormat, "", reqData->errorString, 0);
+  return reqData->rcr.res.check(ciP, RegisterContext, "", reqData->errorString, 0);
 }
 
 
@@ -439,10 +447,12 @@ std::string jsonRcrCheck(ParseData* reqData, ConnectionInfo* ciP)
 */
 void jsonRcrPresent(ParseData* reqDataP)
 {
-  if (!lmTraceIsSet(LmtDump))
+  if (!lmTraceIsSet(LmtPresent))
+  {
     return;
+  }
 
-  PRINTF("\n\n");
+  LM_T(LmtPresent,("\n\n"));
 
   reqDataP->rcr.res.contextRegistrationVector.present("");
   reqDataP->rcr.res.duration.present("");

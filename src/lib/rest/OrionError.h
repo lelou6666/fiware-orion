@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -45,9 +45,11 @@ typedef struct OrionError
 
   OrionError();
   OrionError(StatusCode& statusCode);
-  OrionError(HttpStatusCode _code, std::string _details = "");
+  OrionError(HttpStatusCode _code, const std::string& _details = "", const std::string& _reasonPhrase = "");
 
-  std::string  render(Format format, std::string indent);
+  std::string  render(ConnectionInfo* ciP, const std::string& indent);
+  std::string  errorStringForV2(const std::string& reasonPhrase);
+  void         fill(HttpStatusCode _code, const char* _details);
 } OrionError;
 
 #endif

@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -46,11 +46,13 @@ typedef struct RegisterContextRequest
   Duration                   duration;                   // Optional
   RegistrationId             registrationId;             // Optional
 
-  std::string   render(RequestType requestType, Format format, std::string indent);
-  std::string   check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
+  std::string                servicePath;                // Not part of payload, just an internal field
+
+  std::string   render(RequestType requestType, const std::string& indent);
+  std::string   check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter);
   void          present(void);
   void          release(void);
-  void          fill(RegisterProviderRequest& rpr, std::string entityId, std::string entityType, std::string attributeName);
+  void          fill(RegisterProviderRequest& rpr, const std::string& entityId, const std::string& entityType, const std::string& attributeName);
 } RegisterContextRequest;
 
 #endif

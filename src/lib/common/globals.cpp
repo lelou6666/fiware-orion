@@ -18,29 +18,109 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <time.h>
+#include <stdint.h>
+#include <math.h>
+
+#include <string>
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
 #include "common/sem.h"
+#include "alarmMgr/alarmMgr.h"
 #include "serviceRoutines/versionTreat.h"     // For orionInit()
 #include "mongoBackend/MongoGlobal.h"         // For orionInit()
-#include "ngsiNotify/onTimeIntervalThread.h"  // For orionInit()
+
+
 
 /* ****************************************************************************
 *
 * Globals
 */
-static Timer*     timer             = NULL;
-int               startTime         = -1;
-int               statisticsTime    = -1;
-OrionExitFunction orionExitFunction = NULL;
+static Timer*          timer                = NULL;
+int                    startTime            = -1;
+int                    statisticsTime       = -1;
+OrionExitFunction      orionExitFunction    = NULL;
+static struct timeval  logStartTime;
+bool                   countersStatistics   = false;
+bool                   semWaitStatistics    = false;
+bool                   timingStatistics     = false;
+bool                   notifQueueStatistics = false;
+bool                   checkIdv1            = false;
+
+
+/* ****************************************************************************
+*
+* transactionIdGet - 
+*
+* Unless readonly, add one to the transactionId and return it.
+* If readonly - just return the current transactionId.
+*/
+int transactionIdGet(bool readonly)
+{
+  static int transactionId = 0;
+
+  if (readonly == false)
+  {
+    ++transactionId;
+    if (transactionId < 0)
+    {
+      transactionId = 1;
+    }
+  }
+
+  return transactionId;
+}
+
+
+
+/* ****************************************************************************
+*
+* transactionIdSet - set the transaction ID
+*
+* To ensure a unique identifier of the transaction, the startTime down to milliseconds
+* of the broker is used as prefix (to almost guarantee its uniqueness among brokers)
+* Furthermore, a running number is appended for the transaction.
+* A 32 bit signed number is used, so its max value is 0x7FFFFFFF (2,147,483,647).
+*
+* If the running number overflows, a millisecond is added to the start time of the broker.
+* As the running number starts from 1 again after overflow, we need this to distinguish the first transaction
+* after a running number overflow from the VERY first transaction (as both will have running number 1).
+* Imagine that the start time of the broker is XXXXXXXXX.123:
+*
+*   XXXXXXXXX.123.1  # the VERY first transaction
+*   XXXXXXXXX.124.1  # the first transaction after running number overflow
+*
+* The whole thing is stored in the thread variable 'transactionId', supported by the
+* logging library 'liblm'.
+*
+*/
+void transactionIdSet(void)
+{
+  static int firstTime = true;
+
+  transSemTake("transactionIdSet", "changing the transaction id");
+
+  int   transaction = transactionIdGet(false);
+
+  if ((firstTime == false) && (transaction == 1))  // Overflow - see function header for explanation
+  {
+    logStartTime.tv_usec += 1;
+  }
+
+  snprintf(transactionId, sizeof(transactionId), "%lu-%03d-%011d",
+           logStartTime.tv_sec, (int) logStartTime.tv_usec / 1000, transaction);
+
+  transSemGive("transactionIdSet", "changing the transaction id");
+
+  firstTime = false;
+}
 
 
 
@@ -48,7 +128,15 @@ OrionExitFunction orionExitFunction = NULL;
 *
 * orionInit - 
 */
-void orionInit(OrionExitFunction exitFunction, const char* version)
+void orionInit
+(OrionExitFunction  exitFunction,
+  const char*        version,
+  SemOpType          reqPolicy,
+  bool               _countersStatistics,
+  bool               _semWaitStatistics,
+  bool               _timingStatistics,
+  bool               _notifQueueStatistics,
+  bool _checkIdv1)
 {
   // Give the rest library the correct version string of this executable
   versionSet(version);
@@ -56,15 +144,31 @@ void orionInit(OrionExitFunction exitFunction, const char* version)
   // The function to call on fatal error
   orionExitFunction = exitFunction;
 
-  /* Initialize the semaphore used by mongoBackend */
-  semInit();
+  // Initialize the semaphore used by mongoBackend
+  semInit(reqPolicy, _semWaitStatistics);
 
-  /* Set timer object (singleton) */
+  // Set timer object (singleton)
   setTimer(new Timer());
 
-  /* Set start time */
-  startTime      = getCurrentTime();
+  // startTime for log library
+  if (gettimeofday(&logStartTime, NULL) != 0)
+  {
+    fprintf(stderr, "gettimeofday: %s\n", strerror(errno));
+    orionExitFunction(1, "gettimeofday error");
+  }
+
+  // Set start time and statisticsTime used by REST interface
+  startTime      = logStartTime.tv_sec;
   statisticsTime = startTime;
+
+  // Set other flags related with statistics
+  countersStatistics   = _countersStatistics;
+  timingStatistics     = _timingStatistics;
+  notifQueueStatistics = _notifQueueStatistics;
+
+  strncpy(transactionId, "N/A", sizeof(transactionId));
+
+  checkIdv1 = _checkIdv1;
 }
 
 
@@ -75,10 +179,10 @@ void orionInit(OrionExitFunction exitFunction, const char* version)
 */
 bool isTrue(const std::string& s)
 {
-  if (strcasecmp(s.c_str(), "true") == 0)
+  if ((s == "true") || (s == "1"))
+  {
     return true;
-  if (strcasecmp(s.c_str(), "yes") == 0)
-    return true;
+  }
 
   return false;
 }
@@ -91,30 +195,37 @@ bool isTrue(const std::string& s)
 */
 bool isFalse(const std::string& s)
 {
-  if (strcasecmp(s.c_str(), "false") == 0)
+  if ((s == "false") || (s == "0"))
+  {
     return true;
-  if (strcasecmp(s.c_str(), "no") == 0)
-    return true;
+  }
 
   return false;
 }
+
 
 
 /*****************************************************************************
 *
 * getTimer -
 */
-Timer* getTimer() {
-    return timer;
+Timer* getTimer(void)
+{
+  return timer;
 }
+
+
 
 /*****************************************************************************
 *
 * setTimer -
 */
-void setTimer(Timer* t) {
-    timer = t;
+void setTimer(Timer* t)
+{
+  timer = t;
 }
+
+
 
 /* ****************************************************************************
 *
@@ -124,7 +235,7 @@ int getCurrentTime(void)
 {
   if (getTimer() == NULL)
   {
-    LM_E(("getTimer() == NULL - calling exit function for library user"));
+    LM_T(LmtSoftError, ("getTimer() == NULL - calling exit function for library user"));
     orionExitFunction(1, "getTimer() == NULL");
     return -1;
   }
@@ -132,40 +243,60 @@ int getCurrentTime(void)
   return getTimer()->getCurrentTime();
 }
 
+
+
 /* ****************************************************************************
 *
 * toSeconds -
 */
-long long toSeconds(int value, char what, bool dayPart)
+int64_t toSeconds(int value, char what, bool dayPart)
 {
-  long long result = -1;
+  int64_t result = -1;
 
   if (dayPart == true)
   {
     if (what == 'Y')
+    {
       result = 365L * 24 * 3600 * value;
+    }
     else if (what == 'M')
+    {
       result = 30L * 24 * 3600 * value;
+    }
     else if (what == 'W')
+    {
       result = 7L * 24 * 3600 * value;
+    }
     else if (what == 'D')
+    {
       result = 24L * 3600 * value;
+    }
   }
   else
   {
     if (what == 'H')
+    {
       result = 3600L * value;
+    }
     else if (what == 'M')
+    {
       result = 60L * value;
+    }
     else if (what == 'S')
+    {
       result = value;
+    }
   }
 
   if (result == -1)
-    LM_E(("ERROR in duration string!"));
+  {
+    alarmMgr.badInput(clientIp, "ERROR in duration string");
+  }
 
   return result;
 }
+
+
 
 /*****************************************************************************
 *
@@ -174,72 +305,129 @@ long long toSeconds(int value, char what, bool dayPart)
 * This is common code for Duration and Throttling (at least)
 *
 */
-long long parse8601(std::string s)
+int64_t parse8601(const std::string& s)
 {
-    if (s == "")
-        return 0;
+  if (s == "")
+  {
+    return -1;
+  }
 
-    char*      duration    = strdup(s.c_str());
-    char*      toFree      = duration;
-    bool       dayPart     = true;
-    long long  accumulated = 0;
-    char*      start;
+  char*      duration    = strdup(s.c_str());
+  char*      toFree      = duration;
+  bool       dayPart     = true;
+  int64_t    accumulated = 0;
+  char*      start;
 
-    if (*duration != 'P')
+  if (*duration != 'P')
+  {
+    free(toFree);
+    return -1;
+  }
+
+  ++duration;
+  start = duration;
+
+  if (*duration == 0)
+  {
+    free(toFree);
+    return -1;
+  }
+
+  bool digitsPending = false;
+
+  while (*duration != 0)
+  {
+    if (isdigit(*duration) || (*duration == '.') || (*duration == ','))
     {
-      free(toFree);
-      return -1;
+      ++duration;
+      digitsPending = true;
     }
-
-    ++duration;
-    start = duration;
-
-    while (*duration != 0)
+    else if ((dayPart == true) &&
+             ((*duration == 'Y') || (*duration == 'M') || (*duration == 'D') || (*duration == 'W')))
     {
-      if (isdigit(*duration))
-        ++duration;
-      else if ((dayPart == true) && ((*duration == 'Y') || (*duration == 'M') || (*duration == 'D') || (*duration == 'W')))
+      char what = *duration;
+
+      *duration = 0;
+      int value = atoi(start);
+
+      if ((value == 0) && (*start != '0'))
       {
-        char what = *duration;
+        std::string details = std::string("parse error for duration '") + start + "'";
+        alarmMgr.badInput(clientIp, details);
 
-        *duration = 0;
-        int value = atoi(start);
-
-        if ((value == 0) && (*start != '0'))
-        {
-           free(toFree);
-           LM_RE(-1, ("parse error for '%s'", start));
-        }
-
-        accumulated += toSeconds(value, what, dayPart);
-        ++duration;
-        start = duration;
+        free(toFree);
+        return -1;
       }
-      else if ((dayPart == true) && (*duration == 'T'))
-      {
-        dayPart = false;
-        ++duration;
-        start = duration;
-      }
-      else if ((dayPart == false) && ((*duration == 'H') || (*duration == 'M') || (*duration == 'S')))
-      {
-        char what = *duration;
 
-        *duration = 0;
-        int value = atoi(start);
+      accumulated += toSeconds(value, what, dayPart);
+      digitsPending = false;
+      ++duration;
+      start = duration;
+    }
+    else if ((dayPart == true) && (*duration == 'T'))
+    {
+      dayPart = false;
+      ++duration;
+      start = duration;
+      digitsPending = false;
+    }
+    else if ((dayPart == false) &&
+             ((*duration == 'H') || (*duration == 'M') || (*duration == 'S')))
+    {
+      char what = *duration;
+      int  value;
 
-        accumulated += toSeconds(value, what, dayPart);
-        ++duration;
-        start = duration;
+      *duration = 0;
+
+      if (what == 'S')  // We support floats for the seconds, but only to round to an integer
+      {
+        // NOTE: here we use atof and not str2double on purpose
+        float secs  = atof(start);
+        value       = (int) round(secs);
       }
       else
       {
-         free(toFree);
-         return -1; // ParseError
+        value = atoi(start);
       }
+
+      accumulated += toSeconds(value, what, dayPart);
+      digitsPending = false;
+      ++duration;
+      start = duration;
     }
+    else
+    {
+      free(toFree);
+      return -1;  // ParseError
+    }
+  }
 
-    free(toFree);
+  free(toFree);
 
-    return accumulated;
+  if (digitsPending == true)
+  {
+    return -1;
+  }
+
+  return accumulated;
+}
+
+/*****************************************************************************
+*
+* parse8601Time -
+*
+* This is common code for Duration and Throttling (at least)
+*
+*/
+int64_t parse8601Time(const std::string& s)
+{
+  struct tm   tm = {0};
+  const char* p;
+
+  p = strptime (s.c_str(), " %Y-%m-%dT%T", &tm);
+  if (p == NULL)
+  {
+    return -1;
+  }
+  return (int64_t) timegm(&tm);
 }

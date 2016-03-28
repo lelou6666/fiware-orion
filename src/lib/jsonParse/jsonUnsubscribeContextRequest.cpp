@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -38,7 +38,7 @@
 *
 * subscriptionId - 
 */
-static std::string subscriptionId(std::string path, std::string value, ParseData* parseDataP)
+static std::string subscriptionId(const std::string& path, const std::string& value, ParseData* parseDataP)
 {
   LM_T(LmtParse, ("%s: %s", path.c_str(), value.c_str()));
   parseDataP->uncr.res.subscriptionId.set(value);
@@ -88,7 +88,7 @@ void jsonUncrRelease(ParseData* parseDataP)
 */
 std::string jsonUncrCheck(ParseData* parseData, ConnectionInfo* ciP)
 {
-  return parseData->uncr.res.check(UnsubscribeContext, ciP->outFormat, "", parseData->errorString, 0);
+  return parseData->uncr.res.check(UnsubscribeContext, "", parseData->errorString, 0);
 }
 
 
@@ -99,10 +99,10 @@ std::string jsonUncrCheck(ParseData* parseData, ConnectionInfo* ciP)
 */
 void jsonUncrPresent(ParseData* parseDataP)
 {
-  if (!lmTraceIsSet(LmtDump))
+  if (!lmTraceIsSet(LmtPresent))
     return;
 
-  PRINTF("\n\n");
+  LM_T(LmtPresent,("\n\n"));
 
   parseDataP->uncr.res.subscriptionId.present("");
 }

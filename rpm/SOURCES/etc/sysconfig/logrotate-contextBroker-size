@@ -18,7 +18,11 @@
 # For those usages not covered by this license please contact with
 # fermin at tid dot es
 
+<<<<<<< HEAD
 /var/log/contextBroker/contextBrokerLog
+=======
+/var/log/contextBroker/contextBroker.log
+>>>>>>> refs/remotes/telefonicaid/develop
 {      
       size 100M
       rotate 7

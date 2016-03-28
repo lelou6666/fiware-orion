@@ -1,5 +1,5 @@
-#ifndef ATTRIBUTE_LIST_H
-#define ATTRIBUTE_LIST_H
+#ifndef SRC_LIB_NGSI_ATTRIBUTELIST_H_
+#define SRC_LIB_NGSI_ATTRIBUTELIST_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -36,19 +36,32 @@
 
 /* ****************************************************************************
 *
-* AttributeList - 
+* AttributeList -
 */
 typedef struct AttributeList
 {
   std::vector<std::string>  attributeV;
 
-  std::string  render(Format format, std::string indent, bool comma = false);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void         present(std::string indent);
+  void         fill(const std::vector<std::string>& aVec);
+  std::string  render(const std::string& indent, bool comma = false);
+  void         present(const std::string& indent);
   void         release(void);
-  void         push_back(std::string attributeName);
-  unsigned int size(void);
-  std::string  get(int ix);
+  bool         lookup(const std::string& attributeName);
+  void         push_back(const std::string& attributeName);
+  void         push_back_if_absent(const std::string& attributeName);
+  unsigned int size(void) const;
+  void         clone(const AttributeList& aList);
+
+  std::string  check(RequestType         requestType,
+                     const std::string&  indent,
+                     const std::string&  predetectedError,
+                     int                 counter);
+
+  std::string  operator[](unsigned int ix)  const
+  {
+  return attributeV[ix];
+  }
+  
 } AttributeList;
 
-#endif
+#endif  // SRC_LIB_NGSI_ATTRIBUTELIST_H_

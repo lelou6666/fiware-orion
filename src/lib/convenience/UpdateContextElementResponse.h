@@ -1,5 +1,5 @@
-#ifndef UPDATE_CONTEXT_ELEMENT_RESPONSE_H
-#define UPDATE_CONTEXT_ELEMENT_RESPONSE_H
+#ifndef SRC_LIB_CONVENIENCE_UPDATECONTEXTELEMENTRESPONSE_H_
+#define SRC_LIB_CONVENIENCE_UPDATECONTEXTELEMENTRESPONSE_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,6 +31,15 @@
 #include "common/Format.h"
 #include "convenience/ContextAttributeResponseVector.h"
 #include "ngsi/StatusCode.h"
+#include "rest/ConnectionInfo.h"
+
+
+
+/* ****************************************************************************
+*
+* Forward declaration
+*/
+struct UpdateContextResponse;
 
 
 
@@ -45,15 +54,20 @@
 */
 typedef struct UpdateContextElementResponse
 {
-  ContextAttributeResponseVector   contextAttributeResponseVector; // Optional, but mandatory if success
-  StatusCode                       errorCode;                      // Optional, but mandatory if failure
+  ContextAttributeResponseVector   contextAttributeResponseVector;  // Optional, but mandatory if success
+  StatusCode                       errorCode;                       // Optional, but mandatory if failure
 
   UpdateContextElementResponse();
 
-  std::string render(RequestType requestType, Format format, std::string indent);
-  std::string check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void        present();
-  void        release();
+  std::string  render(ConnectionInfo* ciP, RequestType requestType, const std::string& indent);
+  void         present(const std::string& indent);
+  void         release();
+  std::string  check(ConnectionInfo*     ciP,
+                     RequestType         requestType,
+                     const std::string&  indent,
+                     const std::string&  predetectedError,
+                     int                 counter);
+  void         fill(UpdateContextResponse* ucrsP);
 } UpdateContextElementResponse;
 
-#endif
+#endif  // SRC_LIB_CONVENIENCE_UPDATECONTEXTELEMENTRESPONSE_H_

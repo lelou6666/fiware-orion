@@ -1,5 +1,5 @@
-#ifndef PA_ENV_VALS_H
-#define PA_ENV_VALS_H
+#ifndef SRC_LIB_PARSEARGS_PAENVVALS_H_
+#define SRC_LIB_PARSEARGS_PAENVVALS_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -33,7 +33,7 @@
 *
 * paEnvName - get real name of variable (environment or RC-file variable)
 */
-extern char* paEnvName(PaiArgument* aP, char* out);
+extern char* paEnvName(PaiArgument* aP, char* out, int outLen);
 
 
 
@@ -43,4 +43,4 @@ extern char* paEnvName(PaiArgument* aP, char* out);
 */
 extern int paEnvVals(PaiArgument* paList);
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_PAENVVALS_H_

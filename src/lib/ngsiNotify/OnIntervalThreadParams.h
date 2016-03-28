@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
@@ -31,6 +31,7 @@ class Notifier;     // actually defined in Notifier.h
 typedef struct OnIntervalThreadParams {
     std::string     subId;
     int             interval;
+    std::string     tenant;
     Notifier*       notifier;
 } OnIntervalThreadParams;
 

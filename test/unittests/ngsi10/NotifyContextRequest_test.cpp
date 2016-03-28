@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -26,51 +26,14 @@
 #include "logMsg/traceLevels.h"
 
 #include "jsonParse/jsonRequest.h"
-#include "xmlParse/xmlRequest.h"
-#include "xmlParse/xmlParse.h"
 
 #include "ngsi/ParseData.h"
 #include "ngsi/StatusCode.h"
 #include "ngsi10/NotifyContextRequest.h"
 #include "ngsi10/NotifyContextResponse.h"
+#include "rest/ConnectionInfo.h"
 
 #include "unittest.h"
-
-
-
-/* ****************************************************************************
-*
-* xml_ok - 
-*/
-TEST(NotifyContextRequest, xml_ok)
-{
-  ParseData              reqData;
-  ConnectionInfo         ci("", "POST", "1.1");
-  std::string            rendered;
-  const char*            infile   = "ngsi10.notifyContextRequest.ok.valid.xml";
-  const char*            outfile  = "ngsi10.notifyContextRequest.ok2.valid.xml";
-  NotifyContextRequest*  ncrP     = &reqData.ncr.res;
-
-  utInit();
-
-  EXPECT_EQ("OK", testDataFromFile(testBuf, sizeof(testBuf), infile)) << "Error getting test data from '" << infile << "'";
-
-  lmTraceLevelSet(LmtDump, true);
-  std::string result = xmlTreat(testBuf, &ci, &reqData, NotifyContext, "notifyContextRequest", NULL);
-  EXPECT_EQ("OK", result);
-  lmTraceLevelSet(LmtDump, false);
-
-  ncrP->present("");
-
-  rendered = ncrP->render(NotifyContext, XML, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
-  EXPECT_STREQ(expectedBuf, rendered.c_str());
-
-  ncrP->present("");
-  ncrP->release();
-
-  utExit();
-}
 
 
 
@@ -89,6 +52,8 @@ TEST(NotifyContextRequest, json_ok)
 
   utInit();
 
+  ci.outFormat = JSON;
+
   EXPECT_EQ("OK", testDataFromFile(testBuf, sizeof(testBuf), infile)) << "Error getting test data from '" << infile << "'";
   
   ci.inFormat  = JSON;
@@ -104,33 +69,10 @@ TEST(NotifyContextRequest, json_ok)
   //
   ncrP->present("");
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
-  rendered = ncrP->render(NotifyContext, JSON, "");
+  rendered = ncrP->render(&ci, NotifyContext, "");
   EXPECT_STREQ(expectedBuf, rendered.c_str());
 
   ncrP->release();
-
-  utExit();
-}
-
-
-
-/* ****************************************************************************
-*
-* xml_badIsPattern - 
-*/
-TEST(NotifyContextRequest, xml_badIsPattern)
-{
-  ParseData       reqData;
-  ConnectionInfo  ci("", "POST", "1.1");
-  const char*     infile  = "ngsi10.notifyContextRequest.isPattern.invalid.xml";
-  const char*     outfile = "ngsi10.notifyContextResponse.isPatternError.valid.xml";
-
-  utInit();
-
-  EXPECT_EQ("OK", testDataFromFile(testBuf, sizeof(testBuf), infile)) << "Error getting test data from '" << infile << "'";
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
-  std::string result = xmlTreat(testBuf, &ci, &reqData, NotifyContext, "notifyContextRequest", NULL);
-  EXPECT_STREQ(expectedBuf, result.c_str());
 
   utExit();
 }
@@ -167,9 +109,12 @@ TEST(NotifyContextRequest, json_badIsPattern)
 /* ****************************************************************************
 *
 * xml_invalidEntityIdAttribute - 
+*
+* FIXME P5 #1862: _json counterpart?
 */
-TEST(NotifyContextRequest, xml_invalidEntityIdAttribute)
+TEST(NotifyContextRequest, DISABLED_xml_invalidEntityIdAttribute)
 {
+#if 0
   ParseData       reqData;
   ConnectionInfo  ci("", "POST", "1.1");
   const char*     infile  = "ngsi10.notifyContextRequest.entityIdAttribute.invalid.xml";
@@ -184,6 +129,7 @@ TEST(NotifyContextRequest, xml_invalidEntityIdAttribute)
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();
+#endif
 }
 
 
@@ -191,17 +137,20 @@ TEST(NotifyContextRequest, xml_invalidEntityIdAttribute)
 /* ****************************************************************************
 *
 * predetectedError - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(NotifyContextRequest, predetectedError)
+TEST(NotifyContextRequest, DISABLED_predetectedError)
 {
   NotifyContextRequest ncr;
   const char*          outfile = "ngsi10.notifyContextResponse.predetectedError.valid.xml";
   std::string          out;
+  ConnectionInfo       ci(JSON);
 
   utInit();
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
-  out = ncr.check(NotifyContext, XML, "", "predetected error", 0);
+  out = ncr.check(&ci, NotifyContext, "", "predetected error", 0);
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();
@@ -245,6 +194,7 @@ TEST(NotifyContextRequest, json_render)
   NotifyContextRequest*    ncrP;
   ContextElementResponse*  cerP;
   std::string              rendered;
+  ConnectionInfo           ci(JSON);
 
   utInit();
   
@@ -255,7 +205,7 @@ TEST(NotifyContextRequest, json_render)
 
   // 1. Without ContextResponseList
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), filename1)) << "Error getting test data from '" << filename1 << "'";
-  rendered = ncrP->render(QueryContext, JSON, "");
+  rendered = ncrP->render(&ci, QueryContext, "");
   EXPECT_STREQ(expectedBuf, rendered.c_str());
 
 
@@ -266,7 +216,7 @@ TEST(NotifyContextRequest, json_render)
   cerP->statusCode.fill(SccOk);
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), filename2)) << "Error getting test data from '" << filename2 << "'";
-  rendered = ncrP->render(QueryContext, JSON, "");
+  rendered = ncrP->render(&ci, QueryContext, "");
   EXPECT_STREQ(expectedBuf, rendered.c_str());
 
 
@@ -277,7 +227,7 @@ TEST(NotifyContextRequest, json_render)
   cerP->statusCode.fill(SccOk);
 
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), filename3)) << "Error getting test data from '" << filename3 << "'";
-  rendered = ncrP->render(QueryContext, JSON, "");
+  rendered = ncrP->render(&ci, QueryContext, "");
   EXPECT_STREQ(expectedBuf, rendered.c_str());
 
   utExit();

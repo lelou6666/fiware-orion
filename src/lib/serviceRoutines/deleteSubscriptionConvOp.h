@@ -1,5 +1,5 @@
-#ifndef DELETE_SUBSCRIPTION_CONV_OP_H
-#define DELETE_SUBSCRIPTION_CONV_OP_H
+#ifndef SRC_LIB_SERVICEROUTINES_DELETESUBSCRIPTIONCONVOP_H_
+#define SRC_LIB_SERVICEROUTINES_DELETESUBSCRIPTIONCONVOP_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,7 +37,13 @@
 *
 * deleteSubscriptionConvOp - 
 */
-extern std::string deleteSubscriptionConvOp(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP);
+extern std::string deleteSubscriptionConvOp
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+);
 
-#endif
+#endif  // SRC_LIB_SERVICEROUTINES_DELETESUBSCRIPTIONCONVOP_H_
 

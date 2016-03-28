@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -42,15 +42,15 @@ TEST(Originator, check)
 
   utInit();
 
-  checked = originator.check(RegisterContext, XML, "", "", 0);
+  checked = originator.check(RegisterContext, "", "", 0);
   EXPECT_STREQ("OK", checked.c_str());
 
   originator.string = "String";
 
-  checked = originator.check(RegisterContext, XML, "", "", 0);
+  checked = originator.check(RegisterContext, "", "", 0);
   EXPECT_STREQ("OK", checked.c_str());
 
-  checked = originator.check(RegisterContext, JSON, "", "", 0);
+  checked = originator.check(RegisterContext, "", "", 0);
   EXPECT_STREQ("OK", checked.c_str());
 
   utExit();
@@ -88,23 +88,18 @@ TEST(Originator, isEmptySetAndGet)
 TEST(Originator, render)
 {
   Originator   originator;
-  std::string  out;
-  const char*  outfile1 = "ngsi.originator.render.middle.xml";
-  const char*  outfile2 = "ngsi.originator.render.middle.json";
+  std::string  out;  
+  const char*  outfile1 = "ngsi.originator.render.middle.json";
 
   utInit();
 
-  out = originator.render(XML, "");
+  out = originator.render("");
   EXPECT_STREQ("", out.c_str());
 
   originator.string = "String";
 
-  out = originator.render(XML, "");
+  out = originator.render("");
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  out = originator.render(JSON, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();

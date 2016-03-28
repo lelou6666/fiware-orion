@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -39,19 +39,23 @@ TEST(commonGlobals, isTrue)
 {
    bool bTrue;
 
-   bTrue = isTrue("TRUE");
-   EXPECT_TRUE(bTrue) << "'TRUE' should be true";
-   bTrue = isTrue("True");
-   EXPECT_TRUE(bTrue) << "'True' should be true";
    bTrue = isTrue("true");
-   EXPECT_TRUE(bTrue) << "'true' should be true";
+   EXPECT_TRUE(bTrue);
+   bTrue = isTrue("1");
+   EXPECT_TRUE(bTrue);
 
+   bTrue = isTrue("TRUE");
+   EXPECT_FALSE(bTrue);
+   bTrue = isTrue("True");
+   EXPECT_FALSE(bTrue);
    bTrue = isTrue("YES");
-   EXPECT_TRUE(bTrue) << "'YES' should be true";
+   EXPECT_FALSE(bTrue);
    bTrue = isTrue("Yes");
-   EXPECT_TRUE(bTrue) << "'Yes' should be true";
+   EXPECT_FALSE(bTrue);
    bTrue = isTrue("yes");
-   EXPECT_TRUE(bTrue) << "'yes' should be true";
+   EXPECT_FALSE(bTrue);
+   bTrue = isTrue("0");
+   EXPECT_FALSE(bTrue);
 }
 
 
@@ -64,19 +68,23 @@ TEST(commonGlobals, isFalse)
 {
    bool bFalse;
 
-   bFalse = isFalse("FALSE");
-   EXPECT_TRUE(bFalse) << "'FALSE' should be false";
-   bFalse = isFalse("False");
-   EXPECT_TRUE(bFalse) << "'False' should be false";
    bFalse = isFalse("false");
-   EXPECT_TRUE(bFalse) << "'false' should be false";
+   EXPECT_TRUE(bFalse);
+   bFalse = isFalse("0");
+   EXPECT_TRUE(bFalse);
 
+   bFalse = isFalse("FALSE");
+   EXPECT_FALSE(bFalse);
+   bFalse = isFalse("False");
+   EXPECT_FALSE(bFalse);
    bFalse = isFalse("NO");
-   EXPECT_TRUE(bFalse) << "'NO' should be false";
+   EXPECT_FALSE(bFalse);
    bFalse = isFalse("No");
-   EXPECT_TRUE(bFalse) << "'No' should be false";
+   EXPECT_FALSE(bFalse);
    bFalse = isFalse("no");
-   EXPECT_TRUE(bFalse) << "'no' should be false";
+   EXPECT_FALSE(bFalse);
+   bFalse = isFalse("1");
+   EXPECT_FALSE(bFalse);
 }
 
 
@@ -137,6 +145,49 @@ TEST(commonGlobals, parse8601)
 
    secs = parse8601("P3Y1M1DT1H1M11S");
    EXPECT_EQ(threeYearsOneMonthOneDayOneHourOneMinuteAndElevenSeconds, secs) << "parse error for 'P3Y1M1DT1H1M11S'";
+
+   secs = parse8601("P0YT12.005S");
+   EXPECT_EQ(12, secs) << "parse error for 'P0YT12.005S'";
+
+   secs = parse8601("P0YT12.49999S");
+   EXPECT_EQ(12, secs) << "round error for 'P0YT12.49999S'";
+
+   secs = parse8601("P0YT12.50S");
+   EXPECT_EQ(13, secs) << "round error for 'P0YT12.50S'";
+
+   secs = parse8601("P0YT12.51S");
+   EXPECT_EQ(13, secs) << "round error for 'P0YT12.51S'";
+
+
+   //
+   // Errors
+   //
+   secs = parse8601("");
+   EXPECT_EQ(-1, secs);
+
+   secs = parse8601("Q1");
+   EXPECT_EQ(-1, secs);
+
+   secs = parse8601("P");
+   EXPECT_EQ(-1, secs);
+
+   secs = parse8601("Px");
+   EXPECT_EQ(-1, secs);
+
+   secs = parse8601("P4");
+   EXPECT_EQ(-1, secs);
+
+   secs = parse8601("P4Y1");
+   EXPECT_EQ(-1, secs);
+
+   secs = parse8601("PT4Y");
+   EXPECT_EQ(-1, secs);
+
+   secs = parse8601("PT99Y");
+   EXPECT_EQ(-1, secs);
+
+   secs = parse8601("PY99");
+   EXPECT_EQ(-1, secs);
 }
 
 

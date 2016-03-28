@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,36 +37,44 @@
 
 /* ****************************************************************************
 *
-* SubscriptionId::SubscriptionId - 
+* SubscriptionId::SubscriptionId -
 */
 SubscriptionId::SubscriptionId()
 {
-   string = "";
+  string = "";
 }
 
 
 
 /* ****************************************************************************
 *
-* SubscriptionId::SubscriptionId - 
+* SubscriptionId::SubscriptionId -
 */
-SubscriptionId::SubscriptionId(std::string subId)
+SubscriptionId::SubscriptionId(const std::string& subId)
 {
-   string = subId;
+  string = subId;
 }
 
 
 
 /* ****************************************************************************
 *
-* SubscriptionId::check - 
+* SubscriptionId::check -
 */
-std::string SubscriptionId::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string SubscriptionId::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   std::string out = "OK";
 
   if (string != "")
+  {
     out = idCheck(string);
+  }
 
   return out;
 }
@@ -75,20 +83,20 @@ std::string SubscriptionId::check(RequestType requestType, Format format, std::s
 
 /* ****************************************************************************
 *
-* SubscriptionId::isEmpty - 
+* SubscriptionId::isEmpty -
 */
 bool SubscriptionId::isEmpty(void)
 {
-   return (string == "")? true : false;
+  return (string == "")? true : false;
 }
 
 
 
 /* ****************************************************************************
 *
-* SubscriptionId::set - 
+* SubscriptionId::set -
 */
-void SubscriptionId::set(std::string value)
+void SubscriptionId::set(const std::string& value)
 {
   string = value;
 }
@@ -97,9 +105,9 @@ void SubscriptionId::set(std::string value)
 
 /* ****************************************************************************
 *
-* SubscriptionId::get - 
+* SubscriptionId::get -
 */
-std::string SubscriptionId::get(void)
+std::string SubscriptionId::get(void) const
 {
   return string;
 }
@@ -108,76 +116,96 @@ std::string SubscriptionId::get(void)
 
 /* ****************************************************************************
 *
-* SubscriptionId::present - 
+* SubscriptionId::present -
 */
-void SubscriptionId::present(std::string indent)
+void SubscriptionId::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sSubscriptionId: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sSubscriptionId: %s\n", 
+		      indent.c_str(), 
+		      string.c_str()));
+  }
   else
-    PRINTF("%sNo SubscriptionId\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo SubscriptionId\n", indent.c_str()));
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* SubscriptionId::render - 
+* SubscriptionId::render -
 */
-std::string SubscriptionId::render(RequestType container, Format format, std::string indent, bool comma)
+std::string SubscriptionId::render(RequestType container, const std::string& indent, bool comma)
 {
   std::string xString = string;
-  
+
   if (xString == "")
   {
-    if ((container == RtSubscribeContextAvailabilityResponse)     || (container == RtUpdateContextAvailabilitySubscriptionResponse) ||
-        (container == RtUnsubscribeContextAvailabilityResponse)   || (container == NotifyContextAvailability)                       ||
-        (container == UpdateContextSubscription)                  || (container == UnsubscribeContext)                              ||
-        (container == RtUnsubscribeContextResponse)               || (container == NotifyContext)                                   ||
-        (container == RtSubscribeResponse)                        || (container == RtSubscribeError))
+    if ((container == RtSubscribeContextAvailabilityResponse)          ||
+        (container == RtUpdateContextAvailabilitySubscriptionResponse) ||
+        (container == RtUnsubscribeContextAvailabilityResponse)        ||
+        (container == NotifyContextAvailability)                       ||
+        (container == UpdateContextSubscription)                       ||
+        (container == UnsubscribeContext)                              ||
+        (container == RtUnsubscribeContextResponse)                    ||
+        (container == NotifyContext)                                   ||
+        (container == RtSubscribeResponse)                             ||
+        (container == RtSubscribeError))
     {
       // subscriptionId is Mandatory
       xString = "000000000000000000000000";
     }
     else
-      return ""; // subscriptionId is Optional
+    {
+      return "";  // subscriptionId is Optional
+    }
   }
 
-  return valueTag(indent, "subscriptionId", xString, format, comma);
+  return valueTag1(indent, "subscriptionId", xString, comma);
 }
 
 
 
 /* ****************************************************************************
 *
-* release - 
+* release -
 */
 void SubscriptionId::release(void)
 {
-   /* This method is included for the sake of homogeneity */
-   string = "";
+  /* This method is included for the sake of homogeneity */
+  string = "";
 }
 
 
 
 /* ****************************************************************************
 *
-* SubscriptionId::rendered - 
+* SubscriptionId::rendered -
 */
 bool SubscriptionId::rendered(RequestType container)
 {
   if ((string == "") || (string == "000000000000000000000000"))
   {
-    if ((container == RtSubscribeContextAvailabilityResponse)     || (container == RtUpdateContextAvailabilitySubscriptionResponse) ||
-        (container == RtUnsubscribeContextAvailabilityResponse)   || (container == NotifyContextAvailability)                       ||
-        (container == UpdateContextSubscription)                  || (container == UnsubscribeContext)                              ||
-        (container == RtUnsubscribeContextResponse)               || (container == NotifyContext)                                   ||
-        (container == RtSubscribeResponse)                        || (container == RtSubscribeError))
+    if ((container == RtSubscribeContextAvailabilityResponse)          ||
+        (container == RtUpdateContextAvailabilitySubscriptionResponse) ||
+        (container == RtUnsubscribeContextAvailabilityResponse)        ||
+        (container == NotifyContextAvailability)                       ||
+        (container == UpdateContextSubscription)                       ||
+        (container == UnsubscribeContext)                              ||
+        (container == RtUnsubscribeContextResponse)                    ||
+        (container == NotifyContext)                                   ||
+        (container == RtSubscribeResponse)                             ||
+        (container == RtSubscribeError))
     {
       return true;
     }
     else
-      return false; // subscriptionId is Optional
+    {
+      return false;  // subscriptionId is Optional
+    }
   }
 
   return true;

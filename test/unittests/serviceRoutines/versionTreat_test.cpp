@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -44,11 +44,15 @@ static RestService rs[] =
 /* ****************************************************************************
 *
 * ok - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(versionTreat, ok)
+TEST(versionTreat, DISABLED_ok)
 {
   ConnectionInfo  ci("/version",  "GET", "1.1");
-  std::string     out       = restService(&ci, rs);
+  std::string     out;
+
+  out = restService(&ci, rs);
 
   // FIXME P2: Some day we'll do this ...
   //

@@ -1,5 +1,5 @@
-#ifndef JSON_REGISTER_CONTEXT_REQUEST_H
-#define JSON_REGISTER_CONTEXT_REQUEST_H
+#ifndef SRC_LIB_JSONPARSE_JSONREGISTERCONTEXTREQUEST_H_
+#define SRC_LIB_JSONPARSE_JSONREGISTERCONTEXTREQUEST_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -71,4 +71,4 @@ extern std::string jsonRcrCheck(ParseData* reqDataP, ConnectionInfo* ciP);
 */
 extern void jsonRcrPresent(ParseData* reqDataP);
 
-#endif
+#endif  // SRC_LIB_JSONPARSE_JSONREGISTERCONTEXTREQUEST_H_

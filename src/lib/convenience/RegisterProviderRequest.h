@@ -1,5 +1,5 @@
-#ifndef REGISTER_PROVIDER_REQUEST_H
-#define REGISTER_PROVIDER_REQUEST_H
+#ifndef SRC_LIB_CONVENIENCE_REGISTERPROVIDERREQUEST_H_
+#define SRC_LIB_CONVENIENCE_REGISTERPROVIDERREQUEST_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -49,10 +49,10 @@ typedef struct RegisterProviderRequest
 
   RegisterProviderRequest();
 
-  std::string  render(Format format, std::string indent);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
+  std::string  render(std::string indent);
+  std::string  check(ConnectionInfo* ciP, RequestType requestType, std::string indent, std::string preError, int counter);
   void         present(std::string indent);
   void         release();
 } RegisterProviderRequest;
 
-#endif
+#endif  // SRC_LIB_CONVENIENCE_REGISTERPROVIDERREQUEST_H_

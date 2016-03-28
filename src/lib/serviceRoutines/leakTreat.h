@@ -1,5 +1,5 @@
-#ifndef LEAK_TREAT_H
-#define LEAK_TREAT_H
+#ifndef SRC_LIB_SERVICEROUTINES_LEAKTREAT_H_
+#define SRC_LIB_SERVICEROUTINES_LEAKTREAT_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,6 +37,12 @@
 *
 * leakTreat - 
 */
-extern std::string leakTreat(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP);
+extern std::string leakTreat
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+);
 
-#endif
+#endif  // SRC_LIB_SERVICEROUTINES_LEAKTREAT_H_

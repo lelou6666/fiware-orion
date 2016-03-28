@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -36,9 +36,15 @@
 
 /* ****************************************************************************
 *
-* RestrictionString::check - 
+* RestrictionString::check -
 */
-std::string RestrictionString::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string RestrictionString::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   return "OK";
 }
@@ -47,20 +53,20 @@ std::string RestrictionString::check(RequestType requestType, Format format, std
 
 /* ****************************************************************************
 *
-* RestrictionString::isEmpty - 
+* RestrictionString::isEmpty -
 */
 bool RestrictionString::isEmpty(void)
 {
-   return (string == "")? true : false;
+  return (string == "")? true : false;
 }
 
 
 
 /* ****************************************************************************
 *
-* RestrictionString::set - 
+* RestrictionString::set -
 */
-void RestrictionString::set(std::string value)
+void RestrictionString::set(const std::string& value)
 {
   string = value;
 }
@@ -69,7 +75,7 @@ void RestrictionString::set(std::string value)
 
 /* ****************************************************************************
 *
-* RestrictionString::get - 
+* RestrictionString::get -
 */
 std::string RestrictionString::get(void)
 {
@@ -80,37 +86,45 @@ std::string RestrictionString::get(void)
 
 /* ****************************************************************************
 *
-* RestrictionString::present - 
+* RestrictionString::present -
 */
-void RestrictionString::present(std::string indent)
+void RestrictionString::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sRestrictionString: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sRestrictionString: %s", 
+		      indent.c_str(), 
+		      string.c_str()));
+  }
   else
-    PRINTF("%sNo RestrictionString\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo RestrictionString", indent.c_str()));
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* RestrictionString::render - 
+* RestrictionString::render -
 */
-std::string RestrictionString::render(Format format, std::string indent, bool comma)
+std::string RestrictionString::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
+  }
 
-  return valueTag(indent, "restriction", string, format, comma);
+  return valueTag1(indent, "restriction", string, comma);
 }
 
 
 
 /* ****************************************************************************
 *
-* RestrictionString::c_str - 
+* RestrictionString::c_str -
 */
 const char* RestrictionString::c_str(void)
 {
-   return string.c_str();
+  return string.c_str();
 }

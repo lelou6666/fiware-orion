@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -63,33 +63,33 @@ TEST(UpdateActionType, check)
   std::string        checked;
   std::string        expected1 = "OK";
   std::string        expected2 = "OK";
-  std::string        expected3 = "invalid update action type: 'APPEND2'";
+  std::string        expected3 = "invalid update action type: /APPEND2/";
   std::string        expected4 = "empty update action type";
 
   utInit();
 
   uat.set("Append");
-  checked = uat.check(UpdateContext, XML, "", "", 0);
+  checked = uat.check(UpdateContext, "", "", 0);
   EXPECT_STREQ(expected1.c_str(), checked.c_str());
 
   uat.set("Update");
-  checked = uat.check(RegisterContext, XML, "", "", 0);
+  checked = uat.check(RegisterContext, "", "", 0);
   EXPECT_STREQ(expected2.c_str(), checked.c_str());
 
   uat.set("APPEND");
-  checked = uat.check(RegisterContext, XML, "", "", 0);
+  checked = uat.check(RegisterContext, "", "", 0);
   EXPECT_STREQ(expected2.c_str(), checked.c_str());
 
   uat.set("Delete");
-  checked = uat.check(RegisterContext, XML, "", "", 0);
+  checked = uat.check(RegisterContext, "", "", 0);
   EXPECT_STREQ(expected2.c_str(), checked.c_str());
 
   uat.set("APPEND2");
-  checked = uat.check(RegisterContext, XML, "", "", 0);
+  checked = uat.check(RegisterContext, "", "", 0);
   EXPECT_STREQ(expected3.c_str(), checked.c_str());
 
   uat.set("");
-  checked = uat.check(RegisterContext, XML, "", "", 0);
+  checked = uat.check(RegisterContext, "", "", 0);
   EXPECT_STREQ(expected4.c_str(), checked.c_str());
 
   utExit();
@@ -105,22 +105,17 @@ TEST(UpdateActionType, render)
 {
   UpdateActionType  uat;
   std::string       out;
-  const char*       outfile1 = "ngsi.updateActionType.render.middle.xml";
-  const char*       outfile2 = "ngsi.updateActionType.render.middle.json";
+  const char*       outfile1 = "ngsi.updateActionType.render.middle.json";
 
   utInit();
 
   uat.set("");
-  out = uat.render(XML, "");
+  out = uat.render("");
   EXPECT_STREQ("", out.c_str());
 
   uat.set("Update");
-  out = uat.render(XML, "");
+  out = uat.render("");
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  out = uat.render(JSON, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();

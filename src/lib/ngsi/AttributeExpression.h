@@ -1,5 +1,5 @@
-#ifndef ATTRIBUTE_EXPRESSION_H
-#define ATTRIBUTE_EXPRESSION_H
+#ifndef SRC_LIB_NGSI_ATTRIBUTEEXPRESSION_H_
+#define SRC_LIB_NGSI_ATTRIBUTEEXPRESSION_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -34,20 +34,24 @@
 
 /* ****************************************************************************
 *
-* AttributeExpression - 
+* AttributeExpression -
 */
 typedef struct AttributeExpression
 {
   std::string   string;
 
-  std::string   check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void          set(std::string value);
-  std::string   get(void);
-  bool          isEmpty(void);
-  std::string   render(Format format, std::string indent, bool comma);
-  void          present(std::string indent);
-  const char*   c_str();
-  void          release(void);
+  void                set(const std::string& value);
+  std::string         get(void);
+  bool                isEmpty(void);
+  std::string         render(const std::string& indent, bool comma);
+  void                present(const std::string& indent);
+  const char*         c_str();
+  void                release(void);
+
+  std::string         check(RequestType         requestType,
+                            const std::string&  indent,
+                            const std::string&  predetectedError,
+                            int                 counter);
 } AttributeExpression;
 
-#endif
+#endif  // SRC_LIB_NGSI_ATTRIBUTEEXPRESSION_H_

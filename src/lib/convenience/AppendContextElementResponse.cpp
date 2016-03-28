@@ -18,20 +18,24 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 #include <vector>
 
+#include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
 #include "common/Format.h"
 #include "common/tag.h"
 #include "convenience/ContextAttributeResponseVector.h"
 #include "ngsi/StatusCode.h"
+#include "ngsi/ContextElementResponse.h"
+#include "ngsi10/UpdateContextResponse.h"
 #include "convenience/AppendContextElementResponse.h"
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -49,22 +53,30 @@ AppendContextElementResponse::AppendContextElementResponse() : errorCode("errorC
 *
 * AppendContextElementResponse::render - 
 */
-std::string AppendContextElementResponse::render(RequestType requestType, Format format, std::string indent)
+std::string AppendContextElementResponse::render(ConnectionInfo* ciP, RequestType requestType, std::string indent)
 {
   std::string tag = "appendContextElementResponse";
   std::string out = "";
 
-  out += startTag(indent, tag, format, false);
+  out += startTag1(indent, tag, false);
 
   if ((errorCode.code != SccNone) && (errorCode.code != SccOk))
-    out += errorCode.render(format, indent + "  ");
+  {
+    out += errorCode.render(indent + "  ");
+  }
   else
-    out += contextResponseVector.render(requestType, format, indent + "  ");
+  {
+    if (entity.id != "")
+    {
+      out += entity.render(indent + "  ", true);
+    }
 
-  out += endTag(indent, tag, format);
+    out += contextAttributeResponseVector.render(ciP, requestType, indent + "  ");
+  }
+
+  out += endTag(indent);
 
   return out;
-
 }
 
 
@@ -73,18 +85,31 @@ std::string AppendContextElementResponse::render(RequestType requestType, Format
 *
 * AppendContextElementResponse::check - 
 */
-std::string AppendContextElementResponse::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string AppendContextElementResponse::check
+(
+  ConnectionInfo*  ciP,
+  RequestType      requestType,
+  std::string      indent,
+  std::string      predetectedError,
+  int              counter
+)
 {
   std::string res;
-  
-  if (predetectedError != "")
-    errorCode.fill(SccBadRequest, predetectedError); 
-  else if ((res = contextResponseVector.check(requestType, format, indent, "", counter)) != "OK")
-    errorCode.fill(SccBadRequest, res);
-  else
-    return "OK";
 
-  return render(requestType, format, indent);
+  if (predetectedError != "")
+  {
+    errorCode.fill(SccBadRequest, predetectedError);
+  }
+  else if ((res = contextAttributeResponseVector.check(ciP, requestType, indent, "", counter)) != "OK")
+  {
+    errorCode.fill(SccBadRequest, res);
+  }
+  else
+  {
+    return "OK";
+  }
+
+  return render(ciP, requestType, indent);
 }
 
 
@@ -97,6 +122,75 @@ void AppendContextElementResponse::release(void)
 {
   LM_T(LmtRelease, ("Releasing AppendContextElementResponse"));
 
-  contextResponseVector.release();
+  contextAttributeResponseVector.release();
   errorCode.release();
+}
+
+
+
+/* ****************************************************************************
+*
+* AppendContextElementResponse::fill - 
+*
+* NOTE
+* This method is used in the service routine of 'POST /v1/contextEntities/{entityId::id} et al.
+* Only ONE response in the vector contextElementResponseVector of UpdateContextResponse is possible.
+*/
+void AppendContextElementResponse::fill(UpdateContextResponse* ucrsP, const std::string& entityId, const std::string& entityType)
+{
+  if (ucrsP->contextElementResponseVector.size() != 0)
+  {
+    ContextElementResponse* cerP = ucrsP->contextElementResponseVector[0];
+
+    contextAttributeResponseVector.fill(&cerP->contextElement.contextAttributeVector, cerP->statusCode);
+    
+    entity.fill(&cerP->contextElement.entityId);
+  }
+  else
+  {
+    entity.fill(entityId, entityType, "false");
+  }
+
+  errorCode.fill(ucrsP->errorCode);
+
+  //
+  // Special treatment if only one contextElementResponse that is NOT FOUND and if
+  // AppendContextElementResponse::errorCode is not 404 already
+  //
+  // Also if NO contextElementResponse is present
+  //
+  // These 'fixes' are mainly to maintain backward compatibility
+  //
+  if ((errorCode.code != SccContextElementNotFound) &&
+      (contextAttributeResponseVector.size() == 1) &&
+      (contextAttributeResponseVector[0]->statusCode.code == SccContextElementNotFound)
+     )
+  {
+    errorCode.fill(SccContextElementNotFound);
+  }
+  else if ((errorCode.code != SccContextElementNotFound) && (contextAttributeResponseVector.size() == 0))
+  {
+    errorCode.fill(SccContextElementNotFound);
+  }
+  else if (contextAttributeResponseVector.size() == 1)
+  {
+    //
+    // Now, if any error inside ContextAttributeResponse, move it to the outside, but only if we have ONLY ONE contextAttributeResponse
+    // and only if there is no error already in the 'external' errorCode.
+    //
+    if (((errorCode.code == SccNone) || (errorCode.code == SccOk)) && 
+        ((contextAttributeResponseVector[0]->statusCode.code != SccNone) && (contextAttributeResponseVector[0]->statusCode.code != SccOk)))
+    {
+      errorCode.fill(contextAttributeResponseVector[0]->statusCode);
+    }
+  }
+
+  // Now, if the external error code is 404 and 'details' is empty - add the name of the incoming entity::id as details
+  if ((errorCode.code == SccContextElementNotFound) && (errorCode.details == ""))
+  {
+    if (ucrsP->contextElementResponseVector.size() == 1)
+    {
+      errorCode.details = ucrsP->contextElementResponseVector[0]->contextElement.entityId.id;
+    }
+  }
 }

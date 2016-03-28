@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -47,8 +47,10 @@ static RestService rs[] =
 /* ****************************************************************************
 *
 * notFound - 
+*
+* FIXME P5 #1862: _json countepart?
 */
-TEST(deleteIndividualContextEntity, notFound)
+TEST(deleteIndividualContextEntity, DISABLED_notFound)
 {
 
   ConnectionInfo ci("/ngsi10/contextEntities/entity701",  "DELETE", "1.1");

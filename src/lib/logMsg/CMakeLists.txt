@@ -16,7 +16,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
@@ -36,8 +36,8 @@ SET (SOURCES
 # -----------------------------------------------------------------
 include_directories("${PROJECT_SOURCE_DIR}/src/lib")
 
+
 # Library declaration
 # -----------------------------------------------------------------
-
-ADD_LIBRARY(lm STATIC ${SOURCES} ${HEADERS} )
+ADD_LIBRARY(lm STATIC ${SOURCES} ${HEADERS})
 SET (LIBLM ${PROJECT_BINARY_DIR}/src/logMsg/liblm.a CACHE INTERNAL "")

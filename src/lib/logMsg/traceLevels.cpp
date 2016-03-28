@@ -18,11 +18,11 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
-#include "traceLevels.h"         // Own interface
+#include "logMsg/traceLevels.h"         // Own interface
 
 
 

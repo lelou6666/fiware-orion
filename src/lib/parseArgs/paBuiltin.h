@@ -1,5 +1,5 @@
-#ifndef PA_BUILTIN_H
-#define PA_BUILTIN_H
+#ifndef SRC_LIB_PARSEARGS_PABUILTIN_H_
+#define SRC_LIB_PARSEARGS_PABUILTIN_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -59,6 +59,7 @@ extern char            paTerm[128];
 extern char            paSystem[128];
 extern char            paVisual[128];
 extern char            paLogDir[256];
+extern char            paLogLevel[256];
 
 
 
@@ -93,4 +94,4 @@ extern PaiArgument* paBuiltinLookup(char* option);
 */
 extern int paBuiltinRemove(char* name);
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_PABUILTIN_H_

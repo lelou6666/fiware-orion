@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -41,7 +41,7 @@
 */
 UpdateContextAvailabilitySubscriptionResponse::UpdateContextAvailabilitySubscriptionResponse()
 {
-  errorCode.tagSet("errorCode");
+  errorCode.keyNameSet("errorCode");
 }
 
 /* ****************************************************************************
@@ -50,11 +50,8 @@ UpdateContextAvailabilitySubscriptionResponse::UpdateContextAvailabilitySubscrip
 */
 UpdateContextAvailabilitySubscriptionResponse::UpdateContextAvailabilitySubscriptionResponse(StatusCode& _errorCode)
 {
-  errorCode.code         = _errorCode.code;
-  errorCode.reasonPhrase = _errorCode.reasonPhrase;
-  errorCode.details      = _errorCode.details;
-
-  errorCode.tagSet("errorCode");
+  errorCode.fill(&_errorCode);
+  errorCode.keyNameSet("errorCode");
 }
 
 /* ****************************************************************************
@@ -76,22 +73,22 @@ UpdateContextAvailabilitySubscriptionResponse::~UpdateContextAvailabilitySubscri
 *
 * UpdateContextAvailabilitySubscriptionResponse::render - 
 */
-std::string UpdateContextAvailabilitySubscriptionResponse::render(RequestType requestType, Format format, std::string indent, int counter)
+std::string UpdateContextAvailabilitySubscriptionResponse::render(RequestType requestType, const std::string& indent, int counter)
 {
   std::string  out                = "";
   std::string  tag                = "updateContextAvailabilitySubscriptionResponse";
   bool         durationRendered   = !duration.isEmpty();
   bool         errorCodeRendered  = (errorCode.code != SccNone);
 
-  out += startTag(indent, tag, format, false);
+  out += startTag1(indent, tag, false);
 
-  out += subscriptionId.render(RtUpdateContextAvailabilitySubscriptionResponse, format, indent + "  ", errorCodeRendered || durationRendered);
-  out += duration.render(format,       indent + "  ", errorCodeRendered);
+  out += subscriptionId.render(RtUpdateContextAvailabilitySubscriptionResponse, indent + "  ", errorCodeRendered || durationRendered);
+  out += duration.render(      indent + "  ", errorCodeRendered);
 
   if (errorCodeRendered)
-     out += errorCode.render(format, indent + "  ", false);
+     out += errorCode.render(indent + "  ", false);
 
-  out += endTag(indent, tag, format);
+  out += endTag(indent);
 
   return out;
 }
@@ -100,23 +97,21 @@ std::string UpdateContextAvailabilitySubscriptionResponse::render(RequestType re
 *
 * UpdateContextAvailabilitySubscriptionResponse::check - 
 */
-std::string UpdateContextAvailabilitySubscriptionResponse::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string UpdateContextAvailabilitySubscriptionResponse::check(RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
   std::string  res;
 
   if (predetectedError != "")
   {
-    errorCode.code         = SccBadRequest;
-    errorCode.reasonPhrase = predetectedError;
+    errorCode.fill(SccBadRequest, predetectedError);
   }
-  else if (((res = subscriptionId.check(UpdateContextAvailabilitySubscription, format, indent, predetectedError, counter)) != "OK") ||
-           ((res = duration.check(UpdateContextAvailabilitySubscription, format, indent, predetectedError, counter))       != "OK"))
+  else if (((res = subscriptionId.check(UpdateContextAvailabilitySubscription, indent, predetectedError, counter)) != "OK") ||
+           ((res = duration.check(UpdateContextAvailabilitySubscription, indent, predetectedError, counter))       != "OK"))
   {
-    errorCode.code         = SccBadRequest;
-    errorCode.reasonPhrase = res;
+    errorCode.fill(SccBadRequest, res);
   }
   else
     return "OK";
 
-  return render(UpdateContextAvailabilitySubscription, format, indent, counter);
+  return render(UpdateContextAvailabilitySubscription, indent, counter);
 }

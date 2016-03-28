@@ -18,7 +18,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es 
 
 __author__ = 'fermin'
 
@@ -27,31 +27,30 @@ import re
 from sys import argv
 
 header = []
-header.append('[#|\*] +Copyright 2013 Telefonica Investigacion y Desarrollo, S.A.U$')
-header.append('[#|\*]$')
-header.append('[#|\*] +This file is part of Orion Context Broker.$')
-header.append('[#|\*]$')
-header.append('[#|\*] +Orion Context Broker is free software: you can redistribute it and/or$')
-header.append('[#|\*] +modify it under the terms of the GNU Affero General Public License as$')
-header.append('[#|\*] +published by the Free Software Foundation, either version 3 of the$')
-header.append('[#|\*] +License, or \(at your option\) any later version.$')
-header.append('[#|\*]$')
-header.append('[#|\*] +Orion Context Broker is distributed in the hope that it will be useful,$')
-header.append('[#|\*] +but WITHOUT ANY WARRANTY; without even the implied warranty of$')
-header.append('[#|\*] +MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero$')
-header.append('[#|\*] +General Public License for more details.$')
-header.append('[#|\*]$')
-header.append('[#|\*] +You should have received a copy of the GNU Affero General Public License$')
-header.append('[#|\*] +along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.$')
-header.append('[#|\*]$')
-header.append('[#|\*] +For those usages not covered by this license please contact with$')
-header.append('[#|\*] +fermin at tid dot es$')
+header.append('\s*Copyright( \(c\))? 201[3|4|5|6] Telefonica Investigacion y Desarrollo, S.A.U$')
+header.append('\s*$')
+header.append('\s*This file is part of Orion Context Broker.$')
+header.append('\s*$')
+header.append('\s*Orion Context Broker is free software: you can redistribute it and/or$')
+header.append('\s*modify it under the terms of the GNU Affero General Public License as$')
+header.append('\s*published by the Free Software Foundation, either version 3 of the$')
+header.append('\s*License, or \(at your option\) any later version.$')
+header.append('\s*$')
+header.append('\s*Orion Context Broker is distributed in the hope that it will be useful,$')
+header.append('\s*but WITHOUT ANY WARRANTY; without even the implied warranty of$')
+header.append('\s*MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero$')
+header.append('\s*General Public License for more details.$')
+header.append('\s*$')
+header.append('\s*You should have received a copy of the GNU Affero General Public License$')
+header.append('\s*along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.$')
+header.append('\s*$')
+header.append('\s*For those usages not covered by this license please contact with$')
+header.append('\s*iot_support at tid dot es$')
 
 verbose = True
 
 # check_file returns an error string in the case of error or empty string if everything goes ok
 def check_file(file):
-
     # The license header doesn't necessarily starts in the first line, e.g. due to a #define in a .h file
     # or a hashbang (#!/usr/bin/python...). Thus, we locate the starting line and start the comparison from
     # that line
@@ -76,10 +75,18 @@ def check_file(file):
     # reaching the end of the header. Both cases means false
     return 'end of file reached without finding header beginning'
 
-def ignore(root, file):
 
+def ignore(root, file):
     # Files in the BUILD_* or .git directories are not processed
     if 'BUILD_' in root or '.git' in root:
+        return True
+
+    # PNG files in manuals are ignored
+    if 'manuals' in root and file.endswith('.png'):
+        return True
+
+    # Files in the rpm/SRPMS, rpm/SOURCES or rpm/RPMS directories are not processed
+    if 'SRPMS' in root or 'SOURCES' in root or 'RPMS' in root:
         return True
 
     # Files in the test/valdring directory ending with .out are not processed
@@ -98,39 +105,69 @@ def ignore(root, file):
     if 'heavyTest' in root and (file.endswith('.json') or file.endswith('.xml')):
         return True
 
+    # Some files in docker/ directory are not processed
+    if 'docker' in root and file in ['Dockerfile', 'docker-compose.yml']:
+        return True
+
+    # Some files in test/acceptance/behave directory are not processed
+    if 'behave' in root and file in ['behave.ini', 'logging.ini', 'properties.json.base']:
+        return True
+
     # Files used by the Qt IDE (they start with contextBroker.*) are not processed
     if file.endswith('.creator') or file.endswith('.creator.user') or file.endswith('.config') \
-       or file.endswith('.files') or file.endswith('.includes'):
+            or file.endswith('.files') or file.endswith('.includes'):
         return True
 
     # Files used by the PyCharm IDE (in the .idea/ directory) are not processed
     if '.idea' in root:
         return True
 
+    # Apib files have an "inline" license, so they are ignored
+    extensions_to_ignore = [ 'apib', 'md' ]
+    if os.path.splitext(file)[1][1:] in extensions_to_ignore:
+        return True
+
     # Particular cases of files that are also ignored
-    if file == '.gitignore' or file == '.valgrindrc' or file == '.valgrindSuppressions' \
-        or file == 'README.md' or file == 'LICENSE' or file == 'ContributionPolicy.txt' \
-        or file == 'CHANGES_NEXT_RELEASE' or file == 'compileInfo.h':
+    files_names = ['.gitignore', '.valgrindrc', '.valgrindSuppressions', 'LICENSE',
+                   'ContributionPolicy.txt', 'CHANGES_NEXT_RELEASE', 'compileInfo.h',
+                   'unittests_that_fail_sporadically.txt', 'Vagrantfile', 'contextBroker.ubuntu',
+                   'mkdocs.yml' ]
+    if file in files_names:
         return True
     if 'scripts' in root and (file == 'cpplint.py' or file == 'pdi-pep8.py' or file == 'uncrustify.cfg' \
-        or file == 'cmake2junit.xsl'):
+                                      or file == 'cmake2junit.xsl'):
+        return True
+    if 'acceptance' in root and (file.endswith('.txt') or file.endswith('.json')):
         return True
 
     return False
 
+
 def supported_extension(root, file):
-    # FIXME: there should be a smarter way of doing this instead of so long or statement :)
-    if file.endswith('.py') or file.endswith('.cpp') or file.endswith('.h') or file.endswith('.xml')\
-        or file.endswith('.json') or file.endswith('.test') or file.endswith('.vtest') or file.endswith('.txt')\
-        or file.endswith('.sh') or file == 'makefile' or file == 'Makefile' or file.endswith('.spec') \
-        or file.endswith('.cfg') or file.endswith('.DISABLED') or file.endswith('.xtest') or file.endswith('.centos'):
+    """
+    Check if the file is supported depending of the name, the extension of the name inside a path
+    :param root:
+    :param file:
+    :return:
+    """
+    extensions = ['py', 'cpp', 'h', 'xml', 'json', 'test', 'vtest', 'txt', 'sh', 'spec', 'cfg', 'DISABLED', 'xtest',
+                  'centos', 'js', 'jmx', 'vtestx', 'feature']
+    names = ['makefile', 'Makefile']
+
+    # Check extensions
+    if os.path.splitext(file)[1][1:] in extensions:
         return True
 
+    # Check filenames
+    if file in names:
+        return True
+
+    # Check a filename in a root
     if 'config' in root and file == 'contextBroker':
         return True
 
     filename = os.path.join(root, file)
-    print 'not supported extension: ' + filename
+    print 'not supported extension: {filename}'.format(filename=filename)
     return False
 
 if len(argv) > 1:
@@ -142,10 +179,10 @@ else:
 good = 0
 bad = 0
 
-for root,dirs,files in os.walk(dir):
+for root, dirs, files in os.walk(dir):
     for file in [f for f in files]:
         # DEBUG
-        #print(os.path.join(root, file))
+        # print(os.path.join(root, file))
 
         # Only process files that match a given pattern
         if ignore(root, file):
@@ -153,7 +190,7 @@ for root,dirs,files in os.walk(dir):
 
         # Check that the extension is supported
         if not supported_extension(root, file):
-            bad +=1
+            bad += 1
             continue
 
         filename = os.path.join(root, file)
@@ -163,14 +200,14 @@ for root,dirs,files in os.walk(dir):
             bad += 1
         else:
             # DEBUG
-            #print filename + ': OK'
+            # print filename + ': OK'
             good += 1
 
 print '--------------'
 print 'Summary:'
-print '   good:    ' + str(good)
-print '   bad:     ' + str(bad)
-print 'Total: ' + str(good + bad)
+print '   good:    {good}'.format(good=str(good))
+print '   bad:     {bad}'.format(bad=str(bad))
+print 'Total: {total}'.format(total=str(good + bad))
 
 if bad > 0:
     exit(1)

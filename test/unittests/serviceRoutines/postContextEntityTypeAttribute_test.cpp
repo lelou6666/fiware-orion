@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -54,8 +54,10 @@ static RestService rs[] =
 /* ****************************************************************************
 *
 * ok - 
+*
+* FIXME P5 #1862: _json counterpart?
 */
-TEST(postContextEntityTypeAttribute, ok)
+TEST(postContextEntityTypeAttribute, DISABLED_ok)
 {
   utInit();
 
@@ -72,8 +74,8 @@ TEST(postContextEntityTypeAttribute, ok)
   EXPECT_EQ("OK", testDataFromFile(testBuf, sizeof(testBuf), infile)) << "Error getting test data from '" << infile << "'";
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile)) << "Error getting test data from '" << outfile << "'";
 
-  ci.outFormat    = XML;
-  ci.inFormat     = XML;
+  ci.outFormat    = JSON;
+  ci.inFormat     = JSON;
   ci.payload      = testBuf;
   ci.payloadSize  = strlen(testBuf);
   out             = restService(&ci, rs);

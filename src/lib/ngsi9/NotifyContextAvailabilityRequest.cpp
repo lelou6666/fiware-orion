@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
@@ -46,7 +46,7 @@ NotifyContextAvailabilityRequest::NotifyContextAvailabilityRequest()
 *
 * NotifyContextAvailabilityRequest::render -
 */
-std::string NotifyContextAvailabilityRequest::render(RequestType requestType, Format format, std::string indent)
+std::string NotifyContextAvailabilityRequest::render(RequestType requestType, const std::string& indent)
 {
   std::string out = "";
   std::string tag = "notifyContextAvailabilityRequest";
@@ -57,10 +57,10 @@ std::string NotifyContextAvailabilityRequest::render(RequestType requestType, Fo
   //  Always comma for subscriptionId.
   //  With an empty contextRegistrationResponseVector there would be no notification
   //
-  out += startTag(indent, tag, format, false);
-  out += subscriptionId.render(NotifyContextAvailability, format, indent + "  ", true);
-  out += contextRegistrationResponseVector.render(format, indent  + "  ", false);
-  out += endTag(indent, tag, format);
+  out += startTag1(indent, tag, false);
+  out += subscriptionId.render(NotifyContextAvailability, indent + "  ", true);
+  out += contextRegistrationResponseVector.render(indent  + "  ", false);
+  out += endTag(indent);
 
   return out;
 }
@@ -71,26 +71,24 @@ std::string NotifyContextAvailabilityRequest::render(RequestType requestType, Fo
 *
 * NotifyContextAvailabilityRequest::check - 
 */
-std::string NotifyContextAvailabilityRequest::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string NotifyContextAvailabilityRequest::check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
   std::string                        res;
   NotifyContextAvailabilityResponse  response;
 
   if (predetectedError != "")
   {
-    response.responseCode.code         = SccBadRequest;
-    response.responseCode.reasonPhrase = predetectedError;
+    response.responseCode.fill(SccBadRequest, predetectedError);
   }
-  else if (((res = subscriptionId.check(QueryContext, format, indent, predetectedError, 0))                    != "OK") ||
-           ((res = contextRegistrationResponseVector.check(QueryContext, format, indent, predetectedError, 0)) != "OK"))
+  else if (((res = subscriptionId.check(QueryContext, indent, predetectedError, 0))                    != "OK") ||
+           ((res = contextRegistrationResponseVector.check(ciP, QueryContext, indent, predetectedError, 0)) != "OK"))
   {
-    response.responseCode.code         = SccBadRequest;
-    response.responseCode.reasonPhrase = res;
+    response.responseCode.fill(SccBadRequest, res);
   }
   else
     return "OK";
 
-  return response.render(NotifyContextAvailability, format, indent);
+  return response.render(NotifyContextAvailability, indent);
 }
 
 
@@ -98,7 +96,7 @@ std::string NotifyContextAvailabilityRequest::check(RequestType requestType, For
 *
 * NotifyContextAvailabilityRequest::present -
 */
-void NotifyContextAvailabilityRequest::present(std::string indent)
+void NotifyContextAvailabilityRequest::present(const std::string& indent)
 {
   subscriptionId.present(indent);
   contextRegistrationResponseVector.present(indent);

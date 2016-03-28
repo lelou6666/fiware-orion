@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -28,26 +28,35 @@
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
+#include "common/statistics.h"
+#include "common/clockFunctions.h"
+
 #include "mongoBackend/mongoDiscoverContextAvailability.h"
 #include "ngsi/ParseData.h"
 #include "ngsi9/DiscoverContextAvailabilityResponse.h"
 #include "rest/ConnectionInfo.h"
 #include "serviceRoutines/postDiscoverContextAvailability.h"
-
-
 #include "jsonParse/jsonDiscoverContextAvailabilityRequest.h"
+
+
+
 /* ****************************************************************************
 *
 * postDiscoverContextAvailability - 
 */
-std::string postDiscoverContextAvailability(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postDiscoverContextAvailability
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  DiscoverContextAvailabilityResponse  dcar;
-  std::string                          answer;
+  DiscoverContextAvailabilityResponse*  dcarP = &parseDataP->dcars.res;
+  std::string                           answer;
 
-  parseDataP->dcar.res.present("");
-  jsonDcarPresent(parseDataP);
-  ciP->httpStatusCode = mongoDiscoverContextAvailability(&parseDataP->dcar.res, &dcar);
-  answer = dcar.render(DiscoverContextAvailability, ciP->outFormat, "");
+  TIMED_MONGO(ciP->httpStatusCode = mongoDiscoverContextAvailability(&parseDataP->dcar.res, dcarP, ciP->tenant, ciP->uriParam, ciP->servicePathV));
+  TIMED_RENDER(answer = dcarP->render(DiscoverContextAvailability, ""));
+
   return answer;
 }

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,22 +37,40 @@
 
 /* ****************************************************************************
 *
+* AttributeList::fill - 
+*/
+void AttributeList::fill(const std::vector<std::string>& aVec)
+{
+  for (unsigned int ix = 0; ix < aVec.size(); ++ix)
+  {
+    attributeV.push_back(aVec[ix]);
+  }
+}
+
+
+
+/* ****************************************************************************
+*
 * render - 
 */
-std::string AttributeList::render(Format format, std::string indent, bool comma)
+std::string AttributeList::render(const std::string& indent, bool comma)
 {
   std::string  out = "";
-  std::string  tag = "attributeList";
+  std::string  key = "attributes";
 
   if (attributeV.size() == 0)
+  {
     return "";
+  }
 
-  out += startTag(indent, tag, format);
+  out += startTag2(indent, key, true, true);
 
   for (unsigned int ix = 0; ix < attributeV.size(); ++ix)
-    out += valueTag(indent + "  ", "attribute", attributeV[ix], format, ix != attributeV.size() - 1);
+  {
+    out += valueTag1(indent + "  ", "attribute", attributeV[ix], ix != attributeV.size() - 1, true);
+  }
 
-  out += endTag(indent, tag, format, comma);
+  out += endTag(indent, comma, true);
 
   return out;
 }
@@ -63,7 +81,13 @@ std::string AttributeList::render(Format format, std::string indent, bool comma)
 *
 * AttributeList::check - 
 */
-std::string AttributeList::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string AttributeList::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   for (unsigned int ix = 0; ix < attributeV.size(); ++ix)
   {
@@ -80,12 +104,16 @@ std::string AttributeList::check(RequestType requestType, Format format, std::st
 *
 * AttributeList::present - 
 */
-void AttributeList::present(std::string indent)
+void AttributeList::present(const std::string& indent)
 {
-  PRINTF("%sAttribute List\n",    indent.c_str());
+  LM_T(LmtPresent, ("%sAttribute List",    indent.c_str()));
 
   for (unsigned int ix = 0; ix < attributeV.size(); ++ix)
-    PRINTF("%s  %s\n", indent.c_str(), attributeV[ix].c_str());
+  {
+    LM_T(LmtPresent, ("%s  %s", 
+		      indent.c_str(), 
+		      attributeV[ix].c_str()));
+  }
 }
 
 
@@ -103,9 +131,28 @@ void AttributeList::release(void)
 
 /* ****************************************************************************
 *
+* lookup - 
+*/
+bool AttributeList::lookup(const std::string& attributeName)
+{
+  for (unsigned int ix = 0; ix < attributeV.size(); ++ix)
+  {
+    if (attributeV[ix] == attributeName)
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+
+/* ****************************************************************************
+*
 * push_back - 
 */
-void AttributeList::push_back(std::string attributeName)
+void AttributeList::push_back(const std::string& attributeName)
 {
   attributeV.push_back(attributeName);
 }
@@ -114,20 +161,39 @@ void AttributeList::push_back(std::string attributeName)
 
 /* ****************************************************************************
 *
-* AttributeList::size - 
+* push_back_if_absent - 
 */
-unsigned int AttributeList::size(void)
+void AttributeList::push_back_if_absent(const std::string& attributeName)
 {
-   return attributeV.size();
+  if (lookup(attributeName) == false)
+  {
+    attributeV.push_back(attributeName);
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* AttributeList::get - 
+* AttributeList::size - 
 */
-std::string AttributeList::get(int ix)
+unsigned int AttributeList::size(void) const
 {
-   return attributeV[ix];
+  return attributeV.size();
+}
+
+
+
+
+
+/* ****************************************************************************
+*
+* AttributeList::clone - 
+*/
+void AttributeList::clone(const AttributeList& aList)
+{
+  for (unsigned int ix = 0; ix < aList.size(); ++ix)
+  {
+    push_back(aList[ix]);
+  }
 }

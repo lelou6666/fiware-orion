@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -28,6 +28,7 @@
 #include "jsonParse/jsonRequest.h"
 #include "ngsi/ParseData.h"
 #include "ngsi/Request.h"
+#include "rest/ConnectionInfo.h"
 
 #include "unittest.h"
 
@@ -46,10 +47,14 @@ TEST(jsonRequest, jsonTreat)
 
    utInit();
 
-   ci.outFormat = JSON;
-   out  = jsonTreat("", &ci, &parseData, InvalidRequest, "no_payload", NULL);
+   ci.outFormat  = JSON;
+   ci.apiVersion = "v1";
+   out  = jsonTreat("non-empty content", &ci, &parseData, InvalidRequest, "", NULL);
    EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
    EXPECT_STREQ(expectedBuf, out.c_str());
+
+   out  = jsonTreat("", &ci, &parseData, InvalidRequest, "", NULL);
+   EXPECT_STREQ("OK", out.c_str());
 
    utExit();
 }

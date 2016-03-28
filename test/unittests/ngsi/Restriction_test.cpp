@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -40,20 +40,24 @@ TEST(Restriction, check)
 {
   Restriction  restriction;
   std::string  checked;
-  std::string  expected1 = "OK";
+  std::string  expected0 = "OK";
+  std::string  expected1 = "empty restriction";
   std::string  expected2 = "Empty type in restriction scope";
   std::string  expected3 = "OK";
   Scope*       scopeP    = new Scope("", "Value");
 
-  checked = restriction.check(RegisterContext, XML, "", "", 0);
+  checked = restriction.check(RegisterContext, "", "", 0);
+  EXPECT_EQ(expected0, checked);
+
+  checked = restriction.check(RegisterContext, "", "", 1);
   EXPECT_EQ(expected1, checked);
 
   restriction.scopeVector.push_back(scopeP);
-  checked = restriction.check(RegisterContext, XML, "", "", 1);
+  checked = restriction.check(RegisterContext, "", "", 1);
   EXPECT_EQ(expected2, checked);
 
   scopeP->type = "Type";
-  checked = restriction.check(RegisterContext, XML, "", "", 1);
+  checked = restriction.check(RegisterContext, "", "", 1);
   EXPECT_EQ(expected3, checked);
 }
 
@@ -82,6 +86,6 @@ TEST(Restriction, render)
   std::string  rendered;
   std::string  expected = "";
 
-  rendered = restriction.render(XML, "", 0, false);
+  rendered = restriction.render("", 0, false);
   EXPECT_STREQ(expected.c_str(), rendered.c_str());
 }

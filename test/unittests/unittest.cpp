@@ -18,12 +18,15 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
+#include "rest/uriParamNames.h"
+
 #include "unittest.h"
 #include "testInit.h"
+#include "cache/subCache.h"
 
 
 
@@ -58,6 +61,38 @@ static TimerMock*    timerMock    = NULL;
 
 /* ****************************************************************************
 *
+* uriParams - 
+*/
+std::map<std::string, std::string> uriParams;
+
+
+
+/* ****************************************************************************
+*
+* options -
+*/
+std::map<std::string, bool> options;
+
+
+
+/* ****************************************************************************
+*
+* servicePathV - 
+*/
+std::vector<std::string> servicePathV;
+
+ 
+
+/* ****************************************************************************
+*
+* servicePathVector - 
+*/
+std::vector<std::string> servicePathVector;
+
+
+
+/* ****************************************************************************
+*
 * utInit - unit test init
 *
 */
@@ -85,11 +120,31 @@ void utInit(void)
   ON_CALL(*timerMock, getCurrentTime()).WillByDefault(Return(1360232700));
   setTimer(timerMock);
 
+  startTime       = getCurrentTime();
+  statisticsTime  = getCurrentTime();
+
   setupDatabase();
 
 #ifdef UT_DEBUG
   printf("**************** FROM utInit (%d inits, %d exits)\n", noOfInits, noOfExits);
 #endif
+
+  //
+  // URI parameters used for unit testing
+  //   Default mime type for notifications: application/json
+  //
+  uriParams[URI_PARAM_PAGINATION_OFFSET]   = DEFAULT_PAGINATION_OFFSET;
+  uriParams[URI_PARAM_PAGINATION_LIMIT]    = DEFAULT_PAGINATION_LIMIT;
+  uriParams[URI_PARAM_PAGINATION_DETAILS]  = DEFAULT_PAGINATION_DETAILS;
+  uriParams[URI_PARAM_NOT_EXIST]           = ""; // FIXME P7: we need this to implement "restriction-based" filters
+
+  //
+  // Resetting servicePathVector
+  //
+  servicePathVector.clear();
+
+  // Init subs cache (this initialization is overridden in tests that use csubs)
+  subCacheInit();
 }
 
 

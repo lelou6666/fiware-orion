@@ -18,15 +18,15 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <stdio.h>
 #include <string>
+#include <sstream>
 
 #include "logMsg/logMsg.h"
-
 #include "common/Format.h"
 #include "common/tag.h"
 
@@ -34,18 +34,210 @@
 
 /* ****************************************************************************
 *
-* startTag -  
+* htmlEscape - 
+*
+* Allocate a new buffer to hold an escaped version of the input buffer 's'.
+* Escaping characters demands more space in the buffer, for some characters up to six
+* characters - double-quote (") needs SIX chars: &quot;
+* So, when allocating room for the output (escaped) buffer, we need to consider the worst case
+* and six times the length of the input buffer is allocated (plus one byte for the zero-termination.
+*
+* See http://www.anglesanddangles.com/asciichart.php for more info on the 'html-escpaing' of ASCII chars.
 */
-std::string startTag(std::string indent, std::string tagName, Format format, bool showTag)
+char* htmlEscape(const char* s)
 {
-  if (format == XML)
-     return indent + "<" + tagName + ">\n";
-  else if (format == JSON)
+  int   newLen  = strlen(s) * 6 + 1;  // See function header comment
+  char* out     = (char*) calloc(1, newLen);
+  int   sIx     = 0;
+  int   outIx   = 0;
+  
+  if (out == NULL)
   {
-    if (showTag == false)
-      return indent + "{\n";
+    LM_E(("Internal Error (allocating %d bytes: %s)", newLen, strerror(errno)));
+    return NULL;
+  }
+
+  while (s[sIx] != 0)
+  {
+    switch (s[sIx])
+    {
+    case '<':
+      out[outIx++] = '&';
+      out[outIx++] = 'l';
+      out[outIx++] = 't';
+      out[outIx++] = ';';
+      ++sIx;
+      break;
+
+    case '>':
+      out[outIx++] = '&';
+      out[outIx++] = 'g';
+      out[outIx++] = 't';
+      out[outIx++] = ';';
+      ++sIx;
+      break;
+
+    case '(':
+      out[outIx++] = '&';
+      out[outIx++] = '#';
+      out[outIx++] = '4';
+      out[outIx++] = '0';
+      out[outIx++] = ';';
+      ++sIx;
+      break;
+
+    case ')':
+      out[outIx++] = '&';
+      out[outIx++] = '#';
+      out[outIx++] = '4';
+      out[outIx++] = '1';
+      out[outIx++] = ';';
+      ++sIx;
+      break;
+
+    case '=':
+      out[outIx++] = '&';
+      out[outIx++] = '#';
+      out[outIx++] = '6';
+      out[outIx++] = '1';
+      out[outIx++] = ';';
+      ++sIx;
+      break;
+
+    case '\'':
+      out[outIx++] = '&';
+      out[outIx++] = '#';
+      out[outIx++] = '3';
+      out[outIx++] = '9';
+      out[outIx++] = ';';
+      ++sIx;
+      break;
+
+    case '"':
+      out[outIx++] = '&';
+      out[outIx++] = 'q';
+      out[outIx++] = 'u';
+      out[outIx++] = 'o';
+      out[outIx++] = 't';
+      out[outIx++] = ';';
+      ++sIx;
+      break;
+
+    case ';':
+      out[outIx++] = '&';
+      out[outIx++] = '#';
+      out[outIx++] = '5';
+      out[outIx++] = '9';
+      out[outIx++] = ';';
+      ++sIx;
+      break;
+
+    default:
+      out[outIx++] = s[sIx++];
+    }
+  }
+
+  return out;
+}
+
+
+/* ****************************************************************************
+*
+* jsonInvalidCharsTransformation -
+*
+* FIXME P5: this is a quick fix for #1172. A better fix should de developed.
+*
+* Pretty much based in JsonHelper::toJsonString(). In fact, most of the code is
+* duplicated
+*
+*/
+std::string jsonInvalidCharsTransformation(const std::string& input)
+{
+  std::ostringstream ss;
+
+  for (std::string::const_iterator iter = input.begin(); iter != input.end(); ++iter)
+  {
+    /* FIXME P3: This function ensures that if the DB holds special characters (which are
+     * not supported in JSON according to its specification), they are converted to their escaped
+     * representations. The process wouldn't be necessary if the DB couldn't hold such special characters,
+     * but as long as we support NGSIv1, it is better to have the check (e.g. a newline could be
+     * used in an attribute value using XML). Even removing NGSIv1, we have to ensure that the
+     * input parser (rapidjson) doesn't inject not supported JSON characters in the DB (this needs to be
+     * investigated in the rapidjson documentation)
+     *
+     * JSON specification is a bit obscure about the need of escaping / (what they call 'solidus'). The
+     * picture at JSON specification (http://www.json.org/) seems suggesting so, but after a careful reading of
+     * https://tools.ietf.org/html/rfc4627#section-2.5, we can conclude it is not mandatory. Online checkers
+     * such as http://jsonlint.com confirm this. Looking in some online discussions
+     * (http://andowebsit.es/blog/noteslog.com/post/the-solidus-issue/ and
+     * https://groups.google.com/forum/#!topic/opensocial-and-gadgets-spec/FkLsC-2blbo) it seems that
+     * escaping / may have sense in some situations related with JavaScript code, which is not the case of Orion.
+     *
+     */
+    switch (char ch = *iter)
+    {
+    case '\\': ss << "\\\\"; break;
+    case '"': ss << "\\\""; break;    
+    case '\b': ss << "\\b"; break;
+    case '\f': ss << "\\f"; break;
+    case '\n': ss << "\\n"; break;
+    case '\r': ss << "\\r"; break;
+    case '\t': ss << "\\t"; break;
+    default:
+      /* Converting the rest of special chars 0-31 to \u00xx. Note that 0x80 - 0xFF are untouched as they
+       * correspond to UTF-8 multi-byte characters */
+      if (ch >= 0 && ch <= 0x1F)
+      {
+        static const char intToHex[16] =  { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' } ;
+
+        ss << "\\u00" << intToHex[(ch & 0xF0) >> 4] << intToHex[ch & 0x0F];
+      }
+      else
+      {
+        ss << ch;
+      }
+      break;
+    } //end-switch
+
+  } //end-for
+  return ss.str();
+}
+
+
+/* ****************************************************************************
+*
+* startTag1 -
+*/
+std::string startTag1
+(
+  const std::string&  indent,
+  const std::string&  key,
+  bool                showKey,
+  bool                isToplevel
+)
+{
+
+  if (isToplevel)
+  {
+    if (showKey == false)
+    {
+      return indent + "{\n" + indent + "  {\n";
+    }
     else
-      return indent + "\"" + tagName + "\" : {\n";
+    {
+      return indent + "{\n" + indent + "  " + "\"" + key + "\" : {\n";
+    }
+  }
+  else
+  {
+    if (showKey == false)
+    {
+      return indent + "{\n";
+    }
+    else
+    {
+      return indent + "\"" + key + "\" : {\n";
+    }
   }
 
   return "Format not supported";
@@ -55,22 +247,31 @@ std::string startTag(std::string indent, std::string tagName, Format format, boo
 
 /* ****************************************************************************
 *
-* startTag -  
+* startTag2 -
 */
-std::string startTag(std::string indent, std::string xmlTag, std::string jsonTag, Format format, bool isVector, bool showTag)
+std::string startTag2
+(
+  const std::string&  indent,
+  const std::string&  key,
+  bool                isVector,
+  bool                showKey
+)
 {
-  if (format == XML)
-    return indent + "<" + xmlTag + ">\n";
-  else if (format == JSON)
+  if (isVector && showKey)
   {
-    if (isVector && showTag)
-       return indent + "\"" + jsonTag + "\" : [\n";
-    else if (isVector && !showTag)
-       return indent + "[\n";
-    else if (!isVector && showTag)
-       return indent + "\"" + jsonTag + "\" : {\n";
-    else if (!isVector && !showTag)
-       return indent + "{\n";
+    return indent + "\"" + key + "\" : [\n";
+  }
+  else if (isVector && !showKey)
+  {
+    return indent + "[\n";
+  }
+  else if (!isVector && showKey)
+  {
+    return indent + "\"" + key + "\" : {\n";
+  }
+  else if (!isVector && !showKey)
+  {
+    return indent + "{\n";
   }
 
   return "Format not supported";
@@ -82,16 +283,27 @@ std::string startTag(std::string indent, std::string xmlTag, std::string jsonTag
 *
 * endTag -  
 */
-std::string endTag(std::string indent, std::string tagName, Format format, bool comma, bool isVector, bool nl)
+std::string endTag
+(
+  const std::string&  indent,
+  bool                comma,
+  bool                isVector,
+  bool                nl,
+  bool                isToplevel
+)
 {
-  if (format == XML)
-    return indent + "</" + tagName + ">\n";
 
-  std::string out = indent;;
+  if (isToplevel)
+  {
+    return indent + "}\n}\n";
+  }
 
-  out += isVector?  "]"  : "}";
-  out += comma?     ","  : "";
-  out += nl?        "\n" : "";
+  std::string out = indent;
+
+  out += isVector?    "]"  : "}";
+  out += comma?       ","  : "";
+  out += nl?          "\n" : "";
+  out += isToplevel?  "}"  : "";
 
   return out;
 }
@@ -101,25 +313,67 @@ std::string endTag(std::string indent, std::string tagName, Format format, bool 
 /* ****************************************************************************
 *
 * valueTag -  
+*
 */
-std::string valueTag(std::string indent, std::string tagName, std::string value, Format format, bool showComma, bool isAssociation)
+std::string valueTag1
+(
+  const std::string&  indent,
+  const std::string&  key,
+  const std::string&  unescapedValue,
+  bool                showComma,
+  bool                isVectorElement,
+  bool                valueIsNumberOrBool
+)
 {
-  if (format == XML)
-    return indent + "<" + tagName + ">" + value + "</" + tagName + ">" + "\n";
 
-  if (showComma == true)
+  char* value;
+
+  if (unescapedValue == "")
   {
-    if (isAssociation == true)
-      return indent + "\"" + tagName + "\" : " + value + ",\n";
-    else
-      return indent + "\"" + tagName + "\" : \"" + value + "\",\n";
+    value = (char*) malloc(1);
+
+    *value = 0;
   }
   else
   {
-    if (isAssociation == true)
-      return indent + "\"" + tagName + "\" : " + value + "\n";
+    value = htmlEscape(unescapedValue.c_str());
+  }
+
+  if (value == NULL)
+  {
+    return "ERROR: no memory";
+  }
+
+  std::string effectiveValue = jsonInvalidCharsTransformation(value);
+  free(value);
+
+  effectiveValue = valueIsNumberOrBool ? effectiveValue : std::string("\"") + effectiveValue + "\"";
+
+  if (showComma == true)
+  {
+    if (isVectorElement == true)
+    {
+      std::string out = indent + effectiveValue + ",\n";
+      return out;
+    }
     else
-      return indent + "\"" + tagName + "\" : \"" + value + "\"\n";
+    {
+      std::string out = indent + "\"" + key + "\" : " + effectiveValue + ",\n";
+      return out;
+    }
+  }
+  else
+  {
+    if (isVectorElement == true)
+    {
+      std::string out = indent + effectiveValue + "\n";
+      return out;
+    }
+    else
+    {
+      std::string out = indent + "\"" + key + "\" : " + effectiveValue + "\n";
+      return out;
+    }
   }
 }
 
@@ -128,19 +382,24 @@ std::string valueTag(std::string indent, std::string tagName, std::string value,
 *
 * valueTag -  
 */
-std::string valueTag(std::string indent, std::string tagName, int value, Format format, bool showComma, bool isAssociation)
+std::string valueTag
+(
+  const std::string&  indent,
+  const std::string&  key,
+  int                 value,
+  bool                showComma
+)
 {
-   char val[32];
+  char val[32];
 
-   snprintf(val, sizeof(val), "%d", value);
+  snprintf(val, sizeof(val), "%d", value);
 
-   if (format == XML)
-     return indent + "<" + tagName + ">" + val + "</" + tagName + ">" + "\n";
+  if (showComma == true)
+  {
+    return indent + "\"" + key + "\" : \"" + val + "\",\n";
+  }
 
-   if (showComma == true)
-     return indent + "\"" + tagName + "\" : \"" + val + "\",\n";
-   else
-     return indent + "\"" + tagName + "\" : \"" + val + "\"\n";
+  return indent + "\"" + key + "\" : \"" + val + "\"\n";
 }
 
 
@@ -149,23 +408,35 @@ std::string valueTag(std::string indent, std::string tagName, int value, Format 
 *
 * valueTag -  
 */
-std::string valueTag(std::string indent, std::string xmlTag, std::string jsonTag, std::string value, Format format, bool showComma, bool isAssociation)
+std::string valueTag2
+(
+  const std::string&  indent,
+  const std::string&  key,
+  const std::string&  value,
+  bool                showComma,
+  bool                valueIsNumberOrBool
+)
 {
-   if (format == XML)
-     return indent + "<" + xmlTag + ">" + value + "</" + xmlTag + ">" + "\n";
+  std::string eValue = jsonInvalidCharsTransformation(value);
 
-   if (jsonTag == "")
-   {
-     if (showComma == true)
-       return indent + "\"" + value + "\",\n";
-     else
-       return indent + "\"" + value + "\"\n";
-   }
-   else
-   {
-     if (showComma == true)
-       return indent + "\"" + jsonTag + "\" : \"" + value + "\",\n";
-     else
-       return indent + "\"" + jsonTag + "\" : \"" + value + "\"\n";
-   }
+  eValue = valueIsNumberOrBool? eValue : JSON_STR(eValue);
+
+  if (key == "")
+  {
+    if (showComma == true)
+    {
+      return indent + eValue + ",\n";
+    }
+    else
+    {
+      return indent + eValue + "\n";
+    }
+  }
+
+  if (showComma == true)
+  {
+    return indent + "\"" + key + "\" : " + eValue + ",\n";
+  }
+
+  return indent + "\"" + key + "\" : " + eValue + "\n";
 }

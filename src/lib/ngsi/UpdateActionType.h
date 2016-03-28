@@ -1,5 +1,5 @@
-#ifndef UPDATE_ACTION_TYPE_H
-#define UPDATE_ACTION_TYPE_H
+#ifndef SRC_LIB_NGSI_UPDATEACTIONTYPE_H_
+#define SRC_LIB_NGSI_UPDATEACTIONTYPE_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -40,13 +40,19 @@ typedef struct UpdateActionType
 {
   std::string   string;
 
-  void          set(std::string value);
+  void          set(const std::string& value);
   std::string   get(void);
   bool          isEmpty(void);
-  std::string   render(Format format, std::string indent, bool comma = false);
-  std::string   check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void          present(std::string indent);
+  std::string   render(const std::string& indent, bool comma = false);
+  void          present(const std::string& indent);
   const char*   c_str(void);
+
+  std::string   check(RequestType         requestType,
+                      const std::string&  indent,
+                      const std::string&  predetectedError,
+                      int                 counter);
+  
+  
 } UpdateActionType;
 
-#endif
+#endif  // SRC_LIB_NGSI_UPDATEACTIONTYPE_H_

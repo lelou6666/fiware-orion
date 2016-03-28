@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -32,43 +32,43 @@
 #include "ngsi/Request.h"
 #include "ngsi/Throttling.h"
 
-/* ****************************************************************************
-*
-* Throttling::Throttling
-*
-* Explicit constructor needed to initialize primitive types so they don't get
-* random values from the stack
-*/
-Throttling::Throttling()
-{
-    seconds = 0;
-}
 
 /* ****************************************************************************
 *
 * Throttling::parse -
 */
-long long Throttling::parse(void)
+int64_t Throttling::parse(void)
 {
-    seconds = parse8601(string);
-    return seconds;
+  seconds = parse8601(string);
+  return seconds;
 }
+
 
 
 /* ****************************************************************************
 *
-* Throttling::check - 
+* Throttling::check -
 */
-std::string Throttling::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string Throttling::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
-   // FIXME - make Throttling and Duration inherit from same class
-   //         that implements the 'parse' method
+  // FIXME - make Throttling and Duration inherit from same class
+  //         that implements the 'parse' method
 
   if (string == "")
+  {
     return "OK";
-  
+  }
+
   if (parse() == -1)
-     return "syntax error in throttling string";
+  {
+    return "syntax error in throttling string";
+  }
 
   return "OK";
 }
@@ -77,20 +77,20 @@ std::string Throttling::check(RequestType requestType, Format format, std::strin
 
 /* ****************************************************************************
 *
-* Throttling::isEmpty - 
+* Throttling::isEmpty -
 */
 bool Throttling::isEmpty(void)
 {
-   return (string == "")? true : false;
+  return (string == "")? true : false;
 }
 
 
 
 /* ****************************************************************************
 *
-* Throttling::set - 
+* Throttling::set -
 */
-void Throttling::set(std::string value)
+void Throttling::set(const std::string& value)
 {
   string = value;
 }
@@ -99,9 +99,9 @@ void Throttling::set(std::string value)
 
 /* ****************************************************************************
 *
-* Throttling::get - 
+* Throttling::get -
 */
-std::string Throttling::get(void)
+const std::string Throttling::get(void)
 {
   return string;
 }
@@ -110,26 +110,34 @@ std::string Throttling::get(void)
 
 /* ****************************************************************************
 *
-* Throttling::present - 
+* Throttling::present -
 */
-void Throttling::present(std::string indent)
+void Throttling::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sThrottling: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sThrottling: %s\n", 
+		      indent.c_str(), 
+		      string.c_str()));
+  }
   else
-    PRINTF("%sNo Throttling\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo Throttling\n", indent.c_str()));
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* Throttling::render - 
+* Throttling::render -
 */
-std::string Throttling::render(Format format, std::string indent, bool comma)
+std::string Throttling::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
+  }
 
-  return valueTag(indent, "throttling", string, format, comma);
+  return valueTag1(indent, "throttling", string, comma);
 }

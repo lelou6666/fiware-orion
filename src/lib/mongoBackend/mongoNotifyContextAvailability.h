@@ -21,18 +21,27 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermín Galán
 */
+
+#include <map>
 
 #include "ngsi9/NotifyContextAvailabilityRequest.h"
 #include "ngsi9/NotifyContextAvailabilityResponse.h"
 
 /* ****************************************************************************
 *
-* mongoNofityContextAvailability -
+* mongoNotifyContextAvailability -
 */
-extern HttpStatusCode mongoNotifyContextAvailability(NotifyContextAvailabilityRequest* requestP, NotifyContextAvailabilityResponse* responseP);
+extern HttpStatusCode mongoNotifyContextAvailability
+(
+  NotifyContextAvailabilityRequest*    requestP,
+  NotifyContextAvailabilityResponse*   responseP,
+  std::map<std::string, std::string>&  uriParam,
+  const std::string&                   tenant      = "",
+  const std::string&                   servicePath = ""
+);
 
 #endif

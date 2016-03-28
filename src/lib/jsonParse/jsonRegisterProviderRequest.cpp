@@ -18,24 +18,24 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 #include <vector>
 
-#include "jsonParse/JsonNode.h"
-#include "jsonParse/jsonNullTreat.h"
-
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
 
 #include "common/globals.h"
-#include "ngsi/Request.h"
 #include "convenience/RegisterProviderRequest.h"
 #include "jsonParse/jsonParse.h"
 #include "jsonParse/jsonRegisterProviderRequest.h"
+#include "jsonParse/JsonNode.h"
+#include "parse/nullTreat.h"
+#include "ngsi/Request.h"
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -43,13 +43,13 @@
 *
 * contextMetadata - 
 */
-static std::string contextMetadata(std::string path, std::string value, ParseData* reqData)
+static std::string contextMetadata(const std::string& path, const std::string& value, ParseData* reqData)
 {
-   LM_T(LmtParse, ("Got a metadata"));
-   reqData->rpr.metadataP = new Metadata();
-   reqData->rpr.res.metadataVector.push_back(reqData->rpr.metadataP);
-   return "OK";
- }
+  LM_T(LmtParse, ("Got a metadata"));
+  reqData->rpr.metadataP = new Metadata();
+  reqData->rpr.res.metadataVector.push_back(reqData->rpr.metadataP);
+  return "OK";
+}
 
 
 
@@ -58,11 +58,11 @@ static std::string contextMetadata(std::string path, std::string value, ParseDat
 *
 * contextMetadataName - 
 */
-static std::string contextMetadataName(std::string path, std::string value, ParseData* reqData)
+static std::string contextMetadataName(const std::string& path, const std::string& value, ParseData* reqData)
 {
-   LM_T(LmtParse, ("Got a metadata name '%s'", value.c_str()));
-   reqData->rpr.metadataP->name = value;
-   return "OK";
+  LM_T(LmtParse, ("Got a metadata name '%s'", value.c_str()));
+  reqData->rpr.metadataP->name = value;
+  return "OK";
 }
 
 
@@ -71,11 +71,11 @@ static std::string contextMetadataName(std::string path, std::string value, Pars
 *
 * contextMetadataType - 
 */
-static std::string contextMetadataType(std::string path, std::string value, ParseData* reqData)
+static std::string contextMetadataType(const std::string& path, const std::string& value, ParseData* reqData)
 {
-   LM_T(LmtParse, ("Got a metadata type '%s'", value.c_str()));
-   reqData->rpr.metadataP->type = value;
-   return "OK";
+  LM_T(LmtParse, ("Got a metadata type '%s'", value.c_str()));
+  reqData->rpr.metadataP->type = value;
+  return "OK";
 }
 
 
@@ -85,11 +85,11 @@ static std::string contextMetadataType(std::string path, std::string value, Pars
 *
 * contextMetadataValue - 
 */
-static std::string contextMetadataValue(std::string path, std::string value, ParseData* reqData)
+static std::string contextMetadataValue(const std::string& path, const std::string& value, ParseData* reqData)
 {
-   LM_T(LmtParse, ("Got a metadata value '%s'", value.c_str()));
-   reqData->rpr.metadataP->value = value;
-   return "OK";
+  LM_T(LmtParse, ("Got a metadata value '%s'", value.c_str()));
+  reqData->rpr.metadataP->stringValue = value;
+  return "OK";
 }
 
 
@@ -98,11 +98,11 @@ static std::string contextMetadataValue(std::string path, std::string value, Par
 *
 * duration - 
 */
-static std::string duration(std::string path, std::string value, ParseData* reqData)
+static std::string duration(const std::string& path, const std::string& value, ParseData* reqData)
 {
-   LM_T(LmtParse, ("Got a duration '%s'", value.c_str()));
-   reqData->rpr.res.duration.set(value);
-   return "OK";
+  LM_T(LmtParse, ("Got a duration '%s'", value.c_str()));
+  reqData->rpr.res.duration.set(value);
+  return "OK";
 }
 
 
@@ -111,11 +111,11 @@ static std::string duration(std::string path, std::string value, ParseData* reqD
 *
 * providingApplication - 
 */
-static std::string providingApplication(std::string path, std::string value, ParseData* reqData)
+static std::string providingApplication(const std::string& path, const std::string& value, ParseData* reqData)
 {
-   LM_T(LmtParse, ("Got a providingApplication '%s'", value.c_str()));
-   reqData->rpr.res.providingApplication.set(value);
-   return "OK";
+  LM_T(LmtParse, ("Got a providingApplication '%s'", value.c_str()));
+  reqData->rpr.res.providingApplication.set(value);
+  return "OK";
 }
 
 
@@ -124,11 +124,11 @@ static std::string providingApplication(std::string path, std::string value, Par
 *
 * registrationId - 
 */
-static std::string registrationId(std::string path, std::string value, ParseData* reqData)
+static std::string registrationId(const std::string& path, const std::string& value, ParseData* reqData)
 {
-   LM_T(LmtParse, ("Got a registrationId '%s'", value.c_str()));
-   reqData->rpr.res.registrationId.set(value);
-   return "OK";
+  LM_T(LmtParse, ("Got a registrationId '%s'", value.c_str()));
+  reqData->rpr.res.registrationId.set(value);
+  return "OK";
 }
 
 
@@ -138,17 +138,17 @@ static std::string registrationId(std::string path, std::string value, ParseData
 */
 JsonNode jsonRprParseVector[] =
 {
-   { "/metadatas",                                               jsonNullTreat         },
-   { "/metadatas/metadata",                                      contextMetadata       },
-   { "/metadatas/metadata/name",                                 contextMetadataName   },
-   { "/metadatas/metadata/type",                                 contextMetadataType   },
-   { "/metadatas/metadata/value",                                contextMetadataValue  },
+  { "/metadatas",                       jsonNullTreat         },
+  { "/metadatas/metadata",              contextMetadata       },
+  { "/metadatas/metadata/name",         contextMetadataName   },
+  { "/metadatas/metadata/type",         contextMetadataType   },
+  { "/metadatas/metadata/value",        contextMetadataValue  },
 
-   { "/duration",                        duration              },
-   { "/providingApplication",            providingApplication  },
-   { "/registrationId",                  registrationId        },
+  { "/duration",                        duration              },
+  { "/providingApplication",            providingApplication  },
+  { "/registrationId",                  registrationId        },
 
-   { "LAST", NULL }
+  { "LAST", NULL }
 };
 
 
@@ -159,11 +159,11 @@ JsonNode jsonRprParseVector[] =
 */
 void jsonRprInit(ParseData* reqData)
 {
-   reqData->rpr.res.registrationId.set("");
-   reqData->rpr.res.providingApplication.set("");
-   reqData->rpr.res.duration.set("");
+  reqData->rpr.res.registrationId.set("");
+  reqData->rpr.res.providingApplication.set("");
+  reqData->rpr.res.duration.set("");
 
-   reqData->rpr.metadataP = NULL;
+  reqData->rpr.metadataP = NULL;
 }
 
 
@@ -174,7 +174,7 @@ void jsonRprInit(ParseData* reqData)
 */
 void jsonRprRelease(ParseData* reqData)
 {
-   reqData->rpr.res.release();
+  reqData->rpr.res.release();
 }
 
 
@@ -184,7 +184,7 @@ void jsonRprRelease(ParseData* reqData)
 */
 std::string jsonRprCheck(ParseData* reqData, ConnectionInfo* ciP)
 {
-  return reqData->rpr.res.check(ContextEntitiesByEntityId, ciP->outFormat, "", reqData->errorString, 0);
+  return reqData->rpr.res.check(ciP, ContextEntitiesByEntityId, "", reqData->errorString, 0);
 }
 
 
@@ -194,5 +194,5 @@ std::string jsonRprCheck(ParseData* reqData, ConnectionInfo* ciP)
 */
 void jsonRprPresent(ParseData* reqData)
 {
-   reqData->rpr.res.present("");
+  reqData->rpr.res.present("");
 }

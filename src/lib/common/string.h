@@ -1,5 +1,5 @@
-#ifndef STRING_H
-#define STRING_H
+#ifndef SRC_LIB_COMMON_STRING_H_
+#define SRC_LIB_COMMON_STRING_H_
 
 /*
 *
@@ -21,38 +21,56 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
+#include <sstream>
 #include <vector>
 
+// the same macro in parseArg library
+#define FT(x) (x == true)? "true" : "false"
 
 /* ****************************************************************************
 *
 * isIPv6 -
 */
-extern bool isIPv6(std::string in);
+extern bool isIPv6(const std::string& in);
+
+
 
 /* ****************************************************************************
 *
 * stringSplit - 
 */
-extern int stringSplit(std::string in, char delimiter, std::vector<std::string>& outV);
+extern int stringSplit(const std::string& in, char delimiter, std::vector<std::string>& outV);
+
+
 
 /* ****************************************************************************
 *
 * parseUrl -
 *
 */
-extern bool parseUrl(std::string url, std::string& host, int& port, std::string& path);
+extern bool parseUrl
+(
+  const std::string&  url,
+  std::string&        host,
+  int&                port,
+  std::string&        path,
+  std::string&        protocol
+);
+
+
 
 /* ****************************************************************************
 *
 * i2s - integer to string
 */
-extern char* i2s(int i, char* placeholder);
+extern char* i2s(int i, char* placeholder, int placeholderSize);
+
+
 
 /* ****************************************************************************
 *
@@ -60,4 +78,111 @@ extern char* i2s(int i, char* placeholder);
 */
 extern std::string parsedUptime(int uptime);
 
-#endif
+
+
+/* ****************************************************************************
+*
+* onlyWs - 
+*/
+extern bool onlyWs(const char* s);
+
+
+
+/* ****************************************************************************
+*
+* string2coords - 
+*/
+extern bool string2coords(const std::string& s, double& latitude, double& longitude);
+
+
+
+/* ****************************************************************************
+*
+* versionParse -
+*/
+bool versionParse
+(
+  const std::string&  version,
+  int&                mayor,
+  int&                minor,
+  std::string&        extra
+);
+
+
+
+/* ****************************************************************************
+*
+* atoF - 
+*/
+extern double atoF(const char* string, std::string* errorMsg);
+
+
+
+/* ****************************************************************************
+*
+* strToLower - 
+*/
+extern char* strToLower(char* to, const char* from, int toSize);
+
+
+
+/* ****************************************************************************
+*
+* strReplace - 
+*/
+extern void strReplace
+(
+  char*       to,
+  int         toLen,
+  const char* from,
+  const char* newString,
+  const char* oldString
+);
+
+
+
+/* ****************************************************************************
+*
+* servicePathCheck - 
+*/
+extern std::string servicePathCheck(const char* servicePath);
+
+
+
+/* ****************************************************************************
+*
+* str2double - is the string a correct float (double)?
+*/
+extern bool str2double(const char* s, double* dP = NULL);
+
+
+
+/* ****************************************************************************
+*
+* toString -
+*
+* If the generic ostringstream-based implementation would have performance
+* problems in the future, a set of per-type specialized functions could be
+* used without changing the toString() usage interface from existing callers
+*
+*/
+template <typename T> std::string toString(T t)
+{      
+  std::ostringstream ss;
+
+  ss << t;
+
+  return ss.str();
+}
+
+
+
+/*****************************************************************************
+*
+* isodate2str -
+*
+*/
+extern std::string isodate2str(long long timestamp);
+
+
+#endif  // SRC_LIB_COMMON_STRING_H_

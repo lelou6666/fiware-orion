@@ -1,5 +1,5 @@
-#ifndef TAG_H
-#define TAG_H
+#ifndef SRC_LIB_COMMON_TAG_H_
+#define SRC_LIB_COMMON_TAG_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,14 +29,71 @@
 
 #include "common/Format.h"
 
+/* FIXME P2: this file (along with some other places around all the code) uses
+ * the old term "tag", coming from the XML days. Now we only support JSON and
+ * all the terminology should use "key" or "keyName". We have changed terminology
+ * in many places, but there are yet some remains (not so important, anyway).
+ */
+
+
+/* ****************************************************************************
+*
+* Macros for JSON rendering
+*/
+#define JSON_STR(value)                std::string("\"" + std::string(value) + "\"")
+#define JSON_NUMBER(value)             std::string(value)
+#define JSON_BOOL(bvalue)              std::string((bvalue == true)? "true" : "false") 
+
+#define JSON_PROP(name)                std::string("\"" + std::string(name) + "\":")
+#define JSON_VALUE(name, value)        std::string(JSON_PROP(name) + JSON_STR(value))
+#define JSON_VALUE_NUMBER(name, value) std::string(JSON_PROP(name) + JSON_NUMBER(value))
+#define JSON_VALUE_BOOL(name, value)   std::string(JSON_PROP(name) + ((value == true)? "true" : "false"))
+
+
+
+/* ****************************************************************************
+*
+* htmlEscape - 
+*/
+extern char* htmlEscape(const char* s);
+
+/* ****************************************************************************
+*
+* jsonInvalidCharsTransformation -
+*
+* FIXME P5: this is a quick fix for #1172. A better fix should be developed.
+*/
+extern std::string jsonInvalidCharsTransformation(const std::string& input);
+
 
 
 /* ****************************************************************************
 *
 * startTag -  
+*
+* FIXME P3: in the past, this entire family of functions was named just startTag().
+* However, changes in the function signature due to XML format removal have caused
+* that different startTag() instances end with the same (or conflicting, due to
+* optional parameters) signatures. Thus, we use startTag1() and startTag2() to
+* distinguish. I know they are awful names :), we should find better ones, but given
+* this is NGSIv1 functionality that will be deprecated in the future, the priority
+* to do this is low.
 */
-extern std::string startTag(std::string indent, std::string tagName, Format format, bool showTag = true);
-extern std::string startTag(std::string indent, std::string xmlTag, std::string jsonTag, Format format, bool isVector = false, bool showTag = true);
+extern std::string startTag1
+(
+  const std::string&  indent,
+  const std::string&  key,
+  bool                showKey    = true,
+  bool                isToplevel = false
+);
+
+extern std::string startTag2
+(
+  const std::string&  indent,
+  const std::string&  key,
+  bool                isVector         = false,
+  bool                showKey          = true
+);
 
 
 
@@ -44,17 +101,55 @@ extern std::string startTag(std::string indent, std::string xmlTag, std::string 
 *
 * endTag -  
 */
-extern std::string endTag(std::string indent, std::string tagName, Format format, bool comma = false, bool isVector = false, bool nl = true);
+extern std::string endTag
+(
+  const std::string&  indent,
+  bool                comma      = false,
+  bool                isVector   = false,
+  bool                nl         = true,
+  bool                isToplevel = false
+);
 
 
 
 /* ****************************************************************************
 *
 * valueTag -  
+*
+* FIXME P3: in the past, this entire family of functions was named just valueTag().
+* However, changes in the function signature due to XML format removal have caused
+* that different valueTag() instances end with the same (or conflicting, due to
+* optional parameters) signatures. Thus, we use valueTag() and valueTag() to
+* distinguish. I know they are awful names :), we should find better ones, but given
+* this is NGSIv1 functionality that will be deprecated in the future, the priority
+* to do this is low.
 */
-extern std::string valueTag(std::string indent, std::string tagName, std::string value, Format format, bool showComma = false, bool isAssociation = false);
-extern std::string valueTag(std::string indent, std::string tagName, int value,         Format format, bool showComma = false, bool isAssociation = false);
-extern std::string valueTag(std::string indent, std::string xmlTag, std::string jsonTag, std::string value, Format format, bool showComma = false, bool isAssociation = false);
+extern std::string valueTag1
+(
+  const std::string&  indent,
+  const std::string&  key,
+  const std::string&  value,
+  bool                showComma           = false,
+  bool                isVectorElement     = false,
+  bool                valueIsNumberOrBool = false
+);
+
+extern std::string valueTag
+(
+  const std::string&  indent,
+  const std::string&  key,
+  int                 value,
+  bool                showComma     = false
+);
+
+extern std::string valueTag2
+(
+  const std::string&  indent,
+  const std::string&  key,
+  const std::string&  value,
+  bool                showComma           = false,
+  bool                valueIsNumberOrBool = false
+);
 
 
 
@@ -62,7 +157,12 @@ extern std::string valueTag(std::string indent, std::string xmlTag, std::string 
 *
 * startArray -
 */
-std::string startArray(std::string indent, std::string tagName, Format format, bool showTag = true);
+extern std::string startArray
+(
+  const std::string&  indent,
+  const std::string&  key,
+  bool                showKey = true
+);
 
 
 
@@ -70,6 +170,6 @@ std::string startArray(std::string indent, std::string tagName, Format format, b
 *
 * endArray -
 */
-std::string endArray(std::string indent, std::string tagName, Format format);
+extern std::string endArray(const std::string& indent, const std::string& key);
 
-#endif
+#endif  // SRC_LIB_COMMON_TAG_H_

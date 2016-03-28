@@ -16,7 +16,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 # -----------------------------------------------------------------------------
 #
@@ -50,7 +50,7 @@ function verboseMsg()
 #
 function usage()
 {
-  echo usage: $0 '[-host <host>] [-port <p>] [-v (verbose)] [-lint (use xmllint)] [-cop <convenience operation>] [-X <method>] [-en <entityId>] [-attr (attributeName)] [-id <reg/sub id>] [-json (in and out-format in JSON)] [-informat (in-format)] [-outformat (out-format)] [-table <table to debug>] <operation> <data file>'
+  echo usage: $0 '[-host <host>] [-port <p>] [-v (verbose)] [-lint (use xmllint)] [-cop <convenience operation>] [-X <method>] [--tenant <tenant>] [--httpTenant <tenant>] [--params <URI parameters>] [-enId <entityId>] [-enType <entityType>] [-attr (attributeName)] [-id <reg/sub id>] [-json (in and out-format in JSON)] [-informat (in-format)] [-outformat (out-format)] [-table <table to debug>] [--https] <operation> <data file>'
 
   verbose=1
   verboseMsg "Operations:"
@@ -76,7 +76,7 @@ function usage()
   verboseMsg "  ce:     contextEntities/ENTITY_ID"
   verboseMsg "  cea:    contextEntities/ENTITY_ID/attributes"
   verboseMsg "  ceaa:   contextEntities/ENTITY_ID/attributes/ATTRIBUTE_NAME"
-
+  verboseMsg "  acet:   v1/contextEntities/type/ENTITY_TYPE/id/ENTITY_ID"
   exit 1
 }
 
@@ -95,9 +95,14 @@ operation=""
 dataFile=""
 id=""
 entityId=""
+entityType=""
 attributeName=""
 table=""
-
+protocol='http'
+cert=""
+tenant=""
+httpTenant=""
+uriParams=""
 
 
 # -----------------------------------------------------------------------------
@@ -106,20 +111,25 @@ table=""
 #
 while [ "$#" != 0 ]
 do
-  if   [ "$1" == "-u" ];         then usage;
-  elif [ "$1" == "-v" ];         then verbose=on; CURL_VERBOSE='-vvvvv'
-  elif [ "$1" == "-lint" ];      then useXmlLint=1;
-  elif [ "$1" == "-host" ];      then host=$2;                        shift;
-  elif [ "$1" == "-port" ];      then port=$2;                        shift;
-  elif [ "$1" == "-cop" ];       then convOp=$2;                      shift;
-  elif [ "$1" == "-X" ];         then method=$2;                      shift;
-  elif [ "$1" == "-en" ];        then entityId=$2;                    shift;
-  elif [ "$1" == "-attr" ];      then attributeName=$2;               shift;
-  elif [ "$1" == "-id" ];        then id=$2;                          shift;
-  elif [ "$1" == "-json" ];      then IN_FORMAT="Content-Type: application/json"; OUT_FORMAT="Accept: application/json";
-  elif [ "$1" == "-informat" ];  then IN_FORMAT="Content-Type: $2";   shift;
-  elif [ "$1" == "-outformat" ]; then OUT_FORMAT="Accept: $2";        shift;
-  elif [ "$1" == "-table" ];     then table=$2;                       shift;
+  if   [ "$1" == "-u" ];           then usage;
+  elif [ "$1" == "-v" ];           then verbose=on; CURL_VERBOSE='-vvvvv'
+  elif [ "$1" == "-lint" ];        then useXmlLint=1;
+  elif [ "$1" == "--https" ];      then protocol='https'; cert='--cacert ../../security/localhost.pem';
+  elif [ "$1" == "--tenant" ];     then tenant=$2;                      shift;
+  elif [ "$1" == "--params" ];     then uriParams=$2;                   shift;
+  elif [ "$1" == "--httpTenant" ]; then httpTenant=$2;                  shift;
+  elif [ "$1" == "-host" ];        then host=$2;                        shift;
+  elif [ "$1" == "-port" ];        then port=$2;                        shift;
+  elif [ "$1" == "-cop" ];         then convOp=$2;                      shift;
+  elif [ "$1" == "-X" ];           then method=$2;                      shift;
+  elif [ "$1" == "-enId" ];        then entityId=$2;                    shift;
+  elif [ "$1" == "-enType" ];      then entityType=$2;                  shift;
+  elif [ "$1" == "-attr" ];        then attributeName=$2;               shift;
+  elif [ "$1" == "-id" ];          then id=$2;                          shift;
+  elif [ "$1" == "-json" ];        then IN_FORMAT="Content-Type: application/json"; OUT_FORMAT="Accept: application/json";
+  elif [ "$1" == "-informat" ];    then IN_FORMAT="Content-Type: $2";   shift;
+  elif [ "$1" == "-outformat" ];   then OUT_FORMAT="Accept: $2";        shift;
+  elif [ "$1" == "-table" ];       then table=$2;                       shift;
   else
     if   [ "$operation" == "" ];       then operation=$1;
     elif [ "$dataFile"  == "" ];       then dataFile=$1;
@@ -144,6 +154,7 @@ verboseMsg port = $port
 verboseMsg convOp = $convOp
 verboseMsg method = $method
 verboseMsg entityId = $entityId
+verboseMsg entityType = $entityType
 verboseMsg attributeName = $attributeName
 verboseMsg operation = $operation
 verboseMsg dataFile = $dataFile
@@ -263,6 +274,7 @@ cop['ceaa']='NGSI9/contextEntities/ENTITY_ID/attributes/ATTRIBUTE_NAME'
 cop['ce10']='NGSI10/contextEntities/ENTITY_ID'
 cop['cea10']='NGSI10/contextEntities/ENTITY_ID/attributes'
 cop['ceaa10']='NGSI10/contextEntities/ENTITY_ID/attributes/ATTRIBUTE_NAME'
+cop['acet']='v1/contextEntities/type/ENTITY_TYPE/id/ENTITY_ID'
 
 
 # -----------------------------------------------------------------------------
@@ -303,11 +315,20 @@ verboseMsg Creating curl command
 
 if [ "$operation" == "conv" ]
 then
-  echo Convenience operation: $convOp
-  url="$host:$port/${cop[$convOp]}"
+  echo Convenience $protocol operation: $convOp
+  if [ "$tenant" != "" ]
+  then
+    url=${protocol}"://$host:$port/$tenant/${cop[$convOp]}"
+  else
+    url=${protocol}"://$host:$port/${cop[$convOp]}"
+  fi
 else
-  echo Normal operation: $operation
-  url="$host:$port/${op[$operation]}"
+  if [ "$tenant" != "" ]
+  then
+    url=${protocol}"://$host:$port/$tenant/${op[$operation]}"
+  else
+    url=${protocol}"://$host:$port/${op[$operation]}"
+  fi
 fi
 verboseMsg "URL: '"$url"'"
 
@@ -322,26 +343,35 @@ then
   url=$(echo $url | sed "s/ENTITY_ID/$entityId/g")
 fi
 
+if [ "$entityType" != "" ]
+then
+  url=$(echo $url | sed "s/ENTITY_TYPE/$entityType/g")
+fi
+
 if [ "$attributeName" != "" ]
 then
   url=$(echo $url | sed "s/ATTRIBUTE_NAME/$attributeName/g")
 fi
 
+if [ "$uriParams" != "" ]
+then
+  url=${url}"?$uriParams"
+fi
 
-
+echo CURL: curl -3 $url --header "$IN_FORMAT" --header "$OUT_FORMAT" --header "fiware-service: $httpTenant" $CURL_VERBOSE -X $method $cert
 # -----------------------------------------------------------------------------
 #
 # curl
 #
 # Always call curl with '-d "$data"' ?
 #
-if [ "$useXmlLint" == 1 ]
+if [ "$useXmlLint" == 1 ] 
 then
-  (curl $url --header "$IN_FORMAT" --header "$OUT_FORMAT" $CURL_VERBOSE -X $method -d @- | xmllint --format -) << EOF
+  (curl -3 $url --include --header "$IN_FORMAT" --header "$OUT_FORMAT" --header "fiware-service: $httpTenant" $CURL_VERBOSE -X $method $cert -d @- | xmllint --format -) << EOF
 $(echo $data)
 EOF
 else
-  (curl $url --header "$IN_FORMAT" --header "$OUT_FORMAT" $CURL_VERBOSE -X $method -d @-) << EOF
+  (curl -3 $url --include --header "$IN_FORMAT" --header "$OUT_FORMAT" --header "fiware-service: $httpTenant" $CURL_VERBOSE -X $method $cert -d @-) << EOF
 $(echo $data)
 EOF
 fi

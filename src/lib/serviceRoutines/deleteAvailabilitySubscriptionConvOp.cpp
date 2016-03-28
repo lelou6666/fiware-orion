@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -35,13 +35,27 @@
 /* ****************************************************************************
 *
 * deleteAvailabilitySubscriptionConvOp - 
+*
+* DELETE /v1/registry/contextAvailabilitySubscriptions/{subscriptionId}
+* DELETE /ngsi9/contextAvailabilitySubscriptions/{subscriptionId}
+*
+* Payload In:  None
+* Payload Out: UnsubscribeContextAvailabilityResponse
+*
+* 1. Fill in UnsubscribeContextAvailabilityRequest using 'subscriptionId'
+* 2. Call the Standard operation for UnsubscribeContextAvailabilityRequest
 */
-std::string deleteAvailabilitySubscriptionConvOp(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string deleteAvailabilitySubscriptionConvOp
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  UnsubscribeContextAvailabilityRequest*  ucarP          = &parseDataP->ucar.res;
-  std::string                             subscriptionId = compV[2];
+  std::string  subscriptionId = (compV[0] == "v1")? compV[3] : compV[2];
 
-  ucarP->subscriptionId = subscriptionId;
+  parseDataP->ucar.res.fill(subscriptionId);
 
   return postUnsubscribeContextAvailability(ciP, components, compV, parseDataP);
 }

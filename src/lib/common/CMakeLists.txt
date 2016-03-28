@@ -16,7 +16,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
@@ -30,6 +30,8 @@ SET (SOURCES
     idCheck.cpp
     wsStrip.cpp
     statistics.cpp
+    clockFunctions.cpp
+    JsonHelper.cpp
 )
 
 SET (HEADERS
@@ -41,6 +43,10 @@ SET (HEADERS
     idCheck.h
     wsStrip.h
     statistics.h
+    clockFunctions.h
+    JsonHelper.h
+    SyncQOverflow.h
+    errorMessages.h
 )
 
 

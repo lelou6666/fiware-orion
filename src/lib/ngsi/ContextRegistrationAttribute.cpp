@@ -18,16 +18,21 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <stdio.h>
 #include <string>
 
+#include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
+
 #include "common/globals.h"
 #include "common/tag.h"
 #include "ngsi/ContextRegistrationAttribute.h"
+
+
 
 /* ****************************************************************************
 *
@@ -35,33 +40,39 @@
 */
 ContextRegistrationAttribute::ContextRegistrationAttribute()
 {
-    name = "";
-    type = "";
-    isDomain = "";
+  name     = "";
+  type     = "";
+  isDomain = "";
 }
+
+
 
 /* ****************************************************************************
 *
 * ContextRegistrationAttribute::ContextRegistrationAttribute -
 */
-ContextRegistrationAttribute::ContextRegistrationAttribute(std::string _name, std::string _type, std::string _isDomain)
+ContextRegistrationAttribute::ContextRegistrationAttribute
+(
+  const std::string&  _name,
+  const std::string&  _type,
+  const std::string&  _isDomain
+)
 {
-    name = _name;
-    type = _type;
-    isDomain = _isDomain;
+  name      = _name;
+  type      = _type;
+  isDomain  = _isDomain;
 }
 
 /* ****************************************************************************
 *
-* ContextRegistrationAttribute::render - 
+* ContextRegistrationAttribute::render -
 */
-std::string ContextRegistrationAttribute::render(Format format, std::string indent, bool comma)
+std::string ContextRegistrationAttribute::render(const std::string& indent, bool comma)
 {
-  std::string xmlTag   = "contextRegistrationAttribute";
-  std::string jsonTag  = "registrationAttribute";
-  std::string out      = "";
+  std::string key = "registrationAttribute";
+  std::string out = "";
 
-  metadataVector.tagSet("metadata");
+  metadataVector.keyNameSet("metadata");
 
   //
   // About JSON commas:
@@ -69,12 +80,13 @@ std::string ContextRegistrationAttribute::render(Format format, std::string inde
   // have the comma set to true for the render methods.
   // The only doubt here is whether isDomain should have the comma or not,
   // that depends on whether the metadataVector is empty or not.
-  out += startTag(indent, xmlTag, jsonTag, format, false, false);
-  out += valueTag(indent + "  ", "name",     name, format, true);
-  out += valueTag(indent + "  ", "type",     type, format, true);
-  out += valueTag(indent + "  ", "isDomain", isDomain, format, metadataVector.size() != 0);
-  out += metadataVector.render(format, indent + "  ");
-  out += endTag(indent, xmlTag, format, comma);
+  //
+  out += startTag2(indent, key, false, false);
+  out += valueTag1(indent + "  ", "name",     name, true);
+  out += valueTag1(indent + "  ", "type",     type, true);
+  out += valueTag1(indent + "  ", "isDomain", isDomain, metadataVector.size() != 0);
+  out += metadataVector.render(indent + "  ");
+  out += endTag(indent, comma);
 
   return out;
 }
@@ -83,22 +95,38 @@ std::string ContextRegistrationAttribute::render(Format format, std::string inde
 
 /* ****************************************************************************
 *
-* ContextRegistrationAttribute::check - 
+* ContextRegistrationAttribute::check -
 */
-std::string ContextRegistrationAttribute::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ContextRegistrationAttribute::check
+(
+  ConnectionInfo*     ciP,
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
+
   if (name == "")
+  {
     return "missing name for registration attribute";
+  }
 
   if (isDomain == "")
+  {
     return "missing isDomain value for registration attribute";
+  }
 
   if (!isTrue(isDomain) && !isFalse(isDomain))
-    return "bad isDomain value for registration attribute";
+  {
+    return std::string("invalid isDomain value for registration attribute: /") + isDomain + "/";
+  }
 
   std::string res;
-  if ((res = metadataVector.check(requestType, format, indent, predetectedError, counter)) != "OK")
+  if ((res = metadataVector.check(ciP, requestType, indent, predetectedError, counter)) != "OK")
+  {
     return res;
+  }
 
   return "OK";
 }
@@ -107,14 +135,22 @@ std::string ContextRegistrationAttribute::check(RequestType requestType, Format 
 
 /* ****************************************************************************
 *
-* ContextRegistrationAttribute::present - 
+* ContextRegistrationAttribute::present -
 */
-void ContextRegistrationAttribute::present(int ix, std::string indent)
+void ContextRegistrationAttribute::present(int ix, const std::string& indent)
 {
-  PRINTF("%sAttribute %d:\n",    indent.c_str(), ix);
-  PRINTF("%s  Name:       %s\n", indent.c_str(), name.c_str());
-  PRINTF("%s  Type:       %s\n", indent.c_str(), type.c_str());
-  PRINTF("%s  isDomain:   %s\n", indent.c_str(), isDomain.c_str());
+  LM_T(LmtPresent, ("%sAttribute %d:\n",    
+		    indent.c_str(), 
+		    ix));
+  LM_T(LmtPresent, ("%s  Name:       %s\n", 
+		    indent.c_str(), 
+		    name.c_str()));
+  LM_T(LmtPresent, ("%s  Type:       %s\n", 
+		    indent.c_str(), 
+		    type.c_str()));
+  LM_T(LmtPresent, ("%s  isDomain:   %s\n", 
+		    indent.c_str(), 
+		    isDomain.c_str()));
 
   metadataVector.present("Attribute", indent + "  ");
 }
@@ -127,5 +163,5 @@ void ContextRegistrationAttribute::present(int ix, std::string indent)
 */
 void ContextRegistrationAttribute::release(void)
 {
-   metadataVector.release();
+  metadataVector.release();
 }

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -39,20 +39,24 @@
 *
 * render - 
 */
-std::string ConditionValueList::render(Format format, std::string indent, bool comma)
+std::string ConditionValueList::render(const std::string& indent, bool comma)
 {
   std::string  out = "";
   std::string  tag = "condValueList";
 
   if (vec.size() == 0)
+  {
     return "";
+  }
 
-  out += startTag(indent, tag, tag, format, true, true);
+  out += startTag2(indent, tag, true, true);
 
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-    out += valueTag(indent + "  ", "condValue", "", vec[ix], format, ix != vec.size() - 1);
+  {
+    out += valueTag2(indent + "  ", "", vec[ix], ix != vec.size() - 1);
+  }
 
-  out += endTag(indent, tag, format, comma, true);
+  out += endTag(indent, comma, true);
 
   return out;
 }
@@ -63,7 +67,13 @@ std::string ConditionValueList::render(Format format, std::string indent, bool c
 *
 * ConditionValueList::check - 
 */
-std::string ConditionValueList::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ConditionValueList::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
@@ -80,12 +90,14 @@ std::string ConditionValueList::check(RequestType requestType, Format format, st
 *
 * ConditionValueList::present - 
 */
-void ConditionValueList::present(std::string indent)
+void ConditionValueList::present(const std::string& indent)
 {
-  PRINTF("%sConditionValue List\n",    indent.c_str());
+  LM_T(LmtPresent, ("%sConditionValue List",    indent.c_str()));
 
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-    PRINTF("%s  %s\n", indent.c_str(), vec[ix].c_str());
+    LM_T(LmtPresent, ("%s  %s", 
+		      indent.c_str(), 
+		      vec[ix].c_str()));
 }
 
 
@@ -105,7 +117,7 @@ void ConditionValueList::release(void)
 *
 * push_back - 
 */
-void ConditionValueList::push_back(std::string attributeName)
+void ConditionValueList::push_back(const std::string& attributeName)
 {
   vec.push_back(attributeName);
 }
@@ -118,16 +130,35 @@ void ConditionValueList::push_back(std::string attributeName)
 */
 unsigned int ConditionValueList::size(void)
 {
-   return vec.size();
+  return vec.size();
 }
 
 
 
 /* ****************************************************************************
 *
-* ConditionValueList::get - 
+* ConditionValueList::operator
 */
-std::string ConditionValueList::get(int ix)
+std::string ConditionValueList::operator[] (unsigned int ix) const
 {
-   return vec[ix];
+  if (ix < vec.size())
+  {
+    return vec[ix];
+  }
+
+  return "";
+}
+
+
+
+/* ****************************************************************************
+*
+* ConditionValueList::fill - 
+*/
+void ConditionValueList::fill(ConditionValueList& list)
+{
+  for (unsigned int cvIx = 0; cvIx < list.size(); ++cvIx)
+  {
+    push_back(list[cvIx]);
+  }
 }

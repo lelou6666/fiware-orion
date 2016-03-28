@@ -16,7 +16,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 SET (SOURCES
     contextBroker.cpp
@@ -28,21 +28,29 @@ SET (HEADERS
 
 SET (STATIC_LIBS
     common
-    mongoBackend
     ngsiNotify
     serviceRoutines
-    convenienceMap
-    mongoBackend    
+    serviceRoutinesV2
     rest
     jsonParse
-    xmlParse
+    jsonParseV2
+    apiTypesV2
     convenience
     ngsi9
     ngsi10
-    ngsi    
+    ngsi
+    cache
+    mongoBackend
+    parse
+    orionTypes
     common
+    alarmMgr
+    logSummary
     lm
     pa
+    curl
+    microhttpd.a
+    gnutls        
 )
 
 # Include directories
@@ -55,6 +63,10 @@ include_directories("${RAPIDXML_INCLUDE}")
 # ------------------------------------------------------------
 link_directories("/usr/local/lib/")
 link_directories("/usr/lib64/")
+link_directories("/usr/lib/x86_64-linux-gnu")
+
+# FIXME P4: Issue #476: remove or keep?
+link_directories("/opt/lib/")
 
 
 
@@ -63,18 +75,39 @@ link_directories("/usr/lib64/")
 
 ADD_EXECUTABLE(contextBroker ${SOURCES} ${HEADERS})
 
-IF ((${DISTRO} STREQUAL "Ubuntu_13.04") OR (${DISTRO} STREQUAL "Ubuntu_12.04.1_LTS"))
-  MESSAGE("Ubuntu DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
+IF ((${DISTRO} STREQUAL "Ubuntu_13.04") OR (${DISTRO} STREQUAL "Ubuntu_12.04.1_LTS") OR (${DISTRO} STREQUAL "Ubuntu_12.04.2_LTS"))
+  MESSAGE("contextBroker: Ubuntu DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lboost_regex-mt -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
+ELSEIF((${DISTRO} STREQUAL "Ubuntu_13.10") OR (${DISTRO} STREQUAL "Ubuntu_14.04.1_LTS") OR (${DISTRO} STREQUAL "Ubuntu_14.10"))
+  MESSAGE("contextBroker: Ubuntu DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
+ELSEIF((${DISTRO} STREQUAL "Ubuntu_14.04.2_LTS") OR (${DISTRO} STREQUAL "Ubuntu_14.04.3_LTS") OR (${DISTRO} MATCHES "Linux_Mint_.*"))
+  MESSAGE("contextBroker: Ubuntu DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lboost_regex -lpthread -lssl -lcrypto -lgnutls -lgcrypt)
 ELSEIF(${DISTRO} STREQUAL "openSUSE_13.1")
-  MESSAGE("openSUSE DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lpthread -lssl -lcrypto)
-ELSEIF(${DISTRO} STREQUAL "CentOS_6.3")
-  MESSAGE("CentOS DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt)
+  MESSAGE("contextBroker: openSUSE DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lpthread -lssl -lcrypto)
+ELSEIF(${DISTRO} MATCHES "CentOS_6.*")
+  MESSAGE("contextBroker: CentOS DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lboost_regex-mt)
+ELSEIF(${DISTRO} MATCHES "CentOS_7.*")
+  MESSAGE("contextBroker: CentOS DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt -lboost_regex-mt)
+ELSEIF(${DISTRO} STREQUAL "Fedora_20")
+  MESSAGE("contextBroker: Fedora DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread)
+ELSEIF(${DISTRO} MATCHES "Debian_.*")
+  MESSAGE("contextBroker: Debian DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread -lboost_regex -lssl -lgcrypt)
 ELSE()
-  MESSAGE("Other DISTRO: '${DISTRO}'")
-  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmicrohttpd -lmongoclient -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt)
+  MESSAGE("contextBroker: Other DISTRO: '${DISTRO}'")
+  TARGET_LINK_LIBRARIES(contextBroker ${STATIC_LIBS} -lmongoclient -lboost_thread -lboost_filesystem -lboost_system -lpthread)
+ENDIF()
+
+IF (${DISTRO} MATCHES "Ubuntu.*")
+  MESSAGE("contextBroker: INSTALL Ubuntu DISTRO: '${DISTRO}'")
+  INSTALL(PROGRAMS ${CMAKE_SOURCE_DIR}/etc/init.d/contextBroker.ubuntu DESTINATION /etc/init.d RENAME contextBroker)
+  INSTALL(FILES ${CMAKE_SOURCE_DIR}/etc/config/contextBroker DESTINATION /etc/default RENAME contextBroker)
 ENDIF()
 
 INSTALL(TARGETS               contextBroker

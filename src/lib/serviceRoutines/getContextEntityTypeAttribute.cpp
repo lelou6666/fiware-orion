@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,7 +29,6 @@
 #include "logMsg/traceLevels.h"
 
 #include "ngsi/ParseData.h"
-#include "ngsi9/DiscoverContextAvailabilityRequest.h"
 #include "rest/ConnectionInfo.h"
 #include "serviceRoutines/postDiscoverContextAvailability.h"
 #include "serviceRoutines/getContextEntityTypeAttribute.h"
@@ -38,19 +37,48 @@
 
 /* ****************************************************************************
 *
-* getContextEntityTypeAttribute - 
+* getContextEntityTypeAttribute -
+*
+* GET /v1/registry/contextEntityTypes/{entityId::type}/attributes/{attributeName}
+* GET /ngsi9/contextEntityTypes/{entityId::type}/attributes/{attributeName}
+*
+* Payload In:  None
+* Payload Out: DiscoverContextAvailabilityResponse
+*
+* 1. Fill in DiscoverContextAvailabilityRequest
+* 2. Call postDiscoverContextAvailability
 */
-std::string getContextEntityTypeAttribute(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string getContextEntityTypeAttribute
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  std::string                          entityType     = compV[2];
-  std::string                          attributeName  = compV[4];
-  DiscoverContextAvailabilityRequest*  requestP = &parseDataP->dcar.res;
-  EntityId                             entityId(".*", entityType, "true");
-  
-  LM_T(LmtConvenience, ("CONVENIENCE: got a  'GET' request for entity type '%s', attribute: '%s'", entityType.c_str(), attributeName.c_str()));
+  std::string  entityType     = (compV[0] == "v1")? compV[3] : compV[2];
+  std::string  attributeName  = (compV[0] == "v1")? compV[5] : compV[4];
+  std::string  answer;
 
-  requestP->entityIdVector.push_back(&entityId);
-  requestP->attributeList.push_back(attributeName);
+  LM_T(LmtConvenience,
+       ("CONVENIENCE: got a  'GET' request for entity type '%s', attribute: '%s'",
+        entityType.c_str(), attributeName.c_str()));
 
-  return postDiscoverContextAvailability(ciP, components, compV, parseDataP);
+  //
+  // 1. Fill in parseDataP->dcar.res to pass to postDiscoverContextAvailability
+  //
+  EntityId                             eId(".*", entityType, "true");
+  std::vector<std::string>             attributeV;
+  Restriction                          restriction;
+
+  attributeV.push_back(attributeName);
+  parseDataP->dcar.res.fill(eId, attributeV, restriction);
+
+
+  //
+  // 2. Call the standard operation 
+  //
+  answer = postDiscoverContextAvailability(ciP, components, compV, parseDataP);
+
+  return answer;
 }

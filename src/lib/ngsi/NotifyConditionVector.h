@@ -1,5 +1,5 @@
-#ifndef NOTIFY_CONDITION_VECTOR_H
-#define NOTIFY_CONDITION_VECTOR_H
+#ifndef SRC_LIB_NGSI_NOTIFYCONDITIONVECTOR_H_
+#define SRC_LIB_NGSI_NOTIFYCONDITIONVECTOR_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -40,13 +40,22 @@ typedef struct NotifyConditionVector
 {
   std::vector<NotifyCondition*>  vec;
 
-  std::string       render(Format format, std::string indent, bool comma);
-  std::string       check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void              present(std::string indent);
+  NotifyConditionVector();
+
+  std::string       render(const std::string& indent, bool comma);
+  void              present(const std::string& indent);
   void              push_back(NotifyCondition* item);
   unsigned int      size(void);
-  NotifyCondition*  get(int ix);
   void              release(void);
+  void              fill(NotifyConditionVector& nv);
+
+  std::string       check(RequestType         requestType,
+                          const std::string&  indent,
+                          const std::string&  predetectedError,
+                          int                 counter);
+
+  NotifyCondition* operator[] (unsigned int ix) const;
+
 } NotifyConditionVector;
 
-#endif
+#endif  // SRC_LIB_NGSI_NOTIFYCONDITIONVECTOR_H_

@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -30,6 +30,7 @@
 #include "common/globals.h"
 #include "common/Format.h"
 #include "ngsi/EntityId.h"
+#include "common/tag.h"
 
 
 
@@ -37,7 +38,7 @@
 *
 * EntityId::EntityId -
 */
-EntityId::EntityId() : tag("entityId")
+EntityId::EntityId() : keyName("entityId")
 {
 }
 
@@ -47,7 +48,26 @@ EntityId::EntityId() : tag("entityId")
 *
 * EntityId::EntityId -
 */
-EntityId::EntityId(std::string _id, std::string _type, std::string _isPattern, std::string _tag) : id(_id), type(_type), isPattern(_isPattern), tag(_tag)
+EntityId::EntityId(EntityId* eP) : keyName("entityId")
+{
+  fill(eP);
+}
+
+
+/* ****************************************************************************
+*
+* EntityId::EntityId -
+*/
+EntityId::EntityId
+(
+  const std::string&  _id,
+  const std::string&  _type,
+  const std::string&  _isPattern,
+  const std::string&  _keyName
+) : id(_id),
+    type(_type),
+    isPattern(_isPattern),
+    keyName(_keyName)
 {
 }
 
@@ -55,54 +75,59 @@ EntityId::EntityId(std::string _id, std::string _type, std::string _isPattern, s
 
 /* ****************************************************************************
 *
-* tagSet - 
+* keyNameSet -
 */
-void EntityId::tagSet(std::string tagName)
+void EntityId::keyNameSet(const std::string& _keyName)
 {
-  tag = tagName;
+  keyName = _keyName;
 }
 
 
 
 /* ****************************************************************************
 *
-* EntityId::render - 
+* EntityId::render -
 *
-* FIXME P1: startTag() is not enough for the XML case of entityId - XML attributes ...
-*           Perhaps add a vector of attributes to startTag() ?
 */
-std::string EntityId::render(Format format, std::string indent, bool comma, bool isInVector, std::string assocTag)
+std::string EntityId::render
+(
+  const std::string&  indent,
+  bool                comma,
+  bool                isInVector
+)
 {
-  std::string out     = "";
+  std::string  out              = "";
+  char*        isPatternEscaped = htmlEscape(isPattern.c_str());
+  char*        typeEscaped      = htmlEscape(type.c_str());
+  char*        idEscaped        = htmlEscape(id.c_str());
 
-  if (format == XML)
+
+  std::string indent2 = indent;
+
+  if (isInVector)
   {
-    out += indent + "<" + tag + " type=\"" + type + "\" isPattern=\"" + isPattern + "\">\n";
-    out += indent + "  " + "<id>"        + id        + "</id>"        + "\n";
-    out += indent + "</" + tag + ">\n";
+    indent2 += "  ";
+  }
+
+  out += (isInVector? indent + "{\n" : "");
+  out += indent2 + "\"type\" : \""      + typeEscaped      + "\","  + "\n";
+  out += indent2 + "\"isPattern\" : \"" + isPatternEscaped + "\","  + "\n";
+  out += indent2 + "\"id\" : \""        + idEscaped        + "\"";
+
+  if ((comma == true) && (isInVector == false))
+  {
+    out += ",\n";
   }
   else
   {
-    bool        isAssoc = !assocTag.empty();
-    std::string indent2 = indent;
-
-    if (isInVector)
-       indent2 += "  ";
-
-    out += (isInVector? indent + (isAssoc? "\"" + assocTag + "\" : ": "") + "{\n": "");
-    out += indent2 + "\"type\" : \""      + type      + "\","  + "\n";
-    out += indent2 + "\"isPattern\" : \"" + isPattern + "\","  + "\n";
-    out += indent2 + "\"id\" : \""        + id        + "\"";
-
-    if ((comma == true) && (isInVector == false))
-       out += ",\n";
-    else
-    {
-      out += "\n";
-      out += (isInVector? indent + "}" : "");
-      out += (comma == true)? ",\n" : (isInVector? "\n" : "");
-    }
+    out += "\n";
+    out += (isInVector? indent + "}" : "");
+    out += (comma == true)? ",\n" : (isInVector? "\n" : "");
   }
+
+  free(typeEscaped);
+  free(idEscaped);
+  free(isPatternEscaped);
 
   return out;
 }
@@ -111,21 +136,31 @@ std::string EntityId::render(Format format, std::string indent, bool comma, bool
 
 /* ****************************************************************************
 *
-* EntityId::check - 
+* EntityId::check -
 */
-std::string EntityId::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string EntityId::check
+(
+  ConnectionInfo* ciP,
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
-  if ((id == "") || (id == "not in use"))
+  if (id == "")
+  {
     return "empty entityId:id";
+  }
 
   if (!isTrue(isPattern) && !isFalse(isPattern) && isPattern != "")
   {
-    LM_E(("bad value for 'isPattern' : '%s'", isPattern.c_str()));
-    return "bad value for 'isPattern'";
+    return std::string("invalid isPattern value for entity: /") + isPattern + "/";
   }
 
   if ((requestType == RegisterContext) && (isTrue(isPattern)))
-    return "'isPattern' set to true for a registration";
+  {
+    return "isPattern set to true for a registration";
+  }
 
   return "OK";
 }
@@ -136,7 +171,7 @@ std::string EntityId::check(RequestType requestType, Format format, std::string 
 *
 * EntityId::fill -
 */
-void EntityId::fill(std::string _id, std::string _type, std::string _isPattern)
+void EntityId::fill(const std::string& _id, const std::string& _type, const std::string& _isPattern)
 {
   id        = _id;
   type      = _type;
@@ -147,45 +182,115 @@ void EntityId::fill(std::string _id, std::string _type, std::string _isPattern)
 
 /* ****************************************************************************
 *
-* EntityId::present - 
+* EntityId::fill -
 */
-void EntityId::present(std::string indent, int ix)
+void EntityId::fill(const struct EntityId* eidP, bool useDefaultType)
 {
-  if (ix == -1)
-    PRINTF("%sEntity Id:\n",       indent.c_str());
-  else
-    PRINTF("%sEntity Id %d:\n",       indent.c_str(), ix);
+  id          = eidP->id;
+  type        = eidP->type;
+  isPattern   = eidP->isPattern;
+  servicePath = eidP->servicePath;
 
-  PRINTF("%s  Id:         %s\n", indent.c_str(), id.c_str());
-  PRINTF("%s  Type:       %s\n", indent.c_str(), type.c_str());
-  PRINTF("%s  isPattern:  %s\n", indent.c_str(), isPattern.c_str());
+  if (useDefaultType && (type == ""))
+  {
+    type = DEFAULT_TYPE;
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* release  - 
+* EntityId::present - 
+*/
+void EntityId::present(const std::string& indent, int ix)
+{
+  if (ix == -1)
+  {
+    LM_T(LmtPresent, ("%sEntity Id:",       indent.c_str()));
+  }
+  else
+  {
+    LM_T(LmtPresent, ("%sEntity Id %d:",       
+		      indent.c_str(), 
+		      ix));
+  }
+
+  LM_T(LmtPresent, ("%s  Id:         '%s'", 
+		    indent.c_str(), 
+		    id.c_str()));
+  LM_T(LmtPresent, ("%s  Type:       '%s'", 
+		    indent.c_str(), 
+		    type.c_str()));
+  LM_T(LmtPresent, ("%s  isPattern:  '%s'", 
+		    indent.c_str(), 
+		    isPattern.c_str()));
+}
+
+
+
+/* ****************************************************************************
+*
+* release -
 */
 void EntityId::release(void)
 {
-   /* This method is included for the sake of homogeneity */
+  /* This method is included for the sake of homogeneity */
 }
 
 
 
 /* ****************************************************************************
 *
-* toString - 
+* toString -
 */
-std::string EntityId::toString(bool useIsPattern, std::string delimiter)
+std::string EntityId::toString(bool useIsPattern, const std::string& delimiter)
 {
   std::string s;
 
   s = id + delimiter + type;
 
   if (useIsPattern)
+  {
     s += delimiter + isPattern;
+  }
 
   return s;
+}
+
+
+
+/* ****************************************************************************
+*
+* EntityId::equal - return TRUE if EXACT match
+*/
+bool EntityId::equal(EntityId* eP)
+{
+  if (eP->id != id)
+  {
+    return false;
+  }
+
+  if (eP->type != type)
+  {
+    return false;
+  }
+
+  if (eP->isPatternIsTrue() == isPatternIsTrue())
+  {
+    return true;
+  }
+
+  return false;
+}
+
+
+
+/* ****************************************************************************
+*
+* isPatternIsTrue - 
+*/
+bool EntityId::isPatternIsTrue(void)
+{
+  return isTrue(isPattern);
 }

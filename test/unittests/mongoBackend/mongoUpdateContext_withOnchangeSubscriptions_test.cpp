@@ -18,15 +18,13 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
+#include "mongo/client/dbclient.h"
 
-
-#include "gtest/gtest.h"
-#include "gmock/gmock.h"
-#include "testInit.h"
+#include "unittest.h"
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
@@ -34,19 +32,14 @@
 #include "common/globals.h"
 #include "mongoBackend/MongoGlobal.h"
 #include "mongoBackend/mongoUpdateContext.h"
+#include "cache/subCache.h"
 #include "ngsi/EntityId.h"
 #include "ngsi/ContextElementResponse.h"
 #include "ngsi10/UpdateContextRequest.h"
 #include "ngsi10/UpdateContextResponse.h"
 
-#include "mongo/client/dbclient.h"
+extern void setMongoConnectionForUnitTest(DBClientBase*);
 
-#include "commonMocks.h"
-
-using ::testing::_;
-using ::testing::Throw;
-using ::testing::Invoke;
-using ::testing::Return;
 
 /* ****************************************************************************
 *
@@ -122,8 +115,6 @@ using ::testing::Return;
 *
 */
 
-#define NO_CODE 0
-
 /* ****************************************************************************
 *
 * prepareDatabase -
@@ -131,42 +122,37 @@ using ::testing::Return;
 * This function is called before every test, to populate some information in the
 * entities and csbus collections.
 */
-static void prepareDatabase(void) {
-
+static void prepareDatabase(bool useSubCache = true)
+{
   /* Set database */
   setupDatabase();
 
-  DBClientConnection* connection = getMongoConnection();
+  DBClientBase* connection = getMongoConnection();
 
   /* We create the following entities:
    *
    * - E1:
    *     A1:  X
-   *     A1*: Y
    *     A2:  Z
    *     A3:  W
    *     A7:  R
    * - E2:
    *     A1:  X
-   *     A1*: Y
    *     A2:  Z
    *     A3:  W
    *     A7:  R
    * - E1*:
    *     A1:  X
-   *     A1*: Y
    *     A2:  Z
    *     A3:  W
    *     A7:  R
    * - E2*:
    *     A1:  X
-   *     A1*: Y
    *     A2:  Z
    *     A3:  W
    *     A7:  R
    * - E1**:
    *     A1:  X
-   *     A1*: Y
    *     A2:  Z
    *     A3:  W
    *     A7:  R
@@ -197,52 +183,52 @@ static void prepareDatabase(void) {
    */
 
   BSONObj en1 = BSON("_id" << BSON("id" << "E1" << "type" << "T1") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "A1" << "type" << "TA1" << "value" << "X") <<
-                        BSON("name" << "A1" << "type" << "TA1bis" << "value" << "Y") <<
-                        BSON("name" << "A2" << "type" << "TA2" << "value" << "Z") <<
-                        BSON("name" << "A3" << "type" << "TA3" << "value" << "W") <<
-                        BSON("name" << "A7" << "type" << "TA7" << "value" << "W")
+                     "attrNames" << BSON_ARRAY("A1" << "A2" << "A3" << "A7") <<
+                     "attrs" << BSON(
+                        "A1" << BSON("type" << "TA1" << "value" << "X") <<
+                        "A2" << BSON("type" << "TA2" << "value" << "Z") <<
+                        "A3" << BSON("type" << "TA3" << "value" << "W") <<
+                        "A7" << BSON("type" << "TA7" << "value" << "W")
                         )
                     );
 
   BSONObj en2 = BSON("_id" << BSON("id" << "E2" << "type" << "T2") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "A1" << "type" << "TA1" << "value" << "X") <<
-                        BSON("name" << "A1" << "type" << "TA1bis" << "value" << "Y") <<
-                        BSON("name" << "A2" << "type" << "TA2" << "value" << "Z") <<
-                        BSON("name" << "A3" << "type" << "TA3" << "value" << "W") <<
-                        BSON("name" << "A7" << "type" << "TA7" << "value" << "W")
+                     "attrNames" << BSON_ARRAY("A1" << "A2" << "A3" << "A7") <<
+                     "attrs" << BSON(
+                        "A1" << BSON("type" << "TA1" << "value" << "X") <<
+                        "A2" << BSON("type" << "TA2" << "value" << "Z") <<
+                        "A3" << BSON("type" << "TA3" << "value" << "W") <<
+                        "A7" << BSON("type" << "TA7" << "value" << "W")
                         )
                     );
 
   BSONObj en3 = BSON("_id" << BSON("id" << "E1" << "type" << "T") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "A1" << "type" << "TA1" << "value" << "X") <<
-                        BSON("name" << "A1" << "type" << "TA1bis" << "value" << "Y") <<
-                        BSON("name" << "A2" << "type" << "TA2" << "value" << "Z") <<
-                        BSON("name" << "A3" << "type" << "TA3" << "value" << "W") <<
-                        BSON("name" << "A7" << "type" << "TA7" << "value" << "W")
+                     "attrNames" << BSON_ARRAY("A1" << "A2" << "A3" << "A7") <<
+                     "attrs" << BSON(
+                        "A1" << BSON("type" << "TA1" << "value" << "X") <<
+                        "A2" << BSON("type" << "TA2" << "value" << "Z") <<
+                        "A3" << BSON("type" << "TA3" << "value" << "W") <<
+                        "A7" << BSON("type" << "TA7" << "value" << "W")
                         )
                     );
 
   BSONObj en4 = BSON("_id" << BSON("id" << "E2" << "type" << "T") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "A1" << "type" << "TA1" << "value" << "X") <<
-                        BSON("name" << "A1" << "type" << "TA1bis" << "value" << "Y") <<
-                        BSON("name" << "A2" << "type" << "TA2" << "value" << "Z") <<
-                        BSON("name" << "A3" << "type" << "TA3" << "value" << "W") <<
-                        BSON("name" << "A7" << "type" << "TA7" << "value" << "W")
+                     "attrNames" << BSON_ARRAY("A1" << "A2" << "A3" << "A7") <<
+                     "attrs" << BSON(
+                        "A1" << BSON("type" << "TA1" << "value" << "X") <<
+                        "A2" << BSON("type" << "TA2" << "value" << "Z") <<
+                        "A3" << BSON("type" << "TA3" << "value" << "W") <<
+                        "A7" << BSON("type" << "TA7" << "value" << "W")
                         )
                     );
 
   BSONObj en5 = BSON("_id" << BSON("id" << "E1") <<
-                     "attrs" << BSON_ARRAY(
-                        BSON("name" << "A1" << "type" << "TA1" << "value" << "X") <<
-                        BSON("name" << "A1" << "type" << "TA1bis" << "value" << "Y") <<
-                        BSON("name" << "A2" << "type" << "TA2" << "value" << "Z") <<
-                        BSON("name" << "A3" << "type" << "TA3" << "value" << "W") <<
-                        BSON("name" << "A7" << "type" << "TA7" << "value" << "W")
+                     "attrNames" << BSON_ARRAY("A1" << "A2" << "A3" << "A7") <<
+                     "attrs" << BSON(
+                        "A1" << BSON("type" << "TA1" << "value" << "X") <<
+                        "A2" << BSON("type" << "TA2" << "value" << "Z") <<
+                        "A3" << BSON("type" << "TA3" << "value" << "W") <<
+                        "A7" << BSON("type" << "TA7" << "value" << "W")
                         )
                     );
 
@@ -294,16 +280,27 @@ static void prepareDatabase(void) {
                                                      ))
                       );
 
+  LM_M(("Creating 5 entities"));
   connection->insert(ENTITIES_COLL, en1);
   connection->insert(ENTITIES_COLL, en2);
   connection->insert(ENTITIES_COLL, en3);
   connection->insert(ENTITIES_COLL, en4);
   connection->insert(ENTITIES_COLL, en5);
+
+  LM_M(("Creating 5 subscriptions"));
   connection->insert(SUBSCRIBECONTEXT_COLL, sub1);
   connection->insert(SUBSCRIBECONTEXT_COLL, sub2);
   connection->insert(SUBSCRIBECONTEXT_COLL, sub3);
 
+  /* Given that preparation including csubs, we have to init cache */
+  if (useSubCache == true)
+  {
+    subCacheInit();
+    subCacheRefresh();
+  }
 }
+
+
 
 /* ****************************************************************************
 *
@@ -313,17 +310,16 @@ static void prepareDatabase(void) {
 * no type cases
 *
 */
-static void prepareDatabaseWithNoTypeSubscriptions(void) {
+static void prepareDatabaseWithNoTypeSubscriptions(void)
+{
+    prepareDatabase(false);
 
-    prepareDatabase();
-
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
 
     /* We create the following entities:
      *
      * - E3:
      *     A1:  X
-     *     A1*: Y
      *     A2:  Z
      *     A3:  W
      *     A7:  R
@@ -343,12 +339,12 @@ static void prepareDatabaseWithNoTypeSubscriptions(void) {
      */
 
     BSONObj en = BSON("_id" << BSON("id" << "E3" << "type" << "T3") <<
-                       "attrs" << BSON_ARRAY(
-                          BSON("name" << "A1" << "type" << "TA1" << "value" << "X") <<
-                          BSON("name" << "A1" << "type" << "TA1bis" << "value" << "Y") <<
-                          BSON("name" << "A2" << "type" << "TA2" << "value" << "Z") <<
-                          BSON("name" << "A3" << "type" << "TA3" << "value" << "W") <<
-                          BSON("name" << "A7" << "type" << "TA7" << "value" << "W")
+                      "attrNames" << BSON_ARRAY("A1" << "A2" << "A3" << "A7") <<
+                       "attrs" << BSON(
+                          "A1" << BSON("type" << "TA1" << "value" << "X") <<
+                          "A2" << BSON("type" << "TA2" << "value" << "Z") <<
+                          "A3" << BSON("type" << "TA3" << "value" << "W") <<
+                          "A7" << BSON("type" << "TA7" << "value" << "W")
                           )
                       );
 
@@ -381,6 +377,9 @@ static void prepareDatabaseWithNoTypeSubscriptions(void) {
     connection->insert(SUBSCRIBECONTEXT_COLL, sub4);
     connection->insert(SUBSCRIBECONTEXT_COLL, sub5);
 
+    /* Given that preparation including csubs, we have to initialize the subscription cache */
+    subCacheInit();
+    subCacheRefresh();
 }
 
 /* ****************************************************************************
@@ -399,19 +398,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "new_val");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -431,18 +426,16 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -465,21 +458,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     ContextAttribute ca4("A4", "TA4", "new_val");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     cer.contextElement.contextAttributeVector.push_back(&ca4);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -499,20 +488,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();   
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
-    /* Release connection */
-    mongoDisconnect();
-
-    /* Release mock */
     delete notifierMock;
     delete timerMock;
 }
@@ -532,18 +518,14 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch)
     expectedNcr.originator.set("localhost");
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
-    ContextAttribute ca1("A1", "TA1bis", "Y");
     ContextAttribute ca2("A3", "TA3", "W");
-    cer.contextElement.contextAttributeVector.push_back(&ca1);
     cer.contextElement.contextAttributeVector.push_back(&ca2);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -554,7 +536,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch)
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E1", "T1", "false");
-    ContextAttribute ca("A1", "TA1");
+    ContextAttribute ca("A1", "TA1", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -563,18 +545,16 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -598,10 +578,8 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch_noType)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "new_val");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr1.contextElementResponseVector.push_back(&cer);
     expectedNcr2.contextElementResponseVector.push_back(&cer);
@@ -609,12 +587,10 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch_noType)
     expectedNcr2.subscriptionId.set("51307b66f481db11bf860004");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr1),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr1),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr2),"http://notify4.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr2),"http://notify4.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -634,20 +610,22 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch_noType)
     prepareDatabaseWithNoTypeSubscriptions();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
-    sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860004")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* sub1P = subCacheItemLookup("", "51307b66f481db11bf860001");
+    CachedSubscription* sub2P = subCacheItemLookup("", "51307b66f481db11bf860004");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(sub1P != NULL);
+    ASSERT_TRUE(sub2P != NULL);
+
+    EXPECT_EQ(1360232700, sub1P->lastNotificationTime);
+    EXPECT_EQ(1360232700, sub2P->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -671,11 +649,9 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch_noType)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     ContextAttribute ca4("A4", "TA4", "new_val");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     cer.contextElement.contextAttributeVector.push_back(&ca4);
     expectedNcr1.contextElementResponseVector.push_back(&cer);
@@ -684,12 +660,10 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch_noType)
     expectedNcr2.subscriptionId.set("51307b66f481db11bf860004");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr1),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr1),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr2),"http://notify4.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr2),"http://notify4.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -709,20 +683,22 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch_noType)
     prepareDatabaseWithNoTypeSubscriptions();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();   
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
-    sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860004")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* sub1P = subCacheItemLookup("", "51307b66f481db11bf860001");
+    CachedSubscription* sub2P = subCacheItemLookup("", "51307b66f481db11bf860004");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(sub1P != NULL);
+    ASSERT_TRUE(sub2P != NULL);
+
+    EXPECT_EQ(1360232700, sub1P->lastNotificationTime);
+    EXPECT_EQ(1360232700, sub2P->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -745,9 +721,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_noType)
     expectedNcr2.originator.set("localhost");
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
-    ContextAttribute ca1("A1", "TA1bis", "Y");
     ContextAttribute ca2("A3", "TA3", "W");
-    cer.contextElement.contextAttributeVector.push_back(&ca1);
     cer.contextElement.contextAttributeVector.push_back(&ca2);
     expectedNcr1.contextElementResponseVector.push_back(&cer);
     expectedNcr2.contextElementResponseVector.push_back(&cer);
@@ -755,12 +729,10 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_noType)
     expectedNcr2.subscriptionId.set("51307b66f481db11bf860004");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr1),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr1),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr2),"http://notify4.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr2),"http://notify4.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -771,7 +743,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_noType)
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E1", "T1", "false");
-    ContextAttribute ca("A1", "TA1");
+    ContextAttribute ca("A1", "TA1", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -780,20 +752,21 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_noType)
     prepareDatabaseWithNoTypeSubscriptions();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
-    sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860004")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* sub1P = subCacheItemLookup("", "51307b66f481db11bf860001");
+    CachedSubscription* sub2P = subCacheItemLookup("", "51307b66f481db11bf860004");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(sub1P != NULL);
+    ASSERT_TRUE(sub2P != NULL);
+
+    EXPECT_EQ(1360232700, sub1P->lastNotificationTime);
+    EXPECT_EQ(1360232700, sub2P->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -816,19 +789,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch_pattern)
     ContextElementResponse cer1;
     cer1.contextElement.entityId.fill("E1", "T", "false");
     ContextAttribute ca11("A1", "TA1", "new_val");
-    ContextAttribute ca12("A1", "TA1bis", "Y");
     ContextAttribute ca13("A3", "TA3", "W");
     cer1.contextElement.contextAttributeVector.push_back(&ca11);
-    cer1.contextElement.contextAttributeVector.push_back(&ca12);
     cer1.contextElement.contextAttributeVector.push_back(&ca13);
     expectedNcr.contextElementResponseVector.push_back(&cer1);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860003");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify3.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify3.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -848,18 +817,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch_pattern)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860003")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860003");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -882,21 +851,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch_pattern)
     ContextElementResponse cer1;
     cer1.contextElement.entityId.fill("E1", "T", "false");
     ContextAttribute ca11("A1", "TA1", "X");
-    ContextAttribute ca12("A1", "TA1bis", "Y");
     ContextAttribute ca13("A3", "TA3", "W");
     ContextAttribute ca14("A4", "TA4", "new_val");
     cer1.contextElement.contextAttributeVector.push_back(&ca11);
-    cer1.contextElement.contextAttributeVector.push_back(&ca12);
     cer1.contextElement.contextAttributeVector.push_back(&ca13);
     cer1.contextElement.contextAttributeVector.push_back(&ca14);
     expectedNcr.contextElementResponseVector.push_back(&cer1);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860003");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify3.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify3.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -916,18 +881,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch_pattern)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860003")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860003");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -949,18 +914,14 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_pattern)
     expectedNcr.originator.set("localhost");
     ContextElementResponse cer1;
     cer1.contextElement.entityId.fill("E1", "T", "false");
-    ContextAttribute ca11("A1", "TA1bis", "Y");
     ContextAttribute ca12("A3", "TA3", "W");
-    cer1.contextElement.contextAttributeVector.push_back(&ca11);
     cer1.contextElement.contextAttributeVector.push_back(&ca12);
     expectedNcr.contextElementResponseVector.push_back(&cer1);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860003");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify3.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify3.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -971,7 +932,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_pattern)
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E1", "T", "false");
-    ContextAttribute ca("A1", "TA1");
+    ContextAttribute ca("A1", "TA1", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -980,18 +941,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_pattern)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860003")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860003");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -1014,19 +974,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch_pattern_noT
     ContextElementResponse cer1;
     cer1.contextElement.entityId.fill("E3", "T3", "false");
     ContextAttribute ca11("A1", "TA1", "new_val");
-    ContextAttribute ca12("A1", "TA1bis", "Y");
     ContextAttribute ca13("A3", "TA3", "W");
     cer1.contextElement.contextAttributeVector.push_back(&ca11);
-    cer1.contextElement.contextAttributeVector.push_back(&ca12);
     cer1.contextElement.contextAttributeVector.push_back(&ca13);
     expectedNcr.contextElementResponseVector.push_back(&cer1);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860005");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify5.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify5.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1046,18 +1002,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatch_pattern_noT
     prepareDatabaseWithNoTypeSubscriptions();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860005")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860005");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -1080,21 +1035,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch_pattern_noT
     ContextElementResponse cer1;
     cer1.contextElement.entityId.fill("E3", "T3", "false");
     ContextAttribute ca11("A1", "TA1", "X");
-    ContextAttribute ca12("A1", "TA1bis", "Y");
     ContextAttribute ca13("A3", "TA3", "W");
     ContextAttribute ca14("A4", "TA4", "new_val");
     cer1.contextElement.contextAttributeVector.push_back(&ca11);
-    cer1.contextElement.contextAttributeVector.push_back(&ca12);
     cer1.contextElement.contextAttributeVector.push_back(&ca13);
     cer1.contextElement.contextAttributeVector.push_back(&ca14);
     expectedNcr.contextElementResponseVector.push_back(&cer1);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860005");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify5.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify5.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1114,18 +1065,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatch_pattern_noT
     prepareDatabaseWithNoTypeSubscriptions();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860005")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860005");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -1147,18 +1097,14 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_pattern_noT
     expectedNcr.originator.set("localhost");
     ContextElementResponse cer1;
     cer1.contextElement.entityId.fill("E3", "T3", "false");
-    ContextAttribute ca11("A1", "TA1bis", "Y");
     ContextAttribute ca12("A3", "TA3", "W");
-    cer1.contextElement.contextAttributeVector.push_back(&ca11);
     cer1.contextElement.contextAttributeVector.push_back(&ca12);
     expectedNcr.contextElementResponseVector.push_back(&cer1);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860005");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify5.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify5.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1169,7 +1115,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_pattern_noT
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E3", "T3", "false");
-    ContextAttribute ca("A1", "TA1");
+    ContextAttribute ca("A1", "TA1", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -1178,18 +1124,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatch_pattern_noT
     prepareDatabaseWithNoTypeSubscriptions();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860005")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860005");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -1212,19 +1157,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatchDisjoint)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1244,18 +1185,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatchDisjoint)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -1278,19 +1218,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatchDisjoint)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1310,18 +1246,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMatchDisjoint)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -1344,19 +1279,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatchDisjoint)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1367,7 +1298,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatchDisjoint)
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E1", "T1", "false");
-    ContextAttribute ca("A2", "TA2");
+    ContextAttribute ca("A2", "TA2", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -1376,18 +1307,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMatchDisjoint)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
@@ -1406,9 +1336,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateNoMatch)
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify1.me", XML))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify1.me", "", "", JSON))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -1429,23 +1357,21 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();   
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(20000000, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(20000000, subP->lastNotificationTime);
 
     /* Release mock */
     delete notifierMock;
     delete timerMock;
-
 }
 
 /* ****************************************************************************
@@ -1460,9 +1386,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendNoMatch)
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify1.me", XML))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify1.me", "", "", JSON))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -1483,18 +1407,16 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
     EXPECT_EQ(20000000, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
 
     /* Release mock */
     delete notifierMock;
@@ -1513,9 +1435,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteNoMatch)
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify1.me", XML))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify1.me", "", "", JSON))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -1527,7 +1447,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteNoMatch)
     /* Forge the request (from "inside" to "outside") */    
     ContextElement ce;
     ce.entityId.fill("E1", "T1", "false");
-    ContextAttribute ca("A3", "TA3");
+    ContextAttribute ca("A3", "TA3", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -1536,18 +1456,16 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
     EXPECT_EQ(20000000, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
 
     /* Release mock */
     delete notifierMock;
@@ -1566,9 +1484,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatchWithoutChang
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify1.me", XML))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify1.me", "", "", JSON))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -1589,18 +1505,16 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMatchWithoutChang
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
     EXPECT_EQ(20000000, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
 
     /* Release mock */
     delete notifierMock;
@@ -1623,19 +1537,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMixMatchNoMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "new_val1");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1657,23 +1567,22 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_updateMixMatchNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
     delete timerMock;
-
 }
 
 /* ****************************************************************************
@@ -1692,21 +1601,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMixMatchNoMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     ContextAttribute ca4("A4", "TA4", "new_val4");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     cer.contextElement.contextAttributeVector.push_back(&ca4);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1728,18 +1633,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_appendMixMatchNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -1762,17 +1667,13 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMixMatchNoMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1783,8 +1684,8 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMixMatchNoMatch)
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E1", "T1", "false");
-    ContextAttribute caa1("A3", "TA3");   // no match
-    ContextAttribute caa2("A2", "TA2");    // match
+    ContextAttribute caa1("A3", "TA3", "");    // no match
+    ContextAttribute caa2("A2", "TA2", "");    // match
     ce.contextAttributeVector.push_back(&caa1);
     ce.contextAttributeVector.push_back(&caa2);
     req.contextElementVector.push_back(&ce);
@@ -1794,18 +1695,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_deleteMixMatchNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -1828,19 +1729,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_update2Matches1Notifica
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "new_val1");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1862,18 +1759,19 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_update2Matches1Notifica
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+    EXPECT_EQ(1, subP->count);
+
 
     /* Release mock */
     delete notifierMock;
@@ -1896,21 +1794,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_append2Matches1Notifica
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E1", "T1", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     ContextAttribute ca4("A4", "TA4", "new_val4");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     cer.contextElement.contextAttributeVector.push_back(&ca4);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1932,18 +1826,19 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_append2Matches1Notifica
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+    EXPECT_EQ(1, subP->count);
+
 
     /* Release mock */
     delete notifierMock;
@@ -1971,10 +1866,8 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_delete2Matches1Notifica
     expectedNcr.subscriptionId.set("51307b66f481db11bf860001");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify1.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -1985,10 +1878,8 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_delete2Matches1Notifica
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E1", "T1", "false");
-    ContextAttribute caa1("A1", "TA1");
-    ContextAttribute caa2("A1", "TA1bis");
+    ContextAttribute caa1("A1", "TA1", "");
     ce.contextAttributeVector.push_back(&caa1);
-    ce.contextAttributeVector.push_back(&caa2);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
 
@@ -1996,18 +1887,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, Cond1_delete2Matches1Notifica
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2030,19 +1921,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "new_val");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2063,18 +1950,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2097,21 +1984,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_appendMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     ContextAttribute ca4("A4", "TA4", "new_val");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     cer.contextElement.contextAttributeVector.push_back(&ca4);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2131,18 +2014,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_appendMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2164,18 +2047,14 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMatch)
     expectedNcr.originator.set("localhost");
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
-    ContextAttribute ca1("A1", "TA1bis", "Y");
     ContextAttribute ca2("A3", "TA3", "W");
-    cer.contextElement.contextAttributeVector.push_back(&ca1);
     cer.contextElement.contextAttributeVector.push_back(&ca2);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2186,7 +2065,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMatch)
     /* Forge the request (from "inside" to "outside") */    
     ContextElement ce;
     ce.entityId.fill("E2", "T2", "false");
-    ContextAttribute ca("A1", "TA1");
+    ContextAttribute ca("A1", "TA1", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -2195,18 +2074,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2229,19 +2108,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateMatchDisjoint)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2261,18 +2136,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateMatchDisjoint)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2295,19 +2170,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_appendMatchDisjoint)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2327,18 +2198,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_appendMatchDisjoint)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2361,19 +2232,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMatchDisjoint)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2384,7 +2251,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMatchDisjoint)
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E2", "T2", "false");
-    ContextAttribute ca("A2", "TA2");
+    ContextAttribute ca("A2", "TA2", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -2393,18 +2260,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMatchDisjoint)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2423,9 +2290,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateNoMatch)
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify2.me", XML))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify2.me", "", "", JSON))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -2446,23 +2311,20 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
     EXPECT_EQ(30000000, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
 
     /* Release mock */
     delete notifierMock;
     delete timerMock;
-
 }
 
 /* ****************************************************************************
@@ -2477,9 +2339,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_appendNoMatch)
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify2.me", XML))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify2.me", "", "", JSON))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -2500,18 +2360,16 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_appendNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
     EXPECT_EQ(30000000, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
 
     /* Release mock */
     delete notifierMock;
@@ -2530,9 +2388,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteNoMatch)
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify2.me", XML))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify2.me", "", "", JSON))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -2544,7 +2400,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteNoMatch)
     /* Forge the request (from "inside" to "outside") */    
     ContextElement ce;
     ce.entityId.fill("E2", "T2", "false");
-    ContextAttribute ca("A3", "TA3");
+    ContextAttribute ca("A3", "TA3", "");
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
@@ -2553,18 +2409,16 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
     EXPECT_EQ(30000000, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
 
     /* Release mock */
     delete notifierMock;
@@ -2583,9 +2437,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateMatchWithoutChang
 
     /* Prepare mock */
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify2.me", XML))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,"http://notify2.me", "", "", JSON))
             .Times(0);
     setNotifier(notifierMock);
 
@@ -2606,18 +2458,16 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateMatchWithoutChang
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
+    DBClientBase* connection = getMongoConnection();
     BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
     EXPECT_EQ(30000000, sub.getIntField("lastNotification"));
-
-    /* Release connection */
-    mongoDisconnect();
 
     /* Release mock */
     delete notifierMock;
@@ -2640,19 +2490,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateMixMatchNoMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "new_val1");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2674,23 +2520,22 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_updateMixMatchNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
     delete timerMock;
-
 }
 
 /* ****************************************************************************
@@ -2709,21 +2554,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_appendMixMatchNoMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     ContextAttribute ca4("A4", "TA4", "new_val4");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     cer.contextElement.contextAttributeVector.push_back(&ca4);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2745,18 +2586,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_appendMixMatchNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-        /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2779,17 +2620,13 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMixMatchNoMatch)
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2800,8 +2637,8 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMixMatchNoMatch)
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E2", "T2", "false");
-    ContextAttribute caa1("A3", "TA3");   // no match
-    ContextAttribute caa2("A2", "TA2");   // match
+    ContextAttribute caa1("A3", "TA3", "");   // no match
+    ContextAttribute caa2("A2", "TA2", "");   // match
     ce.contextAttributeVector.push_back(&caa1);
     ce.contextAttributeVector.push_back(&caa2);
     req.contextElementVector.push_back(&ce);
@@ -2811,18 +2648,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_deleteMixMatchNoMatch)
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2845,19 +2682,15 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_update2Matches1Notifica
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "new_val1");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2879,18 +2712,19 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_update2Matches1Notifica
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+    EXPECT_EQ(1, subP->count);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2913,21 +2747,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_append2Matches1Notifica
     ContextElementResponse cer;
     cer.contextElement.entityId.fill("E2", "T2", "false");
     ContextAttribute ca1("A1", "TA1", "X");
-    ContextAttribute ca2("A1", "TA1bis", "Y");
     ContextAttribute ca3("A3", "TA3", "W");
     ContextAttribute ca4("A4", "TA4", "new_val4");
     cer.contextElement.contextAttributeVector.push_back(&ca1);
-    cer.contextElement.contextAttributeVector.push_back(&ca2);
     cer.contextElement.contextAttributeVector.push_back(&ca3);
     cer.contextElement.contextAttributeVector.push_back(&ca4);
     expectedNcr.contextElementResponseVector.push_back(&cer);
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -2949,18 +2779,19 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_append2Matches1Notifica
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+    EXPECT_EQ(1, subP->count);
+
 
     /* Release mock */
     delete notifierMock;
@@ -2988,10 +2819,8 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_delete2Matches1Notifica
     expectedNcr.subscriptionId.set("51307b66f481db11bf860002");
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", XML))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(MatchNcr(&expectedNcr),"http://notify2.me", "", "", JSON))
             .Times(1);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
-            .Times(0);
     setNotifier(notifierMock);
 
     TimerMock* timerMock = new TimerMock();
@@ -3002,10 +2831,8 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_delete2Matches1Notifica
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
     ce.entityId.fill("E2", "T2", "false");
-    ContextAttribute caa1("A1", "TA1");
-    ContextAttribute caa2("A1", "TA1bis");
+    ContextAttribute caa1("A1", "TA1", "");
     ce.contextAttributeVector.push_back(&caa1);
-    ce.contextAttributeVector.push_back(&caa2);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("DELETE");
 
@@ -3013,18 +2840,18 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_delete2Matches1Notifica
     prepareDatabase();
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860002")));
-    EXPECT_EQ(1360232700, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860002");
 
-    /* Release connection */
-    mongoDisconnect();
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(1360232700, subP->lastNotificationTime);
+
 
     /* Release mock */
     delete notifierMock;
@@ -3037,7 +2864,7 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, CondN_delete2Matches1Notifica
 *
 * FIXME: given that we can no "bypass" calls to the mocked function in which we
 * are not interested given the problem described in the mock constructor above
-* (in particular, I will need to bypass queries to "unittest.entities), I will leave
+* (in particular, I will need to bypass queries to "utest.entities), I will leave
 * finalization of this tests (current version is not working) upon resolution of
 * old issue #87
 */
@@ -3053,18 +2880,17 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, DISABLED_MongoDbQueryFail)
     /* Prepare mocks */
     const DBException e = DBException("boom!!", 33);
     DBClientConnectionMock* connectionMock = new DBClientConnectionMock();
-    ON_CALL(*connectionMock, _query("unittest.csubs",_,_,_,_,_,_))
+    ON_CALL(*connectionMock, _query("utest.csubs",_,_,_,_,_,_))
             .WillByDefault(Throw(e));
 
     NotifierMock* notifierMock = new NotifierMock();
-    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,_,_))
-            .Times(0);
-    EXPECT_CALL(*notifierMock, createIntervalThread(_,_))
+    EXPECT_CALL(*notifierMock, sendNotifyContextRequest(_,_,_,_,_))
             .Times(0);
     setNotifier(notifierMock);
 
     /* Set MongoDB connection */
-    mongoConnect(connectionMock);
+    DBClientBase* connectionDb = getMongoConnection();
+    setMongoConnectionForUnitTest(connectionMock);
 
     /* Forge the request (from "inside" to "outside") */
     ContextElement ce;
@@ -3075,12 +2901,13 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, DISABLED_MongoDbQueryFail)
     req.updateActionType.set("UPDATE");
 
     /* Invoke the function in mongoBackend library */
-    ms = mongoUpdateContext(&req, &res);
+    servicePathVector.clear();    
+    ms = mongoUpdateContext(&req, &res, "", servicePathVector, uriParams, "");
 
     /* Check response is as expected */
     EXPECT_EQ(SccOk, ms);
 
-    EXPECT_EQ(NO_CODE, res.errorCode.code);
+    EXPECT_EQ(SccNone, res.errorCode.code);
     EXPECT_EQ(0, res.errorCode.reasonPhrase.size());
     EXPECT_EQ(0, res.errorCode.details.size());
 
@@ -3092,16 +2919,20 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, DISABLED_MongoDbQueryFail)
     EXPECT_EQ(0, RES_CER(0).contextAttributeVector.size());
     EXPECT_EQ(SccReceiverInternalError, RES_CER_STATUS(0).code);
     EXPECT_EQ("Database Error", RES_CER_STATUS(0).reasonPhrase);
-    EXPECT_EQ(0, RES_CER_STATUS(0).details.size());
+    EXPECT_EQ("", RES_CER_STATUS(0).details);
 
     /* Check lastNotification */
-    DBClientConnection* connection = getMongoConnection();
-    BSONObj sub = connection->findOne(SUBSCRIBECONTEXT_COLL, BSON("_id" << OID("51307b66f481db11bf860001")));
-    EXPECT_EQ(20000000, sub.getIntField("lastNotification"));
+    CachedSubscription* subP = subCacheItemLookup("", "51307b66f481db11bf860001");
+
+    ASSERT_TRUE(subP != NULL);
+    EXPECT_EQ(20000000, subP->lastNotificationTime);
+
+
+    /* Restore real DB connection */
+    setMongoConnectionForUnitTest(connectionDb);
 
     /* Release mock */
     delete notifierMock;
-
 }
 
 /* ****************************************************************************
@@ -3119,7 +2950,8 @@ TEST(mongoUpdateContext_withOnchangeSubscriptions, DISABLED_MongoDbUpdateFail)
 *
 * MongoDbFindOneFail -
 *
-* FIXME: this need of this test depend of old issue #90.
+* FIXME: The necessity of this test depends on issue #371.
+*
 * If we are able to solve the problem, it is unneded. However, if the conclusion of that issue
 * is that we need the dobule-query on csubs, then we need this tests. By the moment, we leave the
 * stub, marked with DISABLED.

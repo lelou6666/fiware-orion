@@ -1,5 +1,5 @@
-#ifndef JSON_PARSE_H
-#define JSON_PARSE_H
+#ifndef SRC_LIB_JSONPARSE_JSONPARSE_H_
+#define SRC_LIB_JSONPARSE_JSONPARSE_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,6 +29,7 @@
 
 #include "jsonParse/JsonNode.h"
 #include "ngsi/ParseData.h"
+#include "rest/ConnectionInfo.h"
 
 
 
@@ -36,6 +37,13 @@
 *
 * jsonParse - 
 */
-extern std::string jsonParse(const char* content, std::string requestType, JsonNode* parseVector, ParseData* reqDataP);
+extern std::string jsonParse
+(
+  ConnectionInfo*     ciP,
+  const char*         content,
+  const std::string&  requestType,
+  JsonNode*           parseVector,
+  ParseData*          reqDataP
+);
 
-#endif
+#endif  // SRC_LIB_JSONPARSE_JSONPARSE_H_

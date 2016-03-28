@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,26 +31,39 @@
 #include "ngsi/ParseData.h"
 #include "ngsi9/RegisterContextResponse.h"
 #include "rest/ConnectionInfo.h"
-#include "serviceRoutines/postRegisterContext.h"  // instead of convenienceMap function, postRegisterContext is used
+#include "serviceRoutines/postRegisterContext.h"
 #include "serviceRoutines/postContextEntityTypes.h"
 
 
 
 /* ****************************************************************************
 *
-* postContextEntityTypes - 
+* postContextEntityTypes -
 *
+* POST /v1/registry/contextEntityTypes/{entityType}
 * POST /ngsi9/contextEntityTypes/{entityType}
+*
+* Payload In:  RegisterProviderRequest
+* Payload Out: RegisterContextResponse
+*
+* 1. Transform RegisterProviderRequest+entityType into a RegisterContextRequest
+* 2. Call the Standard operation for RegisterContextRequest
 */
-std::string postContextEntityTypes(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string postContextEntityTypes
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  std::string  entityType    = compV[2];
-  
-  // Transform RegisterProviderRequest into RegisterContextRequest
-  parseDataP->rcr.res.fill(parseDataP->rpr.res, "", entityType, "");
+  std::string  entityType    = (compV[0] == "v1")? compV[3] : compV[2];
+  std::string  answer;
 
-  // Now call postRegisterContext (postRegisterContext doesn't use the parameters 'components' and 'compV')
-  std::string answer = postRegisterContext(ciP, components, compV, parseDataP);
+  parseDataP->rcr.res.fill(parseDataP->rpr.res, "", entityType, "");
+  answer = postRegisterContext(ciP, components, compV, parseDataP);
+
+  parseDataP->rpr.res.release();
   parseDataP->rcr.res.release();
 
   return answer;

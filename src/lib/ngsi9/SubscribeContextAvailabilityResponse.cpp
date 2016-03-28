@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -58,7 +58,7 @@ SubscribeContextAvailabilityResponse::~SubscribeContextAvailabilityResponse()
 *
 * SubscribeContextAvailabilityResponse::SubscribeContextAvailabilityResponse - 
 */
-SubscribeContextAvailabilityResponse::SubscribeContextAvailabilityResponse(std::string _subscriptionId, std::string _duration) : errorCode("errorCode")
+SubscribeContextAvailabilityResponse::SubscribeContextAvailabilityResponse(const std::string& _subscriptionId, const std::string& _duration) : errorCode("errorCode")
 {
   subscriptionId.set(_subscriptionId);
   duration.set(_duration);
@@ -70,7 +70,7 @@ SubscribeContextAvailabilityResponse::SubscribeContextAvailabilityResponse(std::
 *
 * SubscribeContextAvailabilityResponse::SubscribeContextAvailabilityResponse - 
 */
-SubscribeContextAvailabilityResponse::SubscribeContextAvailabilityResponse(std::string _subscriptionId, StatusCode& _errorCode) : errorCode("errorCode")
+SubscribeContextAvailabilityResponse::SubscribeContextAvailabilityResponse(const std::string& _subscriptionId, StatusCode& _errorCode) : errorCode("errorCode")
 {
   subscriptionId.set(_subscriptionId);
 
@@ -83,22 +83,22 @@ SubscribeContextAvailabilityResponse::SubscribeContextAvailabilityResponse(std::
 *
 * SubscribeContextAvailabilityResponse::render - 
 */
-std::string SubscribeContextAvailabilityResponse::render(RequestType requestType, Format format, std::string indent)
+std::string SubscribeContextAvailabilityResponse::render(RequestType requestType, const std::string& indent)
 {
   std::string  tag                = "subscribeContextAvailabilityResponse";
   std::string  out                = "";
   bool         durationRendered   = !duration.isEmpty();
   bool         errorCodeRendered  = (errorCode.code != SccNone);
 
-  out += startTag(indent, tag, format, false);
+  out += startTag1(indent, tag, false);
 
-  out += subscriptionId.render(RtSubscribeContextAvailabilityResponse, format, indent + "  ", durationRendered || errorCodeRendered);
-  out += duration.render(format, indent + "  ", errorCodeRendered);
+  out += subscriptionId.render(RtSubscribeContextAvailabilityResponse, indent + "  ", durationRendered || errorCodeRendered);
+  out += duration.render(indent + "  ", errorCodeRendered);
 
   if (errorCodeRendered)
-     out += errorCode.render(format, indent + "  ", false);
+     out += errorCode.render(indent + "  ", false);
 
-  out += endTag(indent, tag, format);
+  out += endTag(indent);
   
   return out;
 }  

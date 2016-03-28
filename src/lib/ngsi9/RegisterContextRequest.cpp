@@ -18,15 +18,19 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
 #include <string>
 
+#include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
+
 #include "common/globals.h"
 #include "common/tag.h"
 #include "common/Format.h"
+#include "alarmMgr/alarmMgr.h"
 #include "ngsi/StatusCode.h"
 #include "ngsi/Duration.h"
 #include "ngsi/ContextRegistrationVector.h"
@@ -39,23 +43,22 @@
 *
 * RegisterContextRequest::render - 
 */
-std::string RegisterContextRequest::render(RequestType requestType, Format format, std::string indent)
+std::string RegisterContextRequest::render(RequestType requestType, const std::string& indent)
 {
   std::string  out                                 = "";
-  std::string  xmlTag                              = "registerContextRequest";
   bool         durationRendered                    = duration.get() != "";
   bool         registrationIdRendered              = registrationId.get() != "";
   bool         commaAfterRegistrationId            = false; // Last element
   bool         commaAfterDuration                  = registrationIdRendered;
   bool         commaAfterContextRegistrationVector = registrationIdRendered || durationRendered;
 
-  out += startTag(indent, xmlTag, "", format, false, false);
+  out += startTag2(indent, "", false, false);
 
-  out += contextRegistrationVector.render(format,       indent + "  ", commaAfterContextRegistrationVector);
-  out += duration.render(format,                        indent + "  ", commaAfterDuration);
-  out += registrationId.render(RegisterContext, format, indent + "  ", commaAfterRegistrationId);
+  out += contextRegistrationVector.render(      indent + "  ", commaAfterContextRegistrationVector);
+  out += duration.render(                       indent + "  ", commaAfterDuration);
+  out += registrationId.render(RegisterContext, indent + "  ", commaAfterRegistrationId);
 
-  out += endTag(indent, xmlTag, format, false);
+  out += endTag(indent, false);
 
   return out;
 }
@@ -66,36 +69,34 @@ std::string RegisterContextRequest::render(RequestType requestType, Format forma
 *
 * RegisterContextRequest::check - 
 */
-std::string RegisterContextRequest::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string RegisterContextRequest::check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter)
 {
   RegisterContextResponse  response(this);
   std::string              res;
 
   if (predetectedError != "")
   {
-    LM_E(("predetectedError not empty"));
-    response.errorCode.code         = SccBadRequest;
-    response.errorCode.reasonPhrase = predetectedError;
+    alarmMgr.badInput(clientIp, predetectedError);
+    response.errorCode.fill(SccBadRequest, predetectedError);
   }
   else if (contextRegistrationVector.size() == 0)
   {
-    LM_E(("contextRegistrationVector.size() == 0"));
-    response.errorCode.code         = SccBadRequest;
-    response.errorCode.reasonPhrase = "Empty Context Registration List";
+    alarmMgr.badInput(clientIp, "empty contextRegistration list");
+    response.errorCode.fill(SccBadRequest, "Empty Context Registration List");
   }
-  else if (((res = contextRegistrationVector.check(RegisterContext, format, indent, predetectedError, counter)) != "OK") ||
-           ((res = duration.check(RegisterContext, format, indent, predetectedError, counter))                  != "OK") ||
-           ((res = registrationId.check(RegisterContext, format, indent, predetectedError, counter))            != "OK"))
+  else if (((res = contextRegistrationVector.check(ciP, RegisterContext, indent, predetectedError, counter)) != "OK") ||
+           ((res = duration.check(RegisterContext, indent, predetectedError, counter))                  != "OK") ||
+           ((res = registrationId.check(RegisterContext, indent, predetectedError, counter))            != "OK"))
   {
-    LM_E(("Some check method failed: %s", res.c_str()));
-    response.errorCode.code         = SccBadRequest;
-    response.errorCode.reasonPhrase = res;
+    alarmMgr.badInput(clientIp, res);
+    response.errorCode.fill(SccBadRequest, res);
   }
   else
+  {
     return "OK";
+  }
 
-  LM_E(("Not OK - returning rendered error result"));     
-  return response.render(RegisterContext, format, indent);
+  return response.render(RegisterContext, indent);
 }
 
 
@@ -117,7 +118,7 @@ void RegisterContextRequest::release(void)
 *
 * RegisterContextRequest::fill - 
 */
-void RegisterContextRequest::fill(RegisterProviderRequest& rpr, std::string entityId, std::string entityType, std::string attributeName)
+void RegisterContextRequest::fill(RegisterProviderRequest& rpr, const std::string& entityId, const std::string& entityType, const std::string& attributeName)
 {
   ContextRegistration*          crP        = new ContextRegistration();
   EntityId*                     entityIdP  = new EntityId(entityId, entityType, "false");
@@ -125,7 +126,7 @@ void RegisterContextRequest::fill(RegisterProviderRequest& rpr, std::string enti
   duration       = rpr.duration;
   registrationId = rpr.registrationId;
 
-  crP->registrationMetadataVector.fill(rpr.metadataVector);
+  crP->registrationMetadataVector.fill((MetadataVector*) &rpr.metadataVector);
   crP->providingApplication = rpr.providingApplication;
 
   crP->entityIdVector.push_back(entityIdP);

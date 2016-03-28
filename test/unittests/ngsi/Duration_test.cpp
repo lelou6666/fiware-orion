@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,15 +37,15 @@ TEST(Duration, check)
   Duration     d;
   std::string  out;
 
-  out = d.check(RegisterContext, XML, "", "", 0);
+  out = d.check(RegisterContext, "", "", 0);
   EXPECT_STREQ("OK", out.c_str());
 
   d.set("PT1S");
-  out = d.check(RegisterContext, XML, "", "", 0);
+  out = d.check(RegisterContext, "", "", 0);
   EXPECT_STREQ("OK", out.c_str());
 
   d.set("PT1A");
-  out = d.check(RegisterContext, XML, "", "", 0);
+  out = d.check(RegisterContext, "", "", 0);
   EXPECT_STREQ("syntax error in duration string", out.c_str());
 }
 
@@ -76,8 +76,5 @@ TEST(Duration, isEmpty)
    Duration d;
 
    d.set("");
-   EXPECT_EQ(true, d.isEmpty());
-
-   d.set("not in use");
    EXPECT_EQ(true, d.isEmpty());
 }

@@ -21,11 +21,12 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
 #include <string>
+#include <map>
 
 #include "ngsi9/RegisterContextRequest.h"
 #include "ngsi9/RegisterContextResponse.h"
@@ -36,6 +37,13 @@
 *
 * mongoRegisterContext - 
 */
-extern HttpStatusCode mongoRegisterContext(RegisterContextRequest* requestP, RegisterContextResponse* responseP);
+extern HttpStatusCode mongoRegisterContext
+(
+  RegisterContextRequest*              requestP,
+  RegisterContextResponse*             responseP,
+  std::map<std::string, std::string>&  uriParam,
+  const std::string&                   tenant       = "",
+  const std::string&                   servicePath  = ""
+);
 
 #endif

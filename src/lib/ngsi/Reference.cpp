@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,6 +29,7 @@
 
 #include "common/globals.h"
 #include "common/tag.h"
+#include "common/string.h"
 #include "ngsi/Request.h"
 #include "ngsi/Reference.h"
 
@@ -36,14 +37,33 @@
 
 /* ****************************************************************************
 *
-* Reference::check - 
+* Reference::check -
 */
-std::string Reference::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string Reference::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   if (string == "")
   {
     if ((requestType == SubscribeContextAvailability) || (requestType == SubscribeContext))
-       return "Empty Reference";
+    {
+      return "Empty Reference";
+    }
+  }
+
+  std::string  url = string;
+  std::string  host;
+  int          port;
+  std::string  path;
+  std::string  protocol;
+
+  if (parseUrl(url, host, port, path, protocol) == false)
+  {
+    return "Invalid URL";
   }
 
   return "OK";
@@ -53,20 +73,20 @@ std::string Reference::check(RequestType requestType, Format format, std::string
 
 /* ****************************************************************************
 *
-* Reference::isEmpty - 
+* Reference::isEmpty -
 */
 bool Reference::isEmpty(void)
 {
-   return (string == "")? true : false;
+  return (string == "")? true : false;
 }
 
 
 
 /* ****************************************************************************
 *
-* Reference::set - 
+* Reference::set -
 */
-void Reference::set(std::string value)
+void Reference::set(const std::string& value)
 {
   string = value;
 }
@@ -75,7 +95,7 @@ void Reference::set(std::string value)
 
 /* ****************************************************************************
 *
-* Reference::get - 
+* Reference::get -
 */
 std::string Reference::get(void)
 {
@@ -86,37 +106,45 @@ std::string Reference::get(void)
 
 /* ****************************************************************************
 *
-* Reference::present - 
+* Reference::present -
 */
-void Reference::present(std::string indent)
+void Reference::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sReference: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sReference: %s", 
+		      indent.c_str(), 
+		      string.c_str()));
+  }
   else
-    PRINTF("%sNo Reference\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo Reference", indent.c_str()));
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* Reference::render - 
+* Reference::render -
 */
-std::string Reference::render(Format format, std::string indent, bool comma)
+std::string Reference::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
+  }
 
-  return valueTag(indent, "reference", string, format, comma);
+  return valueTag1(indent, "reference", string, comma);
 }
 
 
 
 /* ****************************************************************************
 *
-* Reference::c_str - 
+* Reference::c_str -
 */
 const char* Reference::c_str(void)
 {
-   return string.c_str();
+  return string.c_str();
 }

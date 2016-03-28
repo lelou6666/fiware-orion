@@ -18,16 +18,16 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
-#include <string>
 #include <string.h>
+#include <string>
+#include <sstream>
 
 #include "logMsg/logMsg.h"
 #include "logMsg/traceLevels.h"
-
 #include "common/Format.h"
 #include "common/wsStrip.h"
 
@@ -39,37 +39,40 @@
 */
 const char* formatToString(Format format)
 {
-   switch (format)
-   {
-   case XML:      return "XML";
-   case JSON:     return "JSON";
-   case TEXT:     return "TEXT";
-   case HTML:     return "HTML";
-   case NOFORMAT: return "NOFORMAT";
-   }
+  switch (format)
+  {  
+  case JSON:     return "JSON";
+  case TEXT:     return "TEXT";
+  case HTML:     return "HTML";
+  case NOFORMAT: return "NOFORMAT";
+  }
 
-   return "Unknown format";
+  return "Unknown format";
 }
+
+
 
 /* ****************************************************************************
 *
 * stringToFormat
 */
-Format stringToFormat(std::string s)
+Format stringToFormat(const std::string& s)
 {
-    if (s == "XML")
-        return XML;
-    else if (s == "JSON")
-        return JSON;
-    else
-        return NOFORMAT;
+  if (s == "JSON")
+  {
+    return JSON;
+  }
+
+  return NOFORMAT;
 }
+
+
 
 /* ****************************************************************************
 *
 * formatParse - 
 */
-Format formatParse(std::string formatString, std::string* charsetP)
+Format formatParse(const std::string& formatString, std::string* charsetP)
 {
   char* s;
   char* cP = (char*) formatString.c_str();
@@ -81,18 +84,17 @@ Format formatParse(std::string formatString, std::string* charsetP)
     s = wsStrip(s);
     if (strncmp(s, "charset=", 8) == 0)
     {
-       if (charsetP != NULL)
-          *charsetP = std::string(&s[8]);
+      if (charsetP != NULL)
+        *charsetP = std::string(&s[8]);
     }
   }
 
   std::string format(wsStrip(cP));
 
-  if      (format == "*/*")                               return XML;
-  else if (format == "application/xml")                   return XML;
-  else if (format == "text/xml")                          return XML;
+  if      (format == "*/*")                               return JSON;
   else if (format == "text/json")                         return JSON;
   else if (format == "application/json")                  return JSON;
+  else if (format == "text/plain")                        return TEXT;
 
-  return XML;
+  return JSON;
 }

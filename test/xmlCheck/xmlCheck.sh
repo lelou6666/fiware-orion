@@ -17,7 +17,7 @@
 # along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 #
 # For those usages not covered by this license please contact with
-# fermin at tid dot es
+# iot_support at tid dot es
 
 
 
@@ -141,10 +141,13 @@ function harnessFiles()
   harnessList=""
   TMP_DIR=$(mktemp -d /tmp/xmlCheck.XXXXX)
   vMsg TMP_DIR: $TMP_DIR
-  for FILE in $(find $SRC_TOP/test/testharness -name *.test)
+  for FILE in $(find $SRC_TOP/test/functionalTest/cases -name *.test)
   do
     PREFIX=$(basename ${FILE%.*})
-    $SRC_TOP/test/xmlCheck/xmlExtractor.py $FILE $TMP_DIR $PREFIX
+    FILE_DIR=$(dirname $FILE)
+    LAST_SUBDIR=$(basename $FILE_DIR)
+    mkdir -p $TMP_DIR/$LAST_SUBDIR
+    $SRC_TOP/test/xmlCheck/xmlExtractor.py $FILE $TMP_DIR/$LAST_SUBDIR $PREFIX
   done
 
   for FILE in $(find $TMP_DIR -name ngsi*.valid.xml)
@@ -253,9 +256,9 @@ then
   echo
 
   \rm Ngsi10_Operations.xsd Ngsi9_Operations.xsd Ngsi9_10_dataStructures.xsd 2> /dev/null
-  wget -q --no-check-certificate --user=$USER --password=$PASS https://forge.fi-ware.eu/scmrepos/svn/iot/trunk/schemes/Ngsi10_Operations.xsd
-  wget -q --no-check-certificate --user=$USER --password=$PASS https://forge.fi-ware.eu/scmrepos/svn/iot/trunk/schemes/Ngsi9_Operations.xsd
-  wget -q --no-check-certificate --user=$USER --password=$PASS https://forge.fi-ware.eu/scmrepos/svn/iot/trunk/schemes/Ngsi9_10_dataStructures.xsd
+  wget -q --no-check-certificate --user=$USER --password=$PASS https://forge.fiware.org/scmrepos/svn/iot/trunk/schemes/Ngsi10_Operations.xsd
+  wget -q --no-check-certificate --user=$USER --password=$PASS https://forge.fiware.org/scmrepos/svn/iot/trunk/schemes/Ngsi9_Operations.xsd
+  wget -q --no-check-certificate --user=$USER --password=$PASS https://forge.fiware.org/scmrepos/svn/iot/trunk/schemes/Ngsi9_10_dataStructures.xsd
 
   if [ ! -f Ngsi10_Operations.xsd ] || [ ! -f Ngsi9_Operations.xsd ] || [ ! -f Ngsi9_10_dataStructures.xsd ]
   then
@@ -351,11 +354,11 @@ xmlFilesInvalid=$(find $SRC_TOP/test -name "ngsi*.invalid.xml" | wc -l)
 xmlFilesPostponed=$(find $SRC_TOP/test -name "ngsi*.postponed.xml" | wc -l)
 xmlFilesMiddle=$(find $SRC_TOP/test -name "ngsi*.middle.xml" | wc -l)
 xmlFilesOrion=$(find $SRC_TOP/test -name "orion.*.xml" | wc -l)
-xmlFilesBadName=$(find $SRC_TOP/test -name "*.xml" | grep -v "ngsi*.valid.xml" | grep -v "ngsi*.invalid.xml" | grep -v "ngsi*.postponed.xml" | grep -v "ngsi*.middle.xml" | grep -v "orion.*.xml" | wc -l)
+xmlFilesBadName=$(find $SRC_TOP/test -name "*.xml" | egrep -v 'ngsi.*\.valid\.xml' | egrep -v 'ngsi.*\.invalid\.xml' | egrep -v 'ngsi.*\.postponed\.xml' | egrep -v 'ngsi.*\.middle\.xml' | egrep -v 'orion\..*\.xml' | wc -l)
 xmlFilesProcessed=0
 xmlFilesOK=0
 xmlFilesErrors=0
-harnessFilesFound=$(find $SRC_TOP/test/testharness -name "*.test" | wc -l)
+harnessFilesFound=$(find $SRC_TOP/test/functionalTest/cases -name "*.test" | wc -l)
 xmlPartsFound=$xmlPartsFound           # already taken care of by function 'harnessFiles'
 xmlPartsValid=$xmlPartsValid           # already taken care of by function 'harnessFiles'
 xmlPartsInvalid=$xmlPartsInvalid       # already taken care of by function 'harnessFiles'

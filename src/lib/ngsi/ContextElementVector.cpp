@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,12 +31,13 @@
 #include "common/globals.h"
 #include "common/tag.h"
 #include "ngsi/ContextElementVector.h"
+#include "rest/ConnectionInfo.h"
 
 
 
 /* ****************************************************************************
 *
-* ContextElementVector::push_back - 
+* ContextElementVector::push_back -
 */
 void ContextElementVector::push_back(ContextElement* item)
 {
@@ -47,23 +48,32 @@ void ContextElementVector::push_back(ContextElement* item)
 
 /* ****************************************************************************
 *
-* ContextElementVector::render - 
+* ContextElementVector::render -
 */
-std::string ContextElementVector::render(RequestType requestType, Format format, std::string indent, bool comma)
+std::string ContextElementVector::render
+(
+  ConnectionInfo*     ciP,
+  RequestType         requestType,
+  const std::string&  indent,
+  bool                comma
+)
 {
-  std::string  out     = "";
-  std::string  xmlTag  = "contextElementList";
-  std::string  jsonTag = "contextElements";
+  std::string  out = "";
+  std::string  key = "contextElements";
 
   if (vec.size() == 0)
+  {
     return "";
+  }
 
-  out += startTag(indent, xmlTag, jsonTag, format, true, true);
+  out += startTag2(indent, key, true, true);
 
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-    out += vec[ix]->render(requestType, format, indent + "  ", ix != vec.size() - 1);
+  {
+    out += vec[ix]->render(ciP, requestType, indent + "  ", ix != vec.size() - 1);
+  }
 
-  out += endTag(indent, xmlTag, format, comma);
+  out += endTag(indent, comma, true);
 
   return out;
 }
@@ -72,21 +82,23 @@ std::string ContextElementVector::render(RequestType requestType, Format format,
 
 /* ****************************************************************************
 *
-* ContextElementVector::present - 
+* ContextElementVector::present -
 */
-void ContextElementVector::present(std::string indent)
+void ContextElementVector::present(const std::string& indent)
 {
-   PRINTF("%lu ContextElements", (unsigned long) vec.size());
+  LM_T(LmtPresent, ("%lu ContextElements", (uint64_t) vec.size()));
 
-   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-      vec[ix]->present(indent, ix);
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    vec[ix]->present(indent, ix);
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* ContextElementVector::release - 
+* ContextElementVector::release -
 */
 void ContextElementVector::release(void)
 {
@@ -103,18 +115,21 @@ void ContextElementVector::release(void)
 
 /* ****************************************************************************
 *
-* ContextElementVector::get - 
+* ContextElementVector::operator[] -
 */
-ContextElement* ContextElementVector::get(int ix)
+ContextElement* ContextElementVector::operator[](unsigned int ix) const
 {
-  return vec[ix];
+    if (ix < vec.size())
+    {
+      return vec[ix];
+    }
+    return NULL;
 }
-
 
 
 /* ****************************************************************************
 *
-* ContextElementVector::size - 
+* ContextElementVector::size -
 */
 unsigned int ContextElementVector::size(void)
 {
@@ -125,23 +140,52 @@ unsigned int ContextElementVector::size(void)
 
 /* ****************************************************************************
 *
-* ContextElementVector::check - 
+* ContextElementVector::check -
 */
-std::string ContextElementVector::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string ContextElementVector::check
+(
+  ConnectionInfo*     ciP,
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   if (requestType == UpdateContext)
   {
     if (vec.size() == 0)
+    {
       return "No context elements";
+    }
   }
 
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
   {
     std::string res;
 
-    if ((res = vec[ix]->check(requestType, format, indent, predetectedError, counter)) != "OK")
+    if ((res = vec[ix]->check(ciP, requestType, indent, predetectedError, counter)) != "OK")
+    {
       return res;
+    }
   }
 
   return "OK";
+}
+
+
+/* ****************************************************************************
+*
+* ContextElementVector::lookup - 
+*/
+ContextElement* ContextElementVector::lookup(EntityId* eP)
+{
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    if ((vec[ix]->entityId.id == eP->id) && (vec[ix]->entityId.type == eP->type))
+    {
+      return vec[ix];
+    }
+  }
+
+  return NULL;
 }

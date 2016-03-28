@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -35,19 +35,41 @@
 
 /* ****************************************************************************
 *
-* putAvailabilitySubscriptionConvOp - 
+* putAvailabilitySubscriptionConvOp - update an ngsi9 subscription
+*
+* PUT /v1/registry/contextAvailabilitySubscriptions/{subscriptionId}
+* PUT /ngsi9/contextAvailabilitySubscriptions/{subscriptionId}
+*
+* Payload In:  UpdateContextAvailabilitySubscriptionRequest
+* Payload Out: UpdateContextAvailabilitySubscriptionResponse
+*
+* 1. The payload in is exactly the same as for the corresponding standard operation
+*    /v1/registry/updateContextAvailabilitySubscription, so, nothing needs to be done.
+* 2. Make sure the subscriptionId in the URL is *exactly the same* as the subscriptionId
+*    in the payload - if not, return an error.
+* 3. Call the standard service routine 'postUpdateContextAvailabilitySubscription'
 */
-std::string putAvailabilitySubscriptionConvOp(ConnectionInfo* ciP, int components, std::vector<std::string> compV, ParseData* parseDataP)
+std::string putAvailabilitySubscriptionConvOp
+(
+  ConnectionInfo*            ciP,
+  int                        components,
+  std::vector<std::string>&  compV,
+  ParseData*                 parseDataP
+)
 {
-  std::string                                    subscriptionId  = compV[2];
+  std::string                                    subscriptionId  = (compV[0] == "v1")? compV[3] : compV[2];
   UpdateContextAvailabilitySubscriptionRequest*  ucasP           = &parseDataP->ucas.res;
 
   if (subscriptionId != ucasP->subscriptionId.get())
   {
     std::string out;
 
-    out = restErrorReplyGet(ciP, ciP->outFormat, "", "updateContextAvailabilitySubscription", SccBadRequest,
-                            std::string("unmatching subscriptionId URI/payload: '") + subscriptionId + "' vs '" + ucasP->subscriptionId.get() + "'");
+    out = restErrorReplyGet(ciP,
+                            "",
+                            "updateContextAvailabilitySubscription",
+                            SccBadRequest,
+                            std::string("unmatching subscriptionId URI/payload: /") +
+                            subscriptionId + "/ vs /" + ucasP->subscriptionId.get() + "/");
     return out;
   }
 

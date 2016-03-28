@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -29,38 +29,9 @@
 
 #include "common/Format.h"
 #include "convenience/AppendContextElementResponse.h"
+#include "rest/ConnectionInfo.h"
 
 #include "unittest.h"
-
-
-
-/* ****************************************************************************
-*
-* render_xml - 
-*/
-TEST(AppendContextElementResponse, render_xml)
-{
-  AppendContextElementResponse  acer;
-  ContextAttributeResponse      car;
-  std::string                   out;
-  const char*                   outfile1 = "ngsi10.appendContextElementResponse.empty.postponed.xml";
-  const char*                   outfile2 = "ngsi10.appendContextElementResponse.badRequest.postponed.xml";
-
-  utInit();
-
-  // 1. empty acer
-  out = acer.render(AppendContextElement, XML, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  // 2. errorCode 'active'
-  acer.errorCode.fill(SccBadRequest, "very bad request");
-  out = acer.render(AppendContextElement, XML, "");
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  utExit();
-}   
 
 
 
@@ -75,59 +46,24 @@ TEST(AppendContextElementResponse, render_json)
   std::string                   out;
   const char*                   outfile1 = "ngsi10.appendContextElementResponse.empty.valid.json";
   const char*                   outfile2 = "ngsi10.appendContextElementResponse.badRequest.valid.json";
+  ConnectionInfo                ci;
 
   utInit();
 
   // 1. empty acer
-  out = acer.render(AppendContextElement, JSON, "");
+  ci.outFormat = JSON;
+  out = acer.render(&ci, AppendContextElement, "");
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   // 2. errorCode 'active'
   acer.errorCode.fill(SccBadRequest, "very bad request");
-  out = acer.render(AppendContextElement, JSON, "");
+  out = acer.render(&ci, AppendContextElement, "");
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   utExit();
 }   
-
-
-
-/* ****************************************************************************
-*
-* check_xml - 
-*/
-TEST(AppendContextElementResponse, check_xml)
-{
-  AppendContextElementResponse  acer;
-  ContextAttributeResponse      car;
-  ContextAttribute              ca("", "TYPE", "VALUE"); // empty name, thus provoking error
-  std::string                   out;
-  const char*                   outfile1 = "ngsi10.appendContextElementRequest.check1.postponed.xml";
-  const char*                   outfile2 = "ngsi10.appendContextElementRequest.check2.postponed.xml";
-
-  utInit();
-
-  // 1. predetected error
-  out = acer.check(IndividualContextEntity, XML, "", "PRE ERR", 0);
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  // 2. bad contextResponseVector
-  car.contextAttributeVector.push_back(&ca);
-  acer.contextResponseVector.push_back(&car);
-  out = acer.check(IndividualContextEntity, XML, "", "", 0);
-  EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
-  EXPECT_STREQ(expectedBuf, out.c_str());
-
-  // 3. OK
-  ca.name = "NAME";
-  out = acer.check(IndividualContextEntity, XML, "", "", 0);
-  EXPECT_EQ("OK", out);
-
-  utExit();
-}
 
 
 
@@ -143,24 +79,26 @@ TEST(AppendContextElementResponse, check_json)
   std::string                   out;
   const char*                   outfile1 = "ngsi10.appendContextElementRequest.check1.postponed.json";
   const char*                   outfile2 = "ngsi10.appendContextElementRequest.check2.postponed.json";
+  ConnectionInfo                ci;
 
   utInit();
 
   // 1. predetected error
-  out = acer.check(IndividualContextEntity, JSON, "", "PRE ERR", 0);
+  ci.outFormat = JSON;
+  out = acer.check(&ci, IndividualContextEntity, "", "PRE ERR", 0);
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile1)) << "Error getting test data from '" << outfile1 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
-  // 2. bad contextResponseVector
+  // 2. bad contextAttributeResponseVector
   car.contextAttributeVector.push_back(&ca);
-  acer.contextResponseVector.push_back(&car);
-  out = acer.check(IndividualContextEntity, JSON, "", "", 0);
+  acer.contextAttributeResponseVector.push_back(&car);
+  out = acer.check(&ci, IndividualContextEntity, "", "", 0);
   EXPECT_EQ("OK", testDataFromFile(expectedBuf, sizeof(expectedBuf), outfile2)) << "Error getting test data from '" << outfile2 << "'";
   EXPECT_STREQ(expectedBuf, out.c_str());
 
   // 3. OK
   ca.name = "NAME";
-  out = acer.check(IndividualContextEntity, JSON, "", "", 0);
+  out = acer.check(&ci, IndividualContextEntity, "", "", 0);
   EXPECT_EQ("OK", out);
 
   utExit();
@@ -181,12 +119,12 @@ TEST(AppendContextElementResponse, release)
   utInit();
 
   carP->contextAttributeVector.push_back(caP);
-  acer.contextResponseVector.push_back(carP);
+  acer.contextAttributeResponseVector.push_back(carP);
 
   EXPECT_EQ(1, carP->contextAttributeVector.size());
-  EXPECT_EQ(1, acer.contextResponseVector.size());
+  EXPECT_EQ(1, acer.contextAttributeResponseVector.size());
   acer.release();
-  EXPECT_EQ(0, acer.contextResponseVector.size());
+  EXPECT_EQ(0, acer.contextAttributeResponseVector.size());
 
   utExit();
 }

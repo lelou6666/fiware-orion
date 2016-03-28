@@ -21,12 +21,14 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan Marquez
 */
+#include <map>
 #include <string>
 
+#include "rest/HttpStatusCode.h"
 #include "ngsi10/UpdateContextRequest.h"
 #include "ngsi10/UpdateContextResponse.h"
 
@@ -36,6 +38,16 @@
 *
 * mongoUpdateContext - 
 */
-extern HttpStatusCode mongoUpdateContext(UpdateContextRequest* requestP, UpdateContextResponse* responseP);
+extern HttpStatusCode mongoUpdateContext
+(
+  UpdateContextRequest*                 requestP,
+  UpdateContextResponse*                responseP,
+  const std::string&                    tenant,
+  const std::vector<std::string>&       servicePathV,
+  std::map<std::string, std::string>&   uriParams,    // FIXME P7: we need this to implement "restriction-based" filters
+  const std::string&                    xauthToken,
+  const std::string&                    apiVersion    = "v1",
+  Ngsiv2Flavour                         ngsiv2Flavour = NGSIV2_NO_FLAVOUR
+);
 
 #endif

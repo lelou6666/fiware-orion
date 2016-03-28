@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
@@ -38,7 +38,13 @@
 *
 * Originator::check -
 */
-std::string Originator::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string Originator::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   return "OK";
 }
@@ -51,7 +57,7 @@ std::string Originator::check(RequestType requestType, Format format, std::strin
 */
 bool Originator::isEmpty(void)
 {
-   return (string == "")? true : false;
+  return (string == "")? true : false;
 }
 
 
@@ -60,7 +66,7 @@ bool Originator::isEmpty(void)
 *
 * Originator::set -
 */
-void Originator::set(std::string value)
+void Originator::set(const std::string& value)
 {
   string = value;
 }
@@ -82,12 +88,18 @@ std::string Originator::get(void)
 *
 * Originator::present -
 */
-void Originator::present(std::string indent)
+void Originator::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sOriginator: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sOriginator: %s\n", 
+		      indent.c_str(), 
+		      string.c_str()));
+  }
   else
-    PRINTF("%sNo Originator", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo Originator", indent.c_str()));
+  }
 }
 
 
@@ -96,12 +108,14 @@ void Originator::present(std::string indent)
 *
 * Originator::render -
 */
-std::string Originator::render(Format format, std::string indent, bool comma)
+std::string Originator::render(const std::string& indent, bool comma)
 {
   if (string == "")
+  {
     return "";
+  }
 
-  return valueTag(indent, "originator", string, format, comma);
+  return valueTag1(indent, "originator", string, comma);
 }
 
 
@@ -112,5 +126,5 @@ std::string Originator::render(Format format, std::string indent, bool comma)
 */
 const char* Originator::c_str(void)
 {
-   return string.c_str();
+  return string.c_str();
 }

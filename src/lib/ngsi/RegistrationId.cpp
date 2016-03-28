@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -37,14 +37,22 @@
 
 /* ****************************************************************************
 *
-* RegistrationId::check - 
+* RegistrationId::check -
 */
-std::string RegistrationId::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string RegistrationId::check
+(
+  RequestType         requestType,
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   std::string out = "OK";
 
   if (string != "")
+  {
     out = idCheck(string);
+  }
 
   return out;
 }
@@ -53,20 +61,20 @@ std::string RegistrationId::check(RequestType requestType, Format format, std::s
 
 /* ****************************************************************************
 *
-* RegistrationId::isEmpty - 
+* RegistrationId::isEmpty -
 */
 bool RegistrationId::isEmpty(void)
 {
-   return (string == "")? true : false;
+  return (string == "")? true : false;
 }
 
 
 
 /* ****************************************************************************
 *
-* RegistrationId::set - 
+* RegistrationId::set -
 */
-void RegistrationId::set(std::string value)
+void RegistrationId::set(const std::string& value)
 {
   string = value;
 }
@@ -75,9 +83,9 @@ void RegistrationId::set(std::string value)
 
 /* ****************************************************************************
 *
-* RegistrationId::get - 
+* RegistrationId::get -
 */
-std::string RegistrationId::get(void)
+std::string RegistrationId::get(void) const
 {
   return string;
 }
@@ -86,45 +94,53 @@ std::string RegistrationId::get(void)
 
 /* ****************************************************************************
 *
-* RegistrationId::present - 
+* RegistrationId::present -
 */
-void RegistrationId::present(std::string indent)
+void RegistrationId::present(const std::string& indent)
 {
   if (string != "")
-    PRINTF("%sRegistrationId: %s\n", indent.c_str(), string.c_str());
+  {
+    LM_T(LmtPresent, ("%sRegistrationId: %s\n", 
+		      indent.c_str(), 
+		      string.c_str()));
+  }
   else
-    PRINTF("%sNo RegistrationId\n", indent.c_str());
+  {
+    LM_T(LmtPresent, ("%sNo RegistrationId\n", indent.c_str()));
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* RegistrationId::render - 
+* RegistrationId::render -
 */
-std::string RegistrationId::render(RequestType requestType, Format format, std::string indent, bool comma)
+std::string RegistrationId::render(RequestType requestType, const std::string& indent, bool comma)
 {
   if (string == "")
   {
-     if (requestType == RegisterResponse) // registrationId is MANDATORY for RegisterContextResponse
-     {
-       string = "000000000000000000000000";
-       LM_W(("No registrationId - setting it to all zeroes"));
-     }
-     else
-       return "";
+    if (requestType == RegisterResponse)  // registrationId is MANDATORY for RegisterContextResponse
+    {
+      string = "000000000000000000000000";
+      LM_I(("No registrationId - setting the registrationId to 24 zeroes"));
+    }
+    else
+    {
+      return "";
+    }
   }
 
-  return valueTag(indent, "registrationId", string, format, comma);
+  return valueTag1(indent, "registrationId", string, comma);
 }
 
 
 
 /* ****************************************************************************
 *
-* release - 
+* release -
 */
 void RegistrationId::release(void)
 {
-   /* This method is included for the sake of homogeneity */
+  /* This method is included for the sake of homogeneity */
 }

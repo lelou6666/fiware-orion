@@ -1,5 +1,5 @@
-#ifndef RESTRICTION_H
-#define RESTRICTION_H
+#ifndef SRC_LIB_NGSI_RESTRICTION_H_
+#define SRC_LIB_NGSI_RESTRICTION_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -40,13 +40,18 @@
 */
 typedef struct Restriction
 {
-  AttributeExpression  attributeExpression;   // Mandatory
+  AttributeExpression  attributeExpression;   // Optional (FI-WARE changes - MANDATORY in OMA spec)
   ScopeVector          scopeVector;           // Optional
 
-  std::string   render(Format format, std::string indent, int restrictions = 1, bool comma = false);
-  std::string   check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void          present(std::string indent);
+  std::string   render(const std::string& indent, int restrictions = 1, bool comma = false);
+  void          present(const std::string& indent);
   void          release();
+  void          fill(Restriction* rP);
+
+  std::string   check(RequestType         requestType,
+                      const std::string&  indent,
+                      const std::string&  predetectedError,
+                      int                 counter);
 } Restriction;
 
-#endif
+#endif  // SRC_LIB_NGSI_RESTRICTION_H_

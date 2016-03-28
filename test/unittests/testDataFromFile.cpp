@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -83,16 +83,18 @@ std::string testDataFromFile(char* buffer, int bufSize, const char* fileName)
     return std::string("stat(") + path + "): " + strerror(errno);
 
   if (sBuf.st_size > bufSize)
-     return std::string("buffer too small (") + toString(bufSize) + " bytes): " + toString(sBuf.st_size) + " bytes needed to hold the content of " + path;
+    return std::string("buffer too small (") + toString(bufSize) + " bytes): " + toString(sBuf.st_size) + " bytes needed to hold the content of " + path;
 
   if ((fd = open(path, O_RDONLY)) == -1)
-     return std::string("open(") + path + "): " + strerror(errno);
+    return std::string("open(") + path + "): " + strerror(errno);
 
   nb = read(fd, buffer, sBuf.st_size);
+  close(fd);
   if (nb == -1)
     return std::string("read(") + path + "): " + strerror(errno);
+
   if (nb != sBuf.st_size)
-     return std::string("bad size read from ") + path;
+    return std::string("bad size read from ") + path;
   
   buffer[nb] = 0;
   

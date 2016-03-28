@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -31,6 +31,19 @@
 #include "common/Format.h"
 #include "ngsi/ContextElementVector.h"
 #include "ngsi/UpdateActionType.h"
+#include "rest/ConnectionInfo.h"
+#include "apiTypesV2/Entity.h"
+#include "apiTypesV2/Entities.h"
+
+
+
+/* ****************************************************************************
+*
+* Forward declarations
+*/
+struct UpdateContextElementRequest;
+struct AppendContextElementRequest;
+struct UpdateContextAttributeRequest;
 
 
 
@@ -43,11 +56,47 @@ typedef struct UpdateContextRequest
   ContextElementVector    contextElementVector;  // Mandatory
   UpdateActionType        updateActionType;      // Mandatory
 
-  void         init(void);
-  std::string  render(RequestType requestType, Format format, std::string indent);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void         release(void);
-  void         present(std::string indent);
+  std::string             contextProvider;       // Not part of the payload - used internally only
+
+  UpdateContextRequest();
+  UpdateContextRequest(const std::string& _contextProvider, EntityId* eP);
+
+  std::string        render(ConnectionInfo* ciP, RequestType requestType, const std::string& indent);
+  std::string        check(ConnectionInfo* ciP, RequestType requestType, const std::string& indent, const std::string& predetectedError, int counter);
+  void               release(void);
+  ContextAttribute*  attributeLookup(EntityId* eP, const std::string& attributeName);
+
+  void         present(const std::string& indent);
+
+  void         fill(const UpdateContextElementRequest* ucerP,
+                    const std::string&                 entityId,
+                    const std::string&                 entityType);
+
+  void         fill(const AppendContextElementRequest* acerP,
+                    const std::string&                 entityId,
+                    const std::string&                 entityType);
+
+  void         fill(const std::string& entityId,
+                    const std::string& entityType,
+                    const std::string& isPattern,
+                    const std::string& attributeName,
+                    const std::string& metaID,
+                    const std::string& _updateActionType);
+
+  void         fill(const UpdateContextAttributeRequest* ucarP,
+                    const std::string&                   entityId,
+                    const std::string&                   entityType,
+                    const std::string&                   attributeName,
+                    const std::string&                   metaID,
+                    const std::string&                   _updateActionType);
+
+  void         fill(const Entity* entP, const std::string& _updateActionType);
+  void         fill(const std::string&   entityId,
+                    ContextAttribute*    attributeP,
+                    const std::string&   _updateActionType,
+                    const std::string&   type = "");
+
+  void         fill(Entities* entities, const std::string& _updateActionType);
 } UpdateContextRequest;
 
 #endif

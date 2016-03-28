@@ -18,7 +18,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -26,30 +26,40 @@
 #include <string>
 #include <vector>
 
+#include "logMsg/logMsg.h"
+#include "logMsg/traceLevels.h"
+
 #include "common/globals.h"
 #include "common/tag.h"
+#include "alarmMgr/alarmMgr.h"
+#include "apiTypesV2/EntityVector.h"
+
 #include "ngsi/EntityIdVector.h"
 #include "ngsi/Request.h"
 
 
+
 /* ****************************************************************************
 *
-* EntityIdVector::render - 
+* EntityIdVector::render -
 */
-std::string EntityIdVector::render(Format format, std::string indent, bool comma)
+std::string EntityIdVector::render(const std::string& indent, bool comma)
 {
-  std::string out     = "";
-  std::string xmlTag  = "entityIdList";
-  std::string jsonTag = "entities";
+  std::string out = "";
+  std::string key = "entities";
 
   if (vec.size() == 0)
+  {
     return "";
+  }
 
-  out += startTag(indent, xmlTag, jsonTag, format, true, true);
+  out += startTag2(indent, key, true, true);
   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-    out += vec[ix]->render(format, indent + "  ", ix != vec.size() - 1, true);
+  {
+    out += vec[ix]->render(indent + "  ", ix != vec.size() - 1, true);
+  }
 
-  out += endTag(indent, xmlTag, format, comma, true);
+  out += endTag(indent, comma, true);
 
   return out;
 }
@@ -58,9 +68,16 @@ std::string EntityIdVector::render(Format format, std::string indent, bool comma
 
 /* ****************************************************************************
 *
-* EntityIdVector::check - 
+* EntityIdVector::check -
 */
-std::string EntityIdVector::check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter)
+std::string EntityIdVector::check
+(
+  ConnectionInfo*     ciP,
+  RequestType         requestType,  
+  const std::string&  indent,
+  const std::string&  predetectedError,
+  int                 counter
+)
 {
   // Only OK to be empty if part of a ContextRegistration
   if ((requestType == DiscoverContextAvailability)           ||
@@ -71,7 +88,7 @@ std::string EntityIdVector::check(RequestType requestType, Format format, std::s
   {
     if (vec.size() == 0)
     {
-      LM_E(("No entity list when it is mandatory"));
+      alarmMgr.badInput(clientIp, "mandatory entity list missing");
       return "No entities";
     }
   }
@@ -80,8 +97,11 @@ std::string EntityIdVector::check(RequestType requestType, Format format, std::s
   {
     std::string res;
 
-    if ((res = vec[ix]->check(requestType, format, indent, predetectedError, counter)) != "OK")
+    if ((res = vec[ix]->check(ciP, requestType, indent, predetectedError, counter)) != "OK")
+    {
+      alarmMgr.badInput(clientIp, "invalid vector of EntityIds");
       return res;
+    }
   }
 
   return "OK";
@@ -91,21 +111,58 @@ std::string EntityIdVector::check(RequestType requestType, Format format, std::s
 
 /* ****************************************************************************
 *
-* EntityIdVector::present - 
+* EntityIdVector::present -
 */
-void EntityIdVector::present(std::string indent)
+void EntityIdVector::present(const std::string& indent)
 {
-   PRINTF("%lu EntityIds:\n", (unsigned long) vec.size());
+  LM_T(LmtPresent, ("%lu EntityIds:\n", (uint64_t) vec.size()));
 
-   for (unsigned int ix = 0; ix < vec.size(); ++ix)
-      vec[ix]->present(indent, ix);
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    vec[ix]->present(indent, ix);
+  }
 }
 
 
 
 /* ****************************************************************************
 *
-* EntityIdVector::push_back - 
+* EntityIdVector::lookup - find a matching entity in the entity-vector
+*/
+EntityId* EntityIdVector::lookup(const std::string& id, const std::string& type, const std::string& isPattern)
+{
+  //
+  // isPattern:  "false" or "" is the same
+  //
+  std::string isPatternFromParam = isPattern;
+  if (isPatternFromParam == "")
+  {
+    isPatternFromParam = "false";
+  }
+
+  for (unsigned int ix = 0; ix < vec.size(); ++ix)
+  {
+    std::string isPatternFromVec = vec[ix]->isPattern;
+
+    if (isPatternFromVec == "")
+    {
+      isPatternFromVec = "false";
+    }
+
+    if ((vec[ix]->id == id) && (vec[ix]->type == type) && (isPatternFromVec == isPatternFromParam))
+    {
+      return vec[ix];
+    }
+  }
+
+  return NULL;
+}
+
+
+
+/* ****************************************************************************
+*
+* EntityIdVector::push_back -
 */
 void EntityIdVector::push_back(EntityId* item)
 {
@@ -116,20 +173,44 @@ void EntityIdVector::push_back(EntityId* item)
 
 /* ****************************************************************************
 *
-* EntityIdVector::get - 
+* EntityIdVector::push_back_if_absent -
+*
+* RETURN VALUE
+*   - true:  on successful push_back
+*   - false: if no push_back was made
 */
-EntityId* EntityIdVector::get(int ix)
+bool EntityIdVector::push_back_if_absent(EntityId* item)
 {
-  return vec[ix];
+  if (lookup(item->id, item->type, item->isPattern) == NULL)
+  {
+    vec.push_back(item);
+    return true;
+  }
+
+  return false;
+}
+
+
+/* ****************************************************************************
+*
+* EntityIdVector::operator[] -
+*/
+EntityId* EntityIdVector::operator[] (unsigned int ix) const
+{
+   if (ix < vec.size())
+   {
+     return vec[ix];
+   }
+   return NULL;
 }
 
 
 
 /* ****************************************************************************
 *
-* EntityIdVector::size - 
+* EntityIdVector::size -
 */
-unsigned int EntityIdVector::size(void)
+unsigned int EntityIdVector::size(void) const
 {
   return vec.size();
 }
@@ -138,7 +219,7 @@ unsigned int EntityIdVector::size(void)
 
 /* ****************************************************************************
 *
-* EntityIdVector::release - 
+* EntityIdVector::release -
 */
 void EntityIdVector::release(void)
 {
@@ -149,4 +230,22 @@ void EntityIdVector::release(void)
   }
 
   vec.clear();
+}
+
+
+
+/* ****************************************************************************
+*
+* EntityIdVector::fill(EntityIdVector) -
+*
+*/
+void EntityIdVector::fill(EntityVector& _vec)
+{
+  for (unsigned int ix = 0; ix < _vec.size(); ++ix)
+  {
+    Entity*   entityP   = _vec[ix];
+    EntityId* entityIdP = new EntityId(entityP->id, entityP->type, entityP->isPattern);
+
+    vec.push_back(entityIdP);
+  }
 }

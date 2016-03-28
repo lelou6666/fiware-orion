@@ -1,5 +1,5 @@
-#ifndef PA_IS_OPTION_H
-#define PA_IS_OPTION_H
+#ifndef SRC_LIB_PARSEARGS_PAISOPTION_H_
+#define SRC_LIB_PARSEARGS_PAISOPTION_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -33,6 +33,6 @@
 *
 * paIsOption - is the string 'string' an option?
 */
-extern bool paIsOption(PaiArgument* paList, char* string);
+extern bool paIsOption(PaiArgument* paList, char* str);
 
-#endif
+#endif  // SRC_LIB_PARSEARGS_PAISOPTION_H_

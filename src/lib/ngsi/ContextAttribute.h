@@ -1,5 +1,5 @@
-#ifndef CONTEXT_ATTRIBUTE_H
-#define CONTEXT_ATTRIBUTE_H
+#ifndef SRC_LIB_NGSI_CONTEXTATTRIBUTE_H_
+#define SRC_LIB_NGSI_CONTEXTATTRIBUTE_H_
 
 /*
 *
@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Ken Zangelin
 */
@@ -30,33 +30,73 @@
 
 #include "ngsi/MetadataVector.h"
 #include "common/Format.h"
+#include "orionTypes/OrionValueType.h"
 #include "ngsi/Request.h"
+#include "ngsi/ProvidingApplication.h"
+#include "parse/CompoundValueNode.h"
+#include "rest/ConnectionInfo.h"
 
-#define NGSI_MD_ID "ID"
 
 
 /* ****************************************************************************
 *
-* ContextAttribute - 
+* ContextAttribute -
 */
 typedef struct ContextAttribute
 {
-  std::string     name;            // Mandatory
-  std::string     type;            // Optional
-  std::string     value;           // Mandatory
-  MetadataVector  metadataVector;  // Optional
+  std::string     name;                    // Mandatory
+  std::string     type;                    // Optional
+  MetadataVector  metadataVector;          // Optional
 
+  //
+  // Value - Optional (FI-WARE changes - MANDATORY in OMA spec)
+  //            Especially for the new convops, value is NOT mandatory
+  //            E.g. /v1/contextTypes
+  //
+  orion::ValueType           valueType;    // Type of value: taken from JSON parse
+  std::string                stringValue;  // "value" as a String
+  double                     numberValue;  // "value" as a Number
+  bool                       boolValue;    // "value" as a Boolean  
+
+  ProvidingApplication       providingApplication;    // Not part of NGSI, used internally for CPr forwarding functionality
+  bool                       found;                   // Not part of NGSI, used internally for CPr forwarding functionality (update case)
+                                                      // It means attribute found either locally or remotely in providing application
+
+  bool                       skip;                    // For internal use in mongoBackend - in case of 'op=append' and the attribute already exists
+  orion::CompoundValueNode*  compoundValueP;
+  bool                       typeGiven;               // Was 'type' part of the incoming payload?
+
+  ~ContextAttribute();
   ContextAttribute();
-  ContextAttribute(ContextAttribute* caP);
-  ContextAttribute(std::string _name, std::string _type, std::string _value = "");
+  ContextAttribute(ContextAttribute* caP, bool useDefaultType = false);
+  ContextAttribute(const std::string& _name, const std::string& _type, const char* _value, bool _found = true);
+  ContextAttribute(const std::string& _name, const std::string& _type, const std::string& _value, bool _found = true);
+  ContextAttribute(const std::string& _name, const std::string& _type, double _value, bool _found = true);
+  ContextAttribute(const std::string& _name, const std::string& _type, bool _value, bool _found = true);
+  ContextAttribute(const std::string& _name, const std::string& _type, orion::CompoundValueNode* _compoundValueP);
 
-  std::string  getId();
+  /* Grabbers for metadata to which CB gives a special semantic */
+  std::string  getId() const;
+  std::string  getLocation(const std::string& apiValue ="v1") const;
 
-  std::string  render(Format format, std::string indent, bool comma = false);
-  std::string  check(RequestType requestType, Format format, std::string indent, std::string predetectedError, int counter);
-  void         present(std::string indent, int ix);
+  std::string  render(ConnectionInfo* ciP, RequestType request, const std::string& indent, bool comma = false, bool omitValue = false);
+  std::string  renderAsJsonObject(ConnectionInfo* ciP, RequestType request, const std::string& indent, bool comma, bool omitValue = false);
+  std::string  renderAsNameString(ConnectionInfo* ciP, RequestType request, const std::string& indent, bool comma = false);
+  std::string  toJson(bool isLastElement, bool types, const std::string& renderMode, RequestType requestType = NoRequest);
+  std::string  toJsonAsValue(ConnectionInfo* ciP);
+  void         present(const std::string& indent, int ix);
   void         release(void);
-  std::string  toString(void);
+  std::string  getName(void);
+
+  /* Helper method to be use in some places wher '%s' is needed. Maybe could be merged with toString? FIXME P2 */
+  std::string  getValue(void) const;
+
+  std::string  check(ConnectionInfo*     ciP,
+                     RequestType         requestType,
+                     const std::string&  indent,
+                     const std::string&  predetectedError,
+                     int                 counter);
+  ContextAttribute* clone();
 } ContextAttribute;
 
-#endif
+#endif  // SRC_LIB_NGSI_CONTEXTATTRIBUTE_H_

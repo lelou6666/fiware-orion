@@ -21,7 +21,7 @@
 * along with Orion Context Broker. If not, see http://www.gnu.org/licenses/.
 *
 * For those usages not covered by this license please contact with
-* fermin at tid dot es
+* iot_support at tid dot es
 *
 * Author: Fermin Galan
 */
@@ -29,19 +29,23 @@
 #include "ngsi9/NotifyContextAvailabilityRequest.h"
 #include "ngsi10/NotifyContextRequest.h"
 
+#include "mongoBackend/safeMongo.h"
+
 /* Collection names used for testing */
-#define REGISTRATIONS_COLL "unittest.registrations"
-#define ENTITIES_COLL "unittest.entities"
-#define SUBSCRIBECONTEXT_COLL "unittest.csubs"
-#define SUBSCRIBECONTEXTAVAIL_COLL "unittest.casubs"
-#define ASSOCIATIONS_COLL "unittest.associations"
+#define DBPREFIX                    "utest"
+#define REGISTRATIONS_COLL          DBPREFIX ".registrations"
+#define ENTITIES_COLL               DBPREFIX ".entities"
+#define SUBSCRIBECONTEXT_COLL       DBPREFIX ".csubs"
+#define SUBSCRIBECONTEXTAVAIL_COLL  DBPREFIX ".casubs"
 
 /* Some useful macros to avoid to long and verbose lines in asserts */
-#define RES_CNTX_REG(i)         res.responseVector.get(i)->contextRegistration
-#define RES_CNTX_REG_ATTR(i, j) res.responseVector.get(i)->contextRegistration.contextRegistrationAttributeVector.get(j)
-#define RES_CER(i)              res.contextElementResponseVector.get(i)->contextElement
-#define RES_CER_STATUS(i)       res.contextElementResponseVector.get(i)->statusCode
-#define RES_CER_ATTR(i, j)      res.contextElementResponseVector.get(i)->contextElement.contextAttributeVector.get(j)
+#define RES_CNTX_REG(i)         res.responseVector[i]->contextRegistration
+#define RES_CNTX_REG_ATTR(i, j) res.responseVector[i]->contextRegistration.contextRegistrationAttributeVector[j]
+#define RES_CER(i)              res.contextElementResponseVector[i]->contextElement
+#define RES_CER_STATUS(i)       res.contextElementResponseVector[i]->statusCode
+#define RES_CER_ATTR(i, j)      res.contextElementResponseVector[i]->contextElement.contextAttributeVector[j]
+
+#define C_STR_FIELD(b, f)       getStringField(b, f).c_str()
 
 /* ****************************************************************************
 *
