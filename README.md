@@ -1,6 +1,10 @@
 #<a name="top"></a>Orion Context Broker
 
+<<<<<<< HEAD
 <!-- Documentation badge line is processed by release.sh. Thus, if the structure of the URL changes, 
+=======
+<!-- Documentation badge line is processed by release.sh. Thus, if the structure of the URL changes,
+>>>>>>> refs/remotes/telefonicaid/develop
      release.sh needs to be changed also -->
 
 [![License badge](https://img.shields.io/badge/license-AGPL-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
